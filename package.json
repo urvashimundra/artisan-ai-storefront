@@ -1,0 +1,26 @@
+{
+  "name": "artisan-ai",
+  "version": "0.1.0",
+  "description": "Artisan AI Storefront & Business Assistant",
+  "private": true,
+  "type": "module",
+  "main": "src/server.js",
+  "engines": {
+    "node": ">=26"
+  },
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --env-file=.env --watch src/server.js",
+    "test": "node --test",
+    "build": "node -e \"process.exit(0)\""
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
+    "@supabase/supabase-js": "^2.119.0",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.4",
+    "helmet": "^8.3.0",
+    "nodemailer": "^10.5.0",
+    "zod": "^4.6.7"
+  }
+}
