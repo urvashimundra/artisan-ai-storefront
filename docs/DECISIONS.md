@@ -48,3 +48,11 @@ Records choices made while building, including assumptions. CLAUDE.md and SPEC.m
     `SHUTDOWN_TIMEOUT_MS` (10 s, timer unref'd). Idempotent across repeated signals.
 16. **Health version** is read from package.json once per app creation.
 17. **Deploy ZIP script** is listed under SPEC Module 0 but not in this brief; not built here (see known gaps).
+18. **SMTP failure detail.** On GoDaddy Preview `smtp-verify` failed with `ESOCKET` in ~29 ms while the same
+    credentials pass locally, so `reason` alone is not enough. The SMTP probe now attaches `safeDetail` to the thrown
+    error and the diagnostics service returns it as `detail`: `code`, `errno`, `syscall`, `address`, `port`, `secure`
+    (true only for port 465) and `message`. `message` is the first line only, capped at 200 chars, with the configured
+    user and password (plain, base64 and the base64 AUTH PLAIN blob) replaced by `[redacted]`. String fields must match
+    `[A-Za-z0-9_.:-]{1,255}` or are omitted. Other probes still return only `reason`. This relaxes decision 11 for
+    SMTP only; the endpoint stays token-gated and rate limited. Redaction is exact-match, so remove this detail once
+    the Preview issue is diagnosed.

@@ -139,4 +139,22 @@ describe('diagnostics service and probes (fakes only)', () => {
     await probe.sendTest();
     assert.deepEqual(events, ['send:o@x.test', 'close']);
   });
+
+  it('smtp failure detail is safe, includes network facts and redacts credentials', async () => {
+    const config = { host: 'h', port: 465, user: 'me@x.test', pass: 'hunter2', from: 'f@x.test', ownerNotifyEmail: 'o@x.test' };
+    const blob = Buffer.from('\0me@x.test\0hunter2').toString('base64');
+    const failure = Object.assign(new Error(`connect failed for me@x.test pass hunter2 ${blob}\nsecond line SECRET2`), {
+      code: 'ESOCKET', errno: -104, syscall: 'read', address: '10.0.0.1', port: 465,
+    });
+    const createTransport = () => ({ verify: async () => { throw failure; }, close: () => {} });
+    const probe = createSmtpProbe({ config, createTransport });
+    const service = createDiagnosticsService({ probes: { 'smtp-verify': probe.verify } });
+    const { checks } = await service.run(['smtp-verify']);
+    assert.equal(checks[0].reason, 'ESOCKET');
+    assert.deepEqual(checks[0].detail, {
+      code: 'ESOCKET', errno: -104, syscall: 'read', address: '10.0.0.1', port: 465, secure: true,
+      message: 'connect failed for [redacted] pass [redacted] [redacted]',
+    });
+    assert.doesNotMatch(JSON.stringify(checks), /hunter2|me@x\.test|SECRET2/);
+  });
 });
