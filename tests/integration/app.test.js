@@ -1,0 +1,67 @@
+import assert from 'node:assert/strict';
+import { after, before, describe, it } from 'node:test';
+import { startTestApp } from '../helpers/testApp.js';
+
+describe('app basics', () => {
+  let app;
+  before(async () => {
+    app = await startTestApp();
+  });
+  after(() => app.close());
+
+  it('GET /health returns status, uptime and version', async () => {
+    const res = await fetch(`${app.url}/health`);
+    const body = await res.json();
+    assert.equal(res.status, 200);
+    assert.equal(body.status, 'ok');
+    assert.equal(typeof body.uptime, 'number');
+    assert.equal(body.version, '9.9.9');
+  });
+
+  it('unknown route returns the JSON 404 shape with a correlation id', async () => {
+    const res = await fetch(`${app.url}/nope`);
+    const body = await res.json();
+    assert.equal(res.status, 404);
+    assert.deepEqual(Object.keys(body), ['error']);
+    assert.equal(body.error.code, 'NOT_FOUND');
+    assert.equal(typeof body.error.message, 'string');
+    assert.equal(body.error.correlationId, res.headers.get('x-request-id'));
+  });
+
+  it('invalid JSON returns 400 INVALID_JSON without internals', async () => {
+    const res = await fetch(`${app.url}/health`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{"broken":',
+    });
+    const body = await res.json();
+    assert.equal(res.status, 400);
+    assert.equal(body.error.code, 'INVALID_JSON');
+    assert.doesNotMatch(JSON.stringify(body), /SyntaxError|at /);
+  });
+
+  it('rejects JSON bodies over 100 KB with 413', async () => {
+    const res = await fetch(`${app.url}/health`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ pad: 'x'.repeat(101 * 1024) }),
+    });
+    assert.equal(res.status, 413);
+    assert.equal((await res.json()).error.code, 'PAYLOAD_TOO_LARGE');
+  });
+
+  it('sets helmet headers and hides x-powered-by', async () => {
+    const res = await fetch(`${app.url}/health`);
+    assert.equal(res.headers.get('x-content-type-options'), 'nosniff');
+    assert.equal(res.headers.get('x-powered-by'), null);
+  });
+
+  it('logs requests with the correlation id and without the query string', async () => {
+    const res = await fetch(`${app.url}/health?secret=abc123`);
+    const id = res.headers.get('x-request-id');
+    const entry = app.logs.find((log) => log.msg === 'request completed' && log.correlationId === id);
+    assert.ok(entry);
+    assert.equal(entry.path, '/health');
+    assert.doesNotMatch(JSON.stringify(app.logs), /abc123/);
+  });
+});
