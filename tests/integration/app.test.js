@@ -18,6 +18,14 @@ describe('app basics', () => {
     assert.equal(body.version, '9.9.9');
   });
 
+  it('GET / returns 200 with name and status for platform health probes', async () => {
+    const res = await fetch(`${app.url}/`);
+    assert.equal(res.status, 200);
+    assert.deepEqual(await res.json(), { name: 'The Artisan Story', status: 'ok' });
+    assert.ok(res.headers.get('x-request-id'));
+    assert.ok(res.headers.get('x-content-type-options'));
+  });
+
   it('unknown route returns the JSON 404 shape with a correlation id', async () => {
     const res = await fetch(`${app.url}/nope`);
     const body = await res.json();

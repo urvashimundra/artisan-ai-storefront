@@ -56,3 +56,7 @@ Records choices made while building, including assumptions. CLAUDE.md and SPEC.m
     `[A-Za-z0-9_.:-]{1,255}` or are omitted. Other probes still return only `reason`. This relaxes decision 11 for
     SMTP only; the endpoint stays token-gated and rate limited. Redaction is exact-match, so remove this detail once
     the Preview issue is diagnosed.
+19. **Root health route.** The GoDaddy platform probes `GET /`, which previously hit the JSON 404 and marked Preview
+    "Unhealthy" (Publish disabled). `GET /` now returns 200 `{ "name": "The Artisan Story", "status": "ok" }` via
+    route -> controller (`rootController`), no external calls, behind the standard middleware. The global limiter
+    (120 requests/min per client IP) is unchanged; see the task report for the shared-IP caveat.

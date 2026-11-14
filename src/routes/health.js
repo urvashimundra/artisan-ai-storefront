@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { rootController } from '../controllers/rootController.js';
 import { healthController } from '../controllers/healthController.js';
 
 /**
@@ -7,6 +8,7 @@ import { healthController } from '../controllers/healthController.js';
  */
 export function createHealthRouter({ version }) {
   const router = Router();
+  router.get('/', rootController());
   router.get('/health', healthController({ version }));
   return router;
 }
