@@ -72,6 +72,10 @@ db/migrations/*.sql | db/seed | tests/{unit,integration,security,ai-evals} | doc
 11. Accessibility: semantic HTML, page lang attribute, alt text, visible focus, contrast >= 4.5:1,
     keyboard operable, mobile-first, works at 200% zoom.
 12. Supabase: RLS enabled on every table; Storage bucket private; images served via signed URLs.
+13. Owner auth is a simple server-side session (NOT Supabase Auth): email + password hashed with
+    crypto.scrypt, random session token stored as a SHA-256 hash in the sessions table, HttpOnly +
+    Secure + SameSite=Lax cookie, Origin check on state-changing requests, rate-limited login.
+    No new auth dependency. Sessions are never stored on local disk.
 
 ## Code quality
 Small pure functions; no function over ~40 lines; no deep nesting; descriptive names; JSDoc on exports;
