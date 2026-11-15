@@ -199,5 +199,150 @@ The migration was applied in the Supabase SQL editor, and all nine verification 
       `CREATE OR REPLACE` (same signature, return type, pinned `search_path`) and re-asserts REVOKE from PUBLIC, anon,
       authenticated and GRANT to service_role only. Verify with `db/verify/003_ai_budget_sweep_order_checks.sql`.
     - Not covered: settle/release lock a single date, so they cannot form a cross-date cycle on their own. Whether
-      the fix fully removes deadlocks under real concurrent load has not been tested. Migration 003 applied: PENDING
+      the fix fully removes deadlocks under real concurrent load has not been tested. Migration 003 applied: verified 15 November 2026
       (developer runs it).
+
+44. **Module 2b, Phase 1: database, pure rules and AI contract (no routes, repositories or Claude calls yet).**
+    - Migration 004 (`db/migrations/004_products.sql`), verify `db/verify/004_product_checks.sql`, smoke test
+      `db/test/004_product_smoke.sql` (rolled back through sentinel AB001, like 002). Migration 004 applied: verified 15 November 2026
+      (developer runs migration, verify, then smoke). Migrations 002 and 003 are untouched.
+    - Tables: `products`, `product_translations`, `ai_drafts`. RLS on, no policies, browser roles revoked, service_role only.
+      Beyond the brief: `products` has UNIQUE `(id, store_id)` and `product_translations` references that pair, so a
+      translation can never carry a different store than its product (the smoke test proves it). `price_paise` is capped
+      at 100,000,000 (Rs 1,000,000) in the database as well as in Zod. `products_published_requires_price_check` makes a
+      published product without a price impossible. An approved translation must have title, description and alt text
+      (`product_translations_approved_complete_check`); a draft translation may be empty while the owner types.
+      Length limits count code points (`char_length`; the Zod side uses `codePointLength`), not UTF-16 units.
+    - `ai_drafts.target_id` has no foreign key (it points at products, enquiries or orders by `kind`). Drafts survive
+      their product being deleted on purpose: they are the audit record of AI spend. They cascade away with the store.
+    - Exactly two functions, both `search_path = public, pg_temp`, invoker rights, execute for service_role only, ownership
+      checked by `WHERE id = p_product_id AND store_id = p_store_id FOR UPDATE`. A mismatch returns `not_found`, which the
+      app maps to 404, never 403.
+      `save_ai_listing(p_store_id uuid, p_product_id uuid, p_translations jsonb, p_model text, p_tokens_in int, p_tokens_out int, p_cost bigint)`
+      and `save_product_review(p_store_id uuid, p_product_id uuid, p_price_paise bigint, p_translations jsonb, p_approved_langs text[], p_publish boolean)`.
+    - Reasons added to the brief's list: `not_draft` (save_ai_listing on a published product; regeneration is drafts only)
+      and `invalid` (malformed arguments, as in migration 002). Never reached by normal input because Zod runs first.
+    - `save_product_review` runs every gate BEFORE any write, so a refusal changes nothing. Order: invalid, not_found,
+      price_required, default_language_not_approved. A published product can never lose its price (`price_required`).
+      Source becomes `owner` only when title, description or alt text differs from the stored text; approval flags are set
+      exactly from `p_approved_langs` (unlisted languages become unapproved). Saving an already published product does not
+      re-run the default-language gate (only an explicit publish does); the owner may un-approve a language on a live
+      product. Revisit in Module 3 if the storefront must always show an approved default language.
+    - Pure rules: `src/domain/productRules.js` (story, price, translations, review form, request schemas; all `.strict()`),
+      `src/domain/imageUpload.js` (4 MB limit, magic bytes, path builder). Story is NFKC-normalised with controls removed
+      (newlines kept); titles, descriptions and AI text are NOT NFKC-normalised because that can alter Indic text, and
+      zero-width joiners are kept. Price: blank means none, otherwise `toPaise` then Rs 1 to Rs 1,000,000.
+    - Image detection also rejects truncated files: JPEG must end with the EOI marker, PNG with the IEND chunk, WebP's RIFF
+      size must equal the file length. This is a completeness check, not decoding. A valid JPEG with trailing bytes after
+      EOI would be rejected with a friendly message; browser canvas output does not have any.
+    - AI contract: `src/ai/schemas/listing.js` (strict Zod output; the tool JSON Schema is generated from it with
+      `z.toJSONSchema(..., { io: 'input' })`, so they cannot drift), `src/ai/prompts/listingV1.js` (version `listing-v1`),
+      `src/ai/scriptCheck.js`, `src/ai/listingCost.js`. The story is HTML-escaped inside `<artisan_story>` tags so it cannot
+      close its own delimiter.
+    - Script check: every field needs at least one character of its script and at least half of the language's letters must
+      be in it (Gujarati U+0A80-U+0AFF, Devanagari U+0900-U+097F, Latin for English), so a Latin brand name passes but
+      Latin text in the Gujarati slot fails. A failure sets `needs_review`. Gujarati written in Devanagari or English
+      transliterated into Gujarati script cannot be detected by a script check; the owner review is the control.
+    - Cost: output cap 2,500 tokens; image allowance 4,000 (1568 px square is about 3,300); prompt and tool allowance 1,500;
+      story at 2 tokens per character (Indic scripts); then `aiCost.estimateMaxCostMicroUsd` with its 130% margin. A full
+      1,500-character story reserves 2,730 micro-USD (about 0.0027 USD). Three languages at their maximum length could exceed 2,500
+      output tokens; that case ends as invalid output, handled by the one-retry rule, and the prompt asks for short descriptions.
+    - Request shape fixed for Phase 2 from the installed `@anthropic-ai/sdk` 1.8.0 typings: `thinking: { type: 'disabled' }`
+      and `tool_choice: { type: 'tool', name: 'propose_listing', disable_parallel_tool_use: true }` (forced tool use is not
+      permitted together with extended thinking, so thinking is disabled; it also saves output tokens). Image block is
+      `{ type: 'image', source: { type: 'base64', media_type, data } }`. **Not yet verified against claude-haiku-5-5**: the
+      manual `scripts/smoke-listing.js` run is the first real call.
+    - Planned deviations (Phase 2): normal POST, not streamed progress (a single call is capped at 45 s, the page shows an
+      `aria-live` message); `ai_drafts` rows for rejected generations are not written (only a valid result is saved).
+    - Hardening after SQL review: each submitted language object in `save_ai_listing` and `save_product_review` must have
+      exactly `title`, `description` and `alt_text`. The three keys are checked present and string-typed, then the key
+      count must be 3, so an extra or renamed key returns `{ok:false, reason:'invalid'}` before any write. Only the two
+      function bodies changed; signatures, grants, constraints and transaction logic are as before. Re-run migration 004
+      (idempotent `CREATE OR REPLACE`) if the first version was already applied, then verify and smoke test again.
+
+45. **Module 2b, Phase 2: product listing workflow (repositories, services, AI call, routes, pages).** No new dependencies,
+    no new environment variables, Migration 004 applied and verified 15 November 2026. Nothing here has been tested as a complete live application workflow against Supabase and Anthropic.
+    - **Routes** (owner only, all under the existing guard: no-store, Origin check, session, `requireOwner`, then `loadStore`,
+      which resolves the store from the session's owner id): `GET /products`, `GET /products/new`, `POST /products/image`,
+      `GET /products/:id/edit`, `POST /products/:id/generate`, `/save`, `/delete`. They are mounted only when `services.products`
+      and `services.listings` exist, which composition builds only when the ai group is configured. A malformed id is 404.
+    - **Upload.** The browser resizes (longest side 1568 px, JPEG 0.85, canvas re-encode drops EXIF and GPS, EXIF orientation
+      applied first, white background for transparent PNG) and POSTs the raw bytes (`express.raw`, 4 MB, after auth and the
+      limiter). The server ignores Content-Type and filename and uses the Phase 1 magic-byte check. Order: validate, upload to the
+      private bucket at `{storeId}/{productId}/{uuid}.{ext}`, insert the product; any failure removes the object (best effort,
+      logged), so a failed upload leaves neither. A product whose owner never clicks generate stays as an empty draft and can be
+      deleted. The upload page then posts the story to `/generate` as a normal form POST (a "writing" message with
+      `aria-live`; no streaming, as planned in decision 44). `product-generate.js` only disables the button.
+    - **Storage.** `imageStorageRepository` takes storeId first and refuses any path outside `{storeId}/{productId}/`. It uses a
+      second Supabase client with a 30 s timeout (table calls stay at 8 s). Display uses 5-minute signed URLs. Helmet's CSP now
+      adds the Supabase origin to `img-src` only (derived from `SUPABASE_URL`); scripts stay `'self'`. The templates test now
+      allows exactly `<script src="/js/NAME.js" defer></script>` and nothing inline.
+    - **Form size.** Gujarati URL-encodes at 9 bytes per character, so a three-language form exceeds the global 10 kb form
+      limit. The global form parser skips `/products*`, and the product routes parse their own forms (128 kb) after
+      authentication. Login and signup keep 10 kb.
+    - **Stock and story are not in `save_product_review`**, and Migration 004 was not changed. `updateDetails` writes both in one
+      UPDATE (scoped by store and product, which also proves ownership) BEFORE the RPC. If the RPC then refuses (for example
+      no price), the story and stock were still saved; that is the owner's own data and the form is shown again with their input.
+    - **Generation claim.** One conditional UPDATE sets `ai_status = 'generating'`, `ai_started_at` and the story, only for a
+      draft that is not generating or whose run started more than 180 s ago (`STALE_GENERATION_MS`, longer than the worst case of
+      photo download plus two 45 s calls). Losing the race gives 409 `GENERATION_IN_PROGRESS` and spends nothing. Published
+      products give 409 `NOT_DRAFT`. On failure the state becomes `failed`; when the budget refused (no AI attempted) it returns to
+      `idle`. `save_ai_listing` clears it on success. A crashed request therefore blocks the product for at most 3 minutes.
+    - **Budget order:** validate story, claim, download photo, then per attempt reserve, call Claude, settle. Reservation failure
+      means Claude is never called. Settle uses actual usage through `actualCostMicroUsd`. If the provider answers with an error
+      status the reservation is released (nothing billed). On a timeout or network error the outcome is unknown, so the
+      reservation is NOT released and expires charged at its reserved amount (decision 42's conservative rule); a response with
+      no usable `usage` is treated the same way, and the audit row then records the reserved estimate. A failed settle or release
+      is logged with the reservation id and cost and never blocks saving the listing.
+    - **Retry.** Output that fails the strict schema (including truncation at max_tokens) is retried once with a fresh
+      reservation; a refusal is not retried; timeouts and provider errors are not retried. The `ai_drafts` row records the
+      summed tokens and cost of all attempts. After two failures the owner sees `AI_INVALID_OUTPUT` and nothing is saved.
+    - **Claude request** (`src/ai/listingGenerator.js`): `maxRetries: 0`, `timeout: 45000` plus a `withTimeout` backstop at 47 s,
+      `max_tokens` 2500, `thinking: {type: 'disabled'}`, forced `propose_listing` with `disable_parallel_tool_use`, model from
+      `config.ai.model`. These parameters match the installed SDK typings (1.8.0). **Not verified against claude-haiku-5-5**: the
+      first live call is the real test. The tool schema has no price, stock, status, approval or store field, and a test checks it.
+    - **Script check at display time.** Because `save_ai_listing` has no needs-review column, the edit page recomputes
+      `checkListingScripts` for languages whose source is still `ai` and warns per language; owner-edited text is never flagged.
+    - **UI.** Generated text is editable and labelled "AI draft, not yet reviewed by you" until the owner ticks "I have read this
+      text and approve it" and saves (state is shown with text and border style, not colour alone). Publish is an explicit second
+      button, and the page and notices report the status returned by the database, never an assumption. Delete is a two-step
+      `<details>` control. The review form carries the stored story in a hidden field because `productReviewSchema` requires it.
+    - **Rate limits** (in memory, keyed by owner id after authentication): uploads 30 per hour, generations 15 per hour. The
+      database-backed budget remains the real spending control.
+    - **Deletion** removes the row first, then the photo. If storage removal fails the delete is still reported as done, the
+      orphaned object path is logged, and `photoRemoved: false` is returned. `ai_drafts` rows are kept (decision 44).
+    - **Known gaps:** no live Supabase or Anthropic test; no browser test of the upload script (verified by reading and string
+      tests only); no needs-review column; abandoned empty drafts are not cleaned up; list page has no photos.
+
+46. 46. **Migration 005: generation fencing token and atomic review (branch module-2b-concurrency).** No new dependencies or environment variables; migrations 001 to 004 and the Module 2a budget code are unchanged. Migration 005 applied and verified 15 November 2026. All checks in `db/verify/005_generation_fencing_checks.sql` passed, and `db/test/005_generation_fencing_smoke.sql` returned `ALL CHECKS PASSED`.
+    - **Problem.** Decision 45's claim only stopped two LIVE runs. After the 180 s stale window a second run could re-claim,
+      and then the first (slow, not dead) run could still call `save_ai_listing` over the newer result, or end the newer
+      run's state. The review route also wrote story and stock in a separate statement BEFORE the RPC, so it could race a
+      generation and could leave partial writes when the RPC refused.
+    - **Fencing token.** `products.ai_generation_id uuid NULL`. Each successful claim (the same single conditional UPDATE as
+      before, issued by `claimGeneration`) stamps a fresh `randomUUID()` and returns it. The token travels through every
+      attempt to `save_ai_listing` (new parameter `p_generation_id`, refused with `stale_generation` when missing, stale or
+      mismatched, before any write) and to `finishGeneration`, whose UPDATE now also requires `ai_generation_id = token`.
+      Success, finish and review all set the token back to NULL. Deleting the product removes the row and with it the token,
+      so a late save gets `not_found`. The browser never sees the token (`toProduct` does not map it; only the claim returns it).
+    - **Locking.** Both RPCs take `SELECT ... FOR UPDATE` on the product row first and read the token only after the lock is
+      granted (READ COMMITTED re-reads the committed row), so they serialise with the claim UPDATE, the finish UPDATE, delete
+      and each other. A token check made before the lock would be unsafe; none exists.
+    - **Atomic review.** `save_product_review` now takes `p_story` and `p_stock` and does ownership, the active-generation
+      check, story/stock/translation/approval/price/publish validation and every write in one transaction. `updateDetails`
+      is removed from the repository. Behaviour change: a refused review (for example publish without a price) no longer
+      saves the story and stock; the owner's input is still shown again in the form.
+    - **Review during generation.** Refused with `{ok:false, reason:'generating'}` (HTTP 409 `GENERATION_IN_PROGRESS`, shown on
+      the edit page) while `ai_status = 'generating'`. Deviation from "reject while generating", chosen deliberately: a
+      generation that started more than 180 s ago is treated as abandoned, the same rule the claim and the edit page use. The
+      review then proceeds and resets `ai_status` to idle and clears the token, which also fences the abandoned run out. Without
+      this a crashed request would block manual editing until the owner spent budget regenerating. The 180 s is written in
+      the SQL and mirrored in `STALE_GENERATION_MS` (a unit test compares them).
+    - **Superseded request.** The stale run's `persist` gets `stale_generation` and throws 409 `GENERATION_SUPERSEDED`. Its
+      reservation was already settled, so its cost is kept (it was spent). No `ai_drafts` row is written for it.
+    - **Signature changes.** Both functions get new signatures, so migration 005 DROPS the 004 versions (otherwise an un-fenced
+      `save_ai_listing` would stay callable). `db/verify/004_product_checks.sql` and `db/test/004_product_smoke.sql` describe the
+      old signatures and must be run BEFORE 005 only; the 005 scripts replace them afterwards. Ordering: apply 005 and deploy the
+      matching code together; code from before this change calls the dropped signatures and fails closed with a database error.
+    - **Known gaps:** nothing was run against a database. The smoke test is single-session and cannot prove lock waits under two
+      simultaneous connections; the lock and token logic is argued from the SQL and from the in-memory fakes, which model it.

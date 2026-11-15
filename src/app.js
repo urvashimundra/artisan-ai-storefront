@@ -13,6 +13,8 @@ import { createInternalRouter } from './routes/internal.js';
 
 export const JSON_BODY_LIMIT = '100kb';
 export const FORM_BODY_LIMIT = '10kb';
+/** Product routes parse their own (larger) forms after authentication: Gujarati text is 9 bytes per character URL-encoded. */
+const PRODUCT_PATH_PREFIX = '/products';
 const VIEWS_DIR = fileURLToPath(new URL('./views', import.meta.url));
 const PUBLIC_DIR = fileURLToPath(new URL('../public', import.meta.url));
 export const GLOBAL_RATE_WINDOW_MS = 60_000;
@@ -24,6 +26,14 @@ export const GLOBAL_RATE_LIMIT = 120;
  */
 export const REFERRER_POLICY = 'strict-origin-when-cross-origin';
 
+/** Helmet's default CSP, plus the Supabase origin for img-src so signed private-photo URLs can be displayed. */
+function buildCsp(config) {
+  const directives = helmet.contentSecurityPolicy.getDefaultDirectives();
+  const storageOrigin = config.supabase?.url ? new URL(config.supabase.url).origin : null;
+  if (storageOrigin) directives['img-src'] = [...directives['img-src'], storageOrigin];
+  return { directives };
+}
+
 const noDiagnostics = { run: async () => ({ ok: false, checks: [] }) };
 
 /**
@@ -32,7 +42,8 @@ const noDiagnostics = { run: async () => ({ ok: false, checks: [] }) };
  *   config: ReturnType<import('./config/env.js').loadEnv>,
  *   logger?: ReturnType<typeof createLogger>,
  *   diagnostics?: { run: (names: string[]) => Promise<object> },
- *   services?: { auth: object, sessions: object, stores: object },
+ *   services?: { auth: object, sessions: object, stores: object, products?: object, listings?: object },
+ *   productRateLimits?: { upload?: object, generate?: object },
  *   authRateLimits?: { loginFailure?: object, loginIp?: object, signup?: object },
  *   version?: string,
  *   globalRateLimit?: { windowMs: number, limit: number },
@@ -45,6 +56,7 @@ export function createApp({
   diagnostics = noDiagnostics,
   services,
   authRateLimits,
+  productRateLimits,
   version,
   globalRateLimit,
 }) {
@@ -56,17 +68,18 @@ export function createApp({
   app.set('views', VIEWS_DIR);
 
   app.use(correlationId());
-  app.use(helmet({ referrerPolicy: { policy: REFERRER_POLICY } }));
+  app.use(helmet({ referrerPolicy: { policy: REFERRER_POLICY }, contentSecurityPolicy: buildCsp(config) }));
   app.set('trust proxy', config.trustProxy);
   app.use(express.json({ limit: JSON_BODY_LIMIT }));
-  app.use(express.urlencoded({ extended: false, limit: FORM_BODY_LIMIT }));
+  const globalForm = express.urlencoded({ extended: false, limit: FORM_BODY_LIMIT });
+  app.use((req, res, next) => (req.path.startsWith(PRODUCT_PATH_PREFIX) ? next() : globalForm(req, res, next)));
   app.use(requestLogger(log));
   app.use(express.static(PUBLIC_DIR));
   app.use(createRateLimiter(limits));
 
   app.use(createHealthRouter({ version: version ?? readVersion() }));
   app.use(createInternalRouter({ diagnosticsToken: config.diagnosticsToken, diagnostics }));
-  if (services) app.use(createBrowserRouter({ config, services, authRateLimits }));
+  if (services) app.use(createBrowserRouter({ config, services, authRateLimits, productRateLimits }));
 
   app.use(notFoundHandler());
   app.use(errorHandler(log));
