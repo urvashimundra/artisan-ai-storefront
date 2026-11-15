@@ -75,16 +75,20 @@ export function createAuthService({ owners, passwords, sessions, inviteCode }) {
   /**
    * Every failure (bad input, unknown email, wrong password) is the same INVALID_CREDENTIALS error. An unknown
    * email still verifies against the startup dummy hash so the work done resembles a wrong-password login.
+   * After the credentials verify, the session row for the request's existing cookie token (if any) is deleted before
+   * the new session is issued, so a re-login revokes the old token. A failed login leaves it untouched.
    * @param {unknown} rawBody
+   * @param {string | undefined} [previousToken] The raw session cookie token of the request, if any.
    * @returns {Promise<{ ownerId: string, token: string }>}
    */
-  async function login(rawBody) {
+  async function login(rawBody, previousToken) {
     const parsed = loginSchema.safeParse(rawBody ?? {});
     if (!parsed.success) throw invalidCredentials();
     const { email, password } = parsed.data;
     const owner = await owners.findByEmail(email);
     const verified = owner ? await passwords.verify(password, owner.passwordHash) : await passwords.verifyDummy(password);
     if (!verified) throw invalidCredentials();
+    await sessions.destroy(previousToken);
     const { token } = await sessions.create(owner.id);
     return { ownerId: owner.id, token };
   }

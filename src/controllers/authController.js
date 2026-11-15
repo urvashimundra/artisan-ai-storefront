@@ -63,7 +63,7 @@ export function createAuthController({ auth, sessions, stores, cookie }) {
 
     async postLogin(req, res) {
       try {
-        const { ownerId, token } = await auth.login(req.body);
+        const { ownerId, token } = await auth.login(req.body, req.sessionToken);
         res.append('Set-Cookie', serializeCookie(cookie, token, SESSION_TTL_SECONDS));
         return res.redirect(SEE_OTHER, await landingFor(ownerId));
       } catch (error) {

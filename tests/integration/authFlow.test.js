@@ -69,6 +69,32 @@ describe('owner journey', () => {
     }
   });
 
+  it('logging in again revokes the session token that came with the request', async () => {
+    const app = await startAuthApp();
+    try {
+      const oldCookie = await signupAndLogin(app);
+      const relogin = await app.request('/login', { method: 'POST', form: { email: 'maker@example.com', password: PASSWORD }, cookie: oldCookie });
+      assert.equal(relogin.status, 303);
+      assert.equal(app.sessionsRepo.rows.length, 1);
+      assert.equal((await app.request('/dashboard', { cookie: oldCookie })).location, '/login');
+      assert.equal((await app.request('/dashboard', { cookie: cookieFrom(relogin) })).location, '/store/new');
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('a failed login leaves the existing session alone', async () => {
+    const app = await startAuthApp();
+    try {
+      const cookie = await signupAndLogin(app);
+      const failed = await app.request('/login', { method: 'POST', form: { email: 'maker@example.com', password: 'wrong-password-here' }, cookie });
+      assert.equal(failed.status, 401);
+      assert.equal(app.sessionsRepo.rows.length, 1);
+    } finally {
+      await app.close();
+    }
+  });
+
   it('an expired session is treated as logged out and its row is deleted', async () => {
     let now = Date.parse('2026-11-15T00:00:00.000Z');
     const app = await startAuthApp({ servicesOptions: { now: () => now } });
