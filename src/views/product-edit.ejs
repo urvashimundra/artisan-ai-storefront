@@ -1,0 +1,103 @@
+<%- include('partials/header') %>
+    <h1>Review product</h1>
+    <p><a href="/products">Back to products</a></p>
+    <% if (locals.notice) { %><p class="notice" role="status"><%= notice %></p><% } %>
+    <% if (locals.formError) { %><p class="alert" role="alert"><%= formError %></p><% } %>
+    <% if (Object.keys(errors).length > 0) { %><p class="alert" role="alert">Please check the fields marked below.</p><% } %>
+
+    <p>
+      <strong>Status:</strong>
+      <span class="badge"><%= product.status === 'published' ? 'Published' : 'Draft, not published' %></span>
+      <% if (generating) { %><span class="badge">AI is writing</span><% } else if (product.aiStatus === 'failed') { %><span class="badge">Last AI attempt failed</span><% } %>
+    </p>
+
+    <% if (imageUrl) { %>
+    <img class="product-photo" src="<%= imageUrl %>" lang="<%= translations[defaultLanguage].altText ? defaultLanguage : 'en' %>"
+      alt="<%= translations[defaultLanguage].altText || 'Product photo (no description written yet)' %>" width="400">
+    <% } else { %>
+    <p class="hint">The photo could not be loaded right now.</p>
+    <% } %>
+
+    <section aria-labelledby="generate-heading">
+      <h2 id="generate-heading">Write with AI</h2>
+      <% if (locals.generateError) { %><p class="alert" role="alert"><%= generateError %></p><% } %>
+      <% if (product.status === 'published') { %>
+      <p class="hint">This product is published, so AI cannot rewrite it. You can still edit the text below.</p>
+      <% } else { %>
+      <form id="generate-form" method="post" action="/products/<%= product.id %>/generate" class="stack">
+        <div class="field">
+          <label for="gen-story">Your story about this product</label>
+          <textarea id="gen-story" name="story" required maxlength="1500"><%= values.story %></textarea>
+          <p class="hint">Generating again replaces all three texts and removes every approval.</p>
+        </div>
+        <div><button type="submit" class="button" id="generate-button"><%= translations.en.title ? 'Generate again' : 'Generate listing' %></button></div>
+        <p id="generate-progress" class="notice" role="status" aria-live="polite" hidden>The AI is writing your listing. This can take up to a minute.</p>
+      </form>
+      <% } %>
+    </section>
+
+    <form method="post" action="/products/<%= product.id %>/save" class="stack" novalidate>
+      <input type="hidden" name="story" value="<%= values.story %>">
+      <h2>Details and text</h2>
+      <div class="field">
+        <label for="price">Price in rupees</label>
+        <input type="text" id="price" name="price" inputmode="decimal" autocomplete="off" value="<%= values.price %>"
+          aria-describedby="price-hint<%= errors.price ? ' price-error' : '' %>"<% if (errors.price) { %> aria-invalid="true"<% } %>>
+        <p id="price-hint" class="hint">For example 499 or 499.50. Needed before you can publish. The AI never sets prices.</p>
+        <% if (errors.price) { %><p id="price-error" class="error-text"><%= errors.price %></p><% } %>
+      </div>
+      <div class="field">
+        <label for="stock">Number in stock (optional)</label>
+        <input type="text" id="stock" name="stock" inputmode="numeric" autocomplete="off" value="<%= values.stock %>"
+          aria-describedby="stock-hint<%= errors.stock ? ' stock-error' : '' %>"<% if (errors.stock) { %> aria-invalid="true"<% } %>>
+        <p id="stock-hint" class="hint">Leave blank if you do not count stock.</p>
+        <% if (errors.stock) { %><p id="stock-error" class="error-text"><%= errors.stock %></p><% } %>
+      </div>
+      <% if (errors.story) { %><p class="error-text"><%= errors.story %></p><% } %>
+
+      <% languages.forEach((language) => { const code = language.code; const t = translations[code]; %>
+      <fieldset class="language <%= values['approved_' + code] ? 'is-approved' : (t.source === 'ai' && t.title ? 'is-ai-draft' : '') %>">
+        <legend><%= language.name %><%= code === defaultLanguage ? ' (shop default, must be approved to publish)' : '' %></legend>
+        <p class="status-line">
+          <% if (t.approved) { %><strong>Approved by you</strong>
+          <% } else if (t.source === 'ai' && t.title) { %><strong>AI draft, not yet reviewed by you</strong>
+          <% } else if (t.title) { %><strong>Your text, not yet approved</strong>
+          <% } else { %><strong>No text yet</strong><% } %>
+        </p>
+        <% if (scriptWarnings[code]) { %><p class="alert">The AI text may not be written in <%= language.name %>. Please read it carefully and fix it before approving.</p><% } %>
+        <% if (errors[code]) { %><p class="error-text" role="alert"><%= errors[code] %></p><% } %>
+        <div class="field">
+          <label for="title_<%= code %>">Title</label>
+          <input type="text" id="title_<%= code %>" name="title_<%= code %>" lang="<%= code %>" maxlength="100" value="<%= values['title_' + code] %>">
+        </div>
+        <div class="field">
+          <label for="description_<%= code %>">Description</label>
+          <textarea id="description_<%= code %>" name="description_<%= code %>" lang="<%= code %>" maxlength="1200"><%= values['description_' + code] %></textarea>
+        </div>
+        <div class="field">
+          <label for="alt_text_<%= code %>">Photo description (for people who cannot see the photo)</label>
+          <input type="text" id="alt_text_<%= code %>" name="alt_text_<%= code %>" lang="<%= code %>" maxlength="250" value="<%= values['alt_text_' + code] %>">
+        </div>
+        <div class="check">
+          <input type="checkbox" id="approved_<%= code %>" name="approved_<%= code %>" value="on"<%= values['approved_' + code] ? ' checked' : '' %>>
+          <label for="approved_<%= code %>">I have read this <%= language.name %> text and approve it</label>
+        </div>
+      </fieldset>
+      <% }) %>
+
+      <div class="actions">
+        <button type="submit" name="intent" value="save" class="button">Save</button>
+        <button type="submit" name="intent" value="publish" class="button">Approve and publish</button>
+      </div>
+      <p class="hint">Publishing needs a price and an approved <%= defaultLanguageName %> text. Nothing is published until you choose Approve and publish.</p>
+    </form>
+
+    <details class="danger-zone">
+      <summary>Delete this product</summary>
+      <p>This removes the product, its text and its photo. It cannot be undone.</p>
+      <form method="post" action="/products/<%= product.id %>/delete">
+        <button type="submit" class="button button-danger">Yes, delete this product</button>
+      </form>
+    </details>
+    <script src="/js/product-generate.js" defer></script>
+<%- include('partials/footer') %>

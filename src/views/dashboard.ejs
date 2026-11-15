@@ -10,4 +10,5 @@
       <dt>Story</dt>
       <dd lang="<%= store.defaultLanguage %>"><%= store.story %></dd>
     </dl>
+    <% if (locals.productsEnabled) { %><p><a class="button" href="/products">Manage products</a></p><% } %>
 <%- include('partials/footer') %>

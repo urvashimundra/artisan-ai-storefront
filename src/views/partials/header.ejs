@@ -13,6 +13,7 @@
     <nav aria-label="Account">
       <% if (locals.owner) { %>
       <a href="/dashboard">Dashboard</a>
+      <% if (locals.productsEnabled) { %><a href="/products">Products</a><% } %>
       <form method="post" action="/logout" class="inline-form">
         <button type="submit" class="link-button">Log out</button>
       </form>

@@ -1,0 +1,26 @@
+<%- include('partials/header') %>
+    <h1>Products</h1>
+    <% if (locals.notice) { %><p class="notice" role="status"><%= notice %></p><% } %>
+    <p><a class="button" href="/products/new">Add a product</a></p>
+    <% if (products.length === 0) { %>
+    <p>You have no products yet. Add a photo and a short story to create your first listing.</p>
+    <% } else { %>
+    <ul class="product-list">
+      <% products.forEach((product) => { %>
+      <li class="product-card">
+        <h2><a href="/products/<%= product.id %>/edit"><%= product.displayTitle || 'Untitled product' %></a></h2>
+        <p>
+          <span class="badge"><%= product.status === 'published' ? 'Published' : 'Draft' %></span>
+          <% if (product.generating) { %><span class="badge">AI is writing</span><% } %>
+        </p>
+        <ul class="plain">
+          <% ['en', 'gu', 'hi'].forEach((language) => { const t = product.translations[language]; %>
+          <li><%= { en: 'English', gu: 'Gujarati', hi: 'Hindi' }[language] %>:
+            <%= t.approved ? 'approved by you' : (t.title ? (t.source === 'ai' ? 'AI draft, not yet approved' : 'your text, not yet approved') : 'no text yet') %></li>
+          <% }) %>
+        </ul>
+      </li>
+      <% }) %>
+    </ul>
+    <% } %>
+<%- include('partials/footer') %>

@@ -23,7 +23,7 @@ body {
   background: var(--paper);
 }
 
-main { max-width: 40rem; margin: 0 auto; padding: 1rem; }
+main { max-width: 44rem; margin: 0 auto; padding: 1rem; }
 main:focus { outline: none; }
 
 h1 { font-size: 1.6rem; line-height: 1.25; margin: 1rem 0; }
@@ -121,3 +121,23 @@ dl.details dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
   opacity: 1 !important;
   animation: none !important;
 }
+/* Products */
+.product-list, ul.plain { list-style: none; padding: 0; margin: 0; }
+.product-list { display: grid; gap: 1rem; }
+.product-card { padding: 0.75rem 1rem; border: 2px solid var(--border); border-radius: 0.25rem; }
+.product-card h2 { font-size: 1.2rem; margin: 0.25rem 0; }
+.badge { display: inline-block; padding: 0.1rem 0.6rem; margin-right: 0.35rem; border: 2px solid var(--ink); border-radius: 1rem; font-size: 0.9rem; font-weight: 600; }
+.product-photo { max-width: 100%; height: auto; border-radius: 0.25rem; }
+fieldset.language { margin: 0; padding: 0.75rem 1rem 1rem; border: 2px dashed var(--border); border-radius: 0.25rem; display: grid; gap: 1rem; }
+fieldset.language.is-ai-draft { border-style: dashed; border-color: var(--error); }
+fieldset.language.is-approved { border-style: solid; border-color: var(--success); }
+fieldset.language legend { font-weight: 700; padding: 0 0.5rem; }
+.status-line { margin: 0; }
+.check { display: flex; gap: 0.5rem; align-items: center; min-height: 2.75rem; }
+.check input { width: 1.5rem; height: 1.5rem; }
+.actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.button-danger { background: var(--error); border-color: var(--error); }
+.danger-zone { margin-top: 2rem; padding: 0.75rem 1rem; border: 2px solid var(--error); border-radius: 0.25rem; }
+.danger-zone summary { cursor: pointer; font-weight: 600; min-height: 2.75rem; }
+input[type="file"] { width: 100%; padding: 0.5rem 0; font: inherit; }
+[hidden] { display: none !important; }
