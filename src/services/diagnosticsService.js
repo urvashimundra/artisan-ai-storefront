@@ -9,10 +9,6 @@ function safeReason(error) {
   return candidates.find((value) => typeof value === 'string' && SAFE_REASON.test(value)) ?? GENERIC_REASON;
 }
 
-function safeDetail(error) {
-  return error?.safeDetail ? { detail: error.safeDetail } : {};
-}
-
 async function runOne(name, probe) {
   if (!probe) return { name, ok: false, durationMs: 0, reason: 'not_configured' };
   const startedAt = performance.now();
@@ -20,13 +16,13 @@ async function runOne(name, probe) {
     await probe();
     return { name, ok: true, durationMs: Math.round(performance.now() - startedAt) };
   } catch (error) {
-    return { name, ok: false, durationMs: Math.round(performance.now() - startedAt), reason: safeReason(error), ...safeDetail(error) };
+    return { name, ok: false, durationMs: Math.round(performance.now() - startedAt), reason: safeReason(error) };
   }
 }
 
 /**
  * Runs connectivity checks. Results contain only a check name, outcome, duration and a safe reason
- * (error code or class name) plus an optional probe-supplied `detail`; provider messages and bodies are never included.
+ * (error code or class name); provider messages and bodies are never included.
  * @param {{ probes: Partial<Record<string, () => Promise<void>>> }} deps
  * @returns {{ run: (names?: string[]) => Promise<{ ok: boolean, checks: object[] }> }}
  */
