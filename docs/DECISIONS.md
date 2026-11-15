@@ -183,4 +183,21 @@ The migration was applied in the Supabase SQL editor, and all nine verification 
       A failed settle leaves the reservation to expire and be charged at the reserved amount (safe direction).
       Reservation TTL is 180 s. The owner-facing message never says which cap was hit.
     - The smoke test ends in a rolled-back sub-transaction (sentinel SQLSTATE AB001), so success displays as a normal
-      single result row. Not yet run. Migration 002 applied: PENDING (developer runs it).
+      single result row. Not yet run. Migration 002 applied and verified: 15 November 2026.
+
+43. **Migration 003: reserve_ai_budget sweep order (cross-date deadlock fix).**
+    - Scenario: around midnight Asia/Kolkata, `reserve_ai_budget` locks TODAY's global row first, then sweeps expired
+      reservations in `ORDER BY usage_date, id` (ascending), locking each stale reservation's global row. Transaction A
+      (running just after midnight) holds the new day's global lock and then wants yesterday's; transaction B (running
+      just before midnight, or a settle/release path) can hold yesterday's global lock and then want the new day's. The
+      two acquire the same pair of date locks in opposite orders, so Postgres can abort one with a deadlock error.
+    - Fix: the sweep now uses `ORDER BY usage_date DESC, id`. The current date's lock is always taken first, and older
+      dates are then taken newest to oldest, so every `reserve_ai_budget` transaction takes date locks in one consistent
+      descending order and two reserves can no longer wait on each other in a cycle. Nothing else in the function changed.
+    - Why a new migration: migration 002 is already applied to Supabase and recorded, so editing it would not change the
+      deployed function and would make the repo disagree with the database. 003 re-creates the function with
+      `CREATE OR REPLACE` (same signature, return type, pinned `search_path`) and re-asserts REVOKE from PUBLIC, anon,
+      authenticated and GRANT to service_role only. Verify with `db/verify/003_ai_budget_sweep_order_checks.sql`.
+    - Not covered: settle/release lock a single date, so they cannot form a cross-date cycle on their own. Whether
+      the fix fully removes deadlocks under real concurrent load has not been tested. Migration 003 applied: PENDING
+      (developer runs it).
