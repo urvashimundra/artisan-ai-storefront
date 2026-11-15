@@ -10,6 +10,7 @@ import { createSupabaseProbe } from '../../src/repositories/supabaseProbe.js';
 
 const REPOSITORY_DIR = fileURLToPath(new URL('../../src/repositories/', import.meta.url));
 const OWNER_KEYED_OR_INFRASTRUCTURE = new Set([
+  'aiBudgetRepository.js',
   'ownerRepository.js',
   'sessionRepository.js',
   'storeRepository.js',

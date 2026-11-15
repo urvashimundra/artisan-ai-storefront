@@ -160,3 +160,27 @@ The migration was applied in the Supabase SQL editor, and all nine verification 
       fails boot: any string is accepted and unknown values become `production` (only the logger level reads it).
     - Sessions: a successful login deletes the session row for the request's existing cookie token (if any) before the
       new session is issued. A failed login leaves the existing session untouched.
+
+
+42. **Module 2a: AI budget guard (database + service only; no Claude calls yet).**
+    - Money unit is integer micro-USD. Pricing constants live in `src/domain/aiCost.js` (claude-haiku-5-5, verified
+      15 Nov 2026: standard 0.10 in / 0.50 out USD per million tokens up to 100,000 input tokens; above that the WHOLE
+      request is billed 0.50 / 2.50). RE-VERIFY BEFORE THE DEMO. Arithmetic is BigInt, ceil per side; the reservation
+      estimate adds a 130% safety margin (integer math, rounded up). Actuals come only from API `usage` counts.
+    - Env: `AI_DAILY_BUDGET_USD`, `AI_DEMO_DAILY_BUDGET_USD`, `AI_GLOBAL_DAILY_BUDGET_USD` are optional (defaults 1.00 /
+      0.50 / 5.00), parsed from decimal strings (max 6 decimals), and independent of the ai group. This changes the old
+      behaviour where `AI_DAILY_BUDGET_USD` was required once any ai variable was set; `config.ai` no longer has
+      `dailyBudgetUsd`, budgets are in `config.aiBudget` (micro-USD). Zero is allowed (disables AI for that class).
+    - Migration 002 (`db/migrations/002_ai_budget.sql`), verify `db/verify/002_ai_budget_checks.sql`, manual smoke test
+      `db/test/002_budget_smoke.sql`. The budget day is computed in the database (Asia/Kolkata). Lock order everywhere:
+      global day row, then owner day row, then reservation row; reserve always locks today's global row first, so
+      reservations serialize and cannot deadlock. The stale sweep locks the reservation row only AFTER its global and
+      owner rows, to keep that order (a plain lock-first sweep could deadlock with settle).
+    - Expired reservations are charged as spent. Settling above the reserved amount records the full actual as spent
+      (overshoot is not capped), so a day can end slightly over its limit; later reserves then refuse.
+    - Service fails closed: any repository error is `AI_BUDGET_UNAVAILABLE` (503), including the database reason
+      `invalid`. An estimate above the owner's whole limit is refused as `AI_BUDGET_EXHAUSTED` before the database call.
+      A failed settle leaves the reservation to expire and be charged at the reserved amount (safe direction).
+      Reservation TTL is 180 s. The owner-facing message never says which cap was hit.
+    - The smoke test ends in a rolled-back sub-transaction (sentinel SQLSTATE AB001), so success displays as a normal
+      single result row. Not yet run. Migration 002 applied: PENDING (developer runs it).

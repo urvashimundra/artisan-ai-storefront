@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { parseUsdToMicroUsd } from '../domain/aiCost.js';
 import { deriveCookieConfig } from '../lib/cookies.js';
 
 const DEFAULT_PORT = 3000;
@@ -10,9 +11,12 @@ const DEFAULT_CLAUDE_MODEL = 'claude-haiku-5-5';
 const KNOWN_NODE_ENVS = ['development', 'test', 'production'];
 const FALLBACK_NODE_ENV = 'production';
 const LOCAL_HTTP_HOSTS = ['localhost', '127.0.0.1'];
+const DEFAULT_OWNER_BUDGET_USD = '1.00';
+const DEFAULT_DEMO_BUDGET_USD = '0.50';
+const DEFAULT_GLOBAL_BUDGET_USD = '5.00';
 
 const GROUP_KEYS = {
-  ai: ['ANTHROPIC_API_KEY', 'CLAUDE_MODEL', 'AI_DAILY_BUDGET_USD'],
+  ai: ['ANTHROPIC_API_KEY', 'CLAUDE_MODEL'],
   smtp: ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'MAIL_FROM', 'OWNER_NOTIFY_EMAIL'],
 };
 const CORE_KEYS = [
@@ -25,6 +29,9 @@ const CORE_KEYS = [
   'SUPABASE_SERVICE_ROLE_KEY',
   'SIGNUP_INVITE_CODE',
   'ALLOWED_ORIGINS',
+  'AI_DAILY_BUDGET_USD',
+  'AI_DEMO_DAILY_BUDGET_USD',
+  'AI_GLOBAL_DAILY_BUDGET_USD',
 ];
 
 const nonEmpty = z.string().min(1);
@@ -68,6 +75,20 @@ function isHttpsOrLocalHttp(value) {
   return url.protocol === 'https:' || (url.protocol === 'http:' && LOCAL_HTTP_HOSTS.includes(url.hostname));
 }
 
+/** Optional decimal USD string with a default, parsed to integer micro-USD without floating point. */
+const usdBudget = (fallback) =>
+  z
+    .string()
+    .default(fallback)
+    .transform((text, ctx) => {
+      try {
+        return parseUsdToMicroUsd(text);
+      } catch {
+        ctx.addIssue({ code: 'custom', message: 'Invalid USD amount' });
+        return z.NEVER;
+      }
+    });
+
 const coreSchema = z.object({
   NODE_ENV: z.string().transform((value) => (KNOWN_NODE_ENVS.includes(value) ? value : FALLBACK_NODE_ENV)),
   PORT: port.default(DEFAULT_PORT),
@@ -81,12 +102,14 @@ const coreSchema = z.object({
     .string()
     .refine((value) => parseOriginList(value) !== null)
     .optional(),
+  AI_DAILY_BUDGET_USD: usdBudget(DEFAULT_OWNER_BUDGET_USD),
+  AI_DEMO_DAILY_BUDGET_USD: usdBudget(DEFAULT_DEMO_BUDGET_USD),
+  AI_GLOBAL_DAILY_BUDGET_USD: usdBudget(DEFAULT_GLOBAL_BUDGET_USD),
 });
 
 const aiSchema = z.object({
   ANTHROPIC_API_KEY: nonEmpty,
   CLAUDE_MODEL: nonEmpty.default(DEFAULT_CLAUDE_MODEL),
-  AI_DAILY_BUDGET_USD: z.coerce.number().positive().finite(),
 });
 
 const smtpSchema = z.object({
@@ -134,7 +157,7 @@ function buildGroups(source, failures) {
   const ai = parseGroup(aiSchema, source, GROUP_KEYS.ai, failures);
   const smtp = parseGroup(smtpSchema, source, GROUP_KEYS.smtp, failures);
   return {
-    ai: ai && { apiKey: ai.ANTHROPIC_API_KEY, model: ai.CLAUDE_MODEL, dailyBudgetUsd: ai.AI_DAILY_BUDGET_USD },
+    ai: ai && { apiKey: ai.ANTHROPIC_API_KEY, model: ai.CLAUDE_MODEL },
     smtp: smtp && {
       host: smtp.SMTP_HOST,
       port: smtp.SMTP_PORT,
@@ -153,13 +176,15 @@ function buildAllowedOrigins(core) {
 
 /**
  * Validates environment variables. Supabase is required. Optional groups (ai, smtp) are validated only if any
- * member is set, and are then fully required. Cookie settings derive from BASE_URL, never NODE_ENV.
+ * member is set, and are then fully required. The three AI budget variables are optional with defaults (1.00 / 0.50
+ * / 5.00 USD) and independent of the ai group. Cookie settings derive from BASE_URL, never NODE_ENV.
  * @param {Record<string, string | undefined>} [source] Defaults to process.env.
  * BASE_URL must be https (http only for localhost and 127.0.0.1); SUPABASE_URL must be https. An unknown NODE_ENV
  * does not fail boot: it is treated as "production" (only the logger level reads it).
  * @returns {{ nodeEnv: string, port: number, baseUrl: string, trustProxy: number,
  *   diagnosticsToken: string | undefined, supabase: { url: string, serviceRoleKey: string },
  *   signupInviteCode: string | undefined, allowedOrigins: string[], cookie: { name: string, secure: boolean },
+ *   aiBudget: { ownerDailyMicroUsd: number, demoDailyMicroUsd: number, globalDailyMicroUsd: number },
  *   ai: object | null, smtp: object | null }}
  * @throws {EnvValidationError} Listing variable names only.
  */
@@ -179,6 +204,11 @@ export function loadEnv(source = process.env) {
     signupInviteCode: core.data.SIGNUP_INVITE_CODE,
     allowedOrigins: buildAllowedOrigins(core.data),
     cookie: deriveCookieConfig(core.data.BASE_URL),
+    aiBudget: {
+      ownerDailyMicroUsd: core.data.AI_DAILY_BUDGET_USD,
+      demoDailyMicroUsd: core.data.AI_DEMO_DAILY_BUDGET_USD,
+      globalDailyMicroUsd: core.data.AI_GLOBAL_DAILY_BUDGET_USD,
+    },
     ...groups,
   };
 }
