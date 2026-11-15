@@ -12,29 +12,34 @@ Claude proposes and explains. The backend validates and executes deterministic b
 The owner approves consequential actions. The database is the source of truth.
 
 ## Fixed stack (do not change or add without asking)
-Node.js + Express (ES modules), EJS + vanilla JS, Supabase Cloud (Postgres + Storage) via supabase-js
-over HTTPS, Claude via official @anthropic-ai/sdk, Nodemailer to Titan SMTP, Zod, Helmet,
-express-rate-limit, node:test. Hosting: GoDaddy Node.js hosting; bind to process.env.PORT.
-Supabase is NOT hosted on GoDaddy; the app calls it over HTTPS.
+Node.js 22 (engines "22.x") + Express (ES modules), EJS + vanilla JS, Supabase Cloud (Postgres +
+Storage) via supabase-js over HTTPS, Claude via official @anthropic-ai/sdk, Nodemailer for email
+transport, Zod, Helmet, express-rate-limit, node:test. Hosting: GoDaddy Node.js hosting; bind to
+process.env.PORT. Supabase is NOT hosted on GoDaddy; the app calls it over HTTPS.
+Outbound SMTP is BLOCKED from the GoDaddy hosting (Preview and Publish): email goes through the
+swappable transport in src/email (smtp or api), chosen by EMAIL_TRANSPORT. Do not assume SMTP works
+when deployed. Adding an HTTPS email provider needs explicit approval.
 Default model: claude-haiku-5-5 (validated). Use a larger model only where quality clearly needs it.
 
-## Validated on GoDaddy preview (tested, can rely on)
-- Express runs and binds to process.env.PORT; /health responds.
+## Validated on GoDaddy (tested, can rely on)
+- Express runs and binds to process.env.PORT; /health and / respond; Preview and Publish are healthy.
 - ~90 s requests complete; streaming responses arrive progressively.
 - Supabase over HTTPS: Postgres read/write and private Storage upload work.
 - Claude API from the backend works (claude-haiku-5-5), usage returned.
+- SMTP credentials work from a local machine (ports 465 and 587) but the hosted app gets
+  `connect EACCES`, so SMTP is unusable from the hosting unless GoDaddy provides another route.
 
 ## Platform constraints (design around these)
 - Local filesystem: survives restart, is WIPED on every new deployment. Never store images, sessions,
   drafts or any user data on disk. Disk is scratch space only (delete after use).
 - Keep any single Claude call well under 60 s. Stream progress for longer flows. Retries idempotent.
-- Secrets are set per variant (preview AND publish) in GoDaddy. Never in code, repo, logs or ZIP.
+- Secrets are set per variant (preview AND publish) in GoDaddy, as raw values with no quotes.
+  Never in code, repo, logs or ZIP.
 - GoDaddy rate limits are undocumented: throttle AI and public endpoints, keep demo usage modest.
-- NOT yet validated: Titan SMTP (smtpout.secureserver.net, full address as username, NOT
-  smtp.titan.email), and behaviour on the publish variant. Do not assume either works.
-- Package requirements: root package.json with name, version, main; "build": "echo build";
-  "start": "node src/server.js"; runtime packages in dependencies; ZIP excludes node_modules, .env,
-  .git and stays under 100 MB. Confirm the supported Node version before setting "engines".
+- Package requirements: root package.json with name, version, main; "build" script (currently
+  `node -e "process.exit(0)"`, a no-op that works on Windows and Linux); "start":
+  "node src/server.js"; runtime packages in dependencies; ZIP (if used) excludes node_modules, .env,
+  .git and stays under 100 MB.
 - Fonts and assets for Gujarati and Devanagari must be self-hosted under public/ (Helmet CSP blocks
   third-party origins unless deliberately configured).
 
@@ -48,7 +53,7 @@ src/server.js (listen only) | src/app.js (app factory, testable) | src/config/en
 src/lib (logger, errors, correlation, money) | src/middleware | src/routes | src/controllers
 src/services | src/repositories | src/domain | src/ai (client, prompts/, tools/, schemas/)
 src/email | src/views (EJS) | public (static, NEVER private data)
-db/migrations/*.sql | db/seed | tests/{unit,integration,security,ai-evals} | docs/
+db/migrations/*.sql | db/verify | db/seed | scripts | tests/{unit,integration,security,ai-evals} | docs/
 
 ## Non-negotiables
 1. Multi-tenancy: every query is scoped by store_id. store_id comes from the authenticated server
@@ -74,31 +79,43 @@ db/migrations/*.sql | db/seed | tests/{unit,integration,security,ai-evals} | doc
 12. Supabase: RLS enabled on every table; Storage bucket private; images served via signed URLs.
 13. Owner auth is a simple server-side session (NOT Supabase Auth): email + password hashed with
     crypto.scrypt, random session token stored as a SHA-256 hash in the sessions table, HttpOnly +
-    Secure + SameSite=Lax cookie, Origin check on state-changing requests, rate-limited login.
+    SameSite=Lax cookie (Secure and `__Host-` prefixed in production), Origin check on
+    state-changing requests, rate-limited login, signup gated by SIGNUP_INVITE_CODE.
     No new auth dependency. Sessions are never stored on local disk.
+14. Postgres functions must set `search_path` and REVOKE EXECUTE from public, anon and
+    authenticated, then GRANT EXECUTE to service_role only. Functions in the public schema are
+    otherwise callable through Supabase's API.
+15. AI cost is tracked as integer micro-USD and enforced by database-backed atomic reservation
+    (per owner per day in India time, plus a global daily cap). Never rely on in-memory counters.
 
 ## Code quality
 Small pure functions; no function over ~40 lines; no deep nesting; descriptive names; JSDoc on exports;
 no dead code; no commented-out code; no magic numbers (named constants); async/await with explicit
-error handling; timeouts on every outbound call (Supabase, Claude, SMTP).
+error handling; timeouts on every outbound call (Supabase, Claude, SMTP, email API).
 
 ## Never do without explicit approval
 - Run gddy deploy / publish / purchase / DNS commands. The developer runs all hosting commands.
 - Buy anything or touch billing.
 - Add or change dependencies.
 - Edit CLAUDE.md or SPEC.md.
+- Read or print .env or any secret value. You never receive the Supabase service-role key.
 - Run destructive Supabase operations (drop, truncate, bulk delete).
 - Run bulk or looping Claude calls. AI evals use small inputs; credits are limited.
 - Prefix test rows in Supabase clearly (e.g. slug "test-...") so they can be cleaned up.
 
 ## Working agreement
 - Plan before code. Ask questions instead of guessing.
-- Tests first. A task is DONE only when: tests pass, `npm test` is green, new env vars are in
-  .env.example, docs/DECISIONS.md updated, and it runs on the GoDaddy preview.
+- Tests first. A task is DONE only when: tests pass, `npm test` is green (also under Node 22),
+  new env vars are in .env.example, docs/DECISIONS.md updated, and it runs on the GoDaddy preview.
+- Database changes are written as numbered SQL files in db/migrations/ plus a read-only check in
+  db/verify/. The developer applies them in the Supabase SQL editor; record applied migrations in
+  docs/DECISIONS.md.
 - Smallest diff that solves the problem. No drive-by refactors. No new dependencies without approval.
 - Report what you verified and what you could not. Never claim something works without running it.
 - At the end of every task output: files changed | tests added | how to run | known gaps.
 
 ## Status
-Done: GoDaddy preview deploy, Supabase (DB + Storage), Claude API call.
-Next: SPEC.md modules in order. Pending: Titan SMTP, publish-variant smoke test, domain, hosting plan.
+Done: Module 0 code, Preview and Publish healthy, Supabase (DB + Storage), Claude API call.
+Next: SPEC.md modules in order, starting with Module 1.
+Pending: email transport decision (SMTP blocked on hosting), domain connection, removal of the
+temporary SMTP diagnostics detail and of DIAGNOSTICS_TOKEN on Publish.
