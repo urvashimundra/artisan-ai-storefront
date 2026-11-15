@@ -58,3 +58,4 @@ committed with the next commit; the last goes in a final docs commit).
 - Commit 3 (repositories, services, env): npm test green, 119 tests. Supabase now required at boot; client factory extracted from the probe.
 - Commit 4 (middleware, error rendering, ejs): npm test green, 136 tests. ejs ^7.0.2 added; npm audit: 0 vulnerabilities. Error pages are HTML only when the client prefers text/html (JSON for /api, /internal, /health).
 - Commit 5 (routes, controllers, views): npm test green, 170 tests. Added src/controllers/formErrors.js (shared form helper, not in the original file list). Origin check runs before session lookup.
+- Commit 6 (seed, env, decisions): npm test green, 180 tests; also green under Node v22.23.5 (npx -y node@22 --test); npm run build ok. Remaining: developer applies migration 001, runs db/verify, manual checks, then records the migration date in docs/DECISIONS.md.
