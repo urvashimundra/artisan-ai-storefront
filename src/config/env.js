@@ -7,6 +7,9 @@ const DEFAULT_TRUST_PROXY = 1;
 const MIN_DIAGNOSTICS_TOKEN_LENGTH = 24;
 const MIN_INVITE_CODE_LENGTH = 16;
 const DEFAULT_CLAUDE_MODEL = 'claude-haiku-5-5';
+const KNOWN_NODE_ENVS = ['development', 'test', 'production'];
+const FALLBACK_NODE_ENV = 'production';
+const LOCAL_HTTP_HOSTS = ['localhost', '127.0.0.1'];
 
 const GROUP_KEYS = {
   ai: ['ANTHROPIC_API_KEY', 'CLAUDE_MODEL', 'AI_DAILY_BUDGET_USD'],
@@ -45,13 +48,33 @@ function parseOriginList(csv) {
   return entries.length > 0 && entries.every(isBare) ? entries : null;
 }
 
+function parseUrl(value) {
+  try {
+    return new URL(value);
+  } catch {
+    return null;
+  }
+}
+
+/** @param {string} value @returns {boolean} True for an https: URL. */
+function isHttpsUrl(value) {
+  return parseUrl(value)?.protocol === 'https:';
+}
+
+/** @param {string} value @returns {boolean} True for https:, or http: on localhost / 127.0.0.1 (BASE_URL only). */
+function isHttpsOrLocalHttp(value) {
+  const url = parseUrl(value);
+  if (!url) return false;
+  return url.protocol === 'https:' || (url.protocol === 'http:' && LOCAL_HTTP_HOSTS.includes(url.hostname));
+}
+
 const coreSchema = z.object({
-  NODE_ENV: z.enum(['development', 'test', 'production']),
+  NODE_ENV: z.string().transform((value) => (KNOWN_NODE_ENVS.includes(value) ? value : FALLBACK_NODE_ENV)),
   PORT: port.default(DEFAULT_PORT),
-  BASE_URL: z.url(),
+  BASE_URL: z.url().refine(isHttpsOrLocalHttp),
   TRUST_PROXY: z.coerce.number().int().min(0).default(DEFAULT_TRUST_PROXY),
   DIAGNOSTICS_TOKEN: z.string().min(MIN_DIAGNOSTICS_TOKEN_LENGTH).optional(),
-  SUPABASE_URL: z.url(),
+  SUPABASE_URL: z.url().refine(isHttpsUrl),
   SUPABASE_SERVICE_ROLE_KEY: nonEmpty,
   SIGNUP_INVITE_CODE: z.string().min(MIN_INVITE_CODE_LENGTH).optional(),
   ALLOWED_ORIGINS: z
@@ -132,6 +155,8 @@ function buildAllowedOrigins(core) {
  * Validates environment variables. Supabase is required. Optional groups (ai, smtp) are validated only if any
  * member is set, and are then fully required. Cookie settings derive from BASE_URL, never NODE_ENV.
  * @param {Record<string, string | undefined>} [source] Defaults to process.env.
+ * BASE_URL must be https (http only for localhost and 127.0.0.1); SUPABASE_URL must be https. An unknown NODE_ENV
+ * does not fail boot: it is treated as "production" (only the logger level reads it).
  * @returns {{ nodeEnv: string, port: number, baseUrl: string, trustProxy: number,
  *   diagnosticsToken: string | undefined, supabase: { url: string, serviceRoleKey: string },
  *   signupInviteCode: string | undefined, allowedOrigins: string[], cookie: { name: string, secure: boolean },

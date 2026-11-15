@@ -35,6 +35,30 @@ describe('loadEnv', () => {
     assert.equal(config.smtp, null);
   });
 
+  it('rejects an http SUPABASE_URL and other non-https schemes', () => {
+    for (const url of ['http://project.supabase.test', 'http://localhost:54321', 'data:text/plain,hi', 'ftp://x.test']) {
+      assert.deepEqual(failureOf({ ...MINIMAL, SUPABASE_URL: url }).variables, ['SUPABASE_URL'], url);
+    }
+  });
+
+  it('rejects a non-https BASE_URL outside localhost and 127.0.0.1', () => {
+    for (const url of ['http://example.test', 'http://localhost.evil.test', 'http://[::1]:3000', 'data:text/plain,hi', 'ftp://localhost']) {
+      assert.deepEqual(failureOf({ ...MINIMAL, BASE_URL: url }).variables, ['BASE_URL'], url);
+    }
+  });
+
+  it('accepts https BASE_URL and http only on localhost or 127.0.0.1', () => {
+    for (const url of ['https://theartisanstory.in', 'http://localhost:3000', 'http://127.0.0.1:3000']) {
+      assert.equal(loadEnv({ ...MINIMAL, BASE_URL: url }).baseUrl, url);
+    }
+  });
+
+  it('does not fail on an unknown NODE_ENV and treats it as production', () => {
+    assert.equal(loadEnv({ ...MINIMAL, NODE_ENV: 'staging' }).nodeEnv, 'production');
+    assert.equal(loadEnv({ ...MINIMAL, NODE_ENV: 'development' }).nodeEnv, 'development');
+    assert.equal(loadEnv(MINIMAL).nodeEnv, 'test');
+  });
+
   it('lists names only for missing required variables', () => {
     const error = failureOf({});
     assert.ok(error instanceof EnvValidationError);
