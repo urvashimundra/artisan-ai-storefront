@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="<%= locals.lang || 'en' %>">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= locals.title ? locals.title + ' | ' : '' %>The Artisan Story</title>
+  <link rel="stylesheet" href="/css/app.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to main content</a>
+  <header class="site-header">
+    <span class="brand">The Artisan Story</span>
+    <nav aria-label="Account">
+      <% if (locals.owner) { %>
+      <a href="/dashboard">Dashboard</a>
+      <form method="post" action="/logout" class="inline-form">
+        <button type="submit" class="link-button">Log out</button>
+      </form>
+      <% } else if (locals.showAuthLinks) { %>
+      <a href="/login">Log in</a>
+      <% if (locals.signupEnabled) { %><a href="/signup">Sign up</a><% } %>
+      <% } %>
+    </nav>
+  </header>
+  <main id="main" tabindex="-1">
