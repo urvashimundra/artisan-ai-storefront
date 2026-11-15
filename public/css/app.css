@@ -117,3 +117,7 @@ dl.details dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
   main { padding: 2rem; }
   h1 { font-size: 2rem; }
 }
+#login-error {
+  opacity: 1 !important;
+  animation: none !important;
+}
