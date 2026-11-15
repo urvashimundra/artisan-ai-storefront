@@ -252,7 +252,7 @@ The migration was applied in the Supabase SQL editor, and all nine verification 
       permitted together with extended thinking, so thinking is disabled; it also saves output tokens). Image block is
       `{ type: 'image', source: { type: 'base64', media_type, data } }`. **Not yet verified against claude-haiku-5-5**: the
       manual `scripts/smoke-listing.js` run is the first real call.
-    - Planned deviations (Phase 2): normal POST, not streamed progress (a single call is capped at 45 s, the page shows an
+    - Planned deviations (Phase 2): normal POST, not streamed progress (a single call is capped at 30 s, the page shows an
       `aria-live` message); `ai_drafts` rows for rejected generations are not written (only a valid result is saved).
     - Hardening after SQL review: each submitted language object in `save_ai_listing` and `save_product_review` must have
       exactly `title`, `description` and `alt_text`. The three keys are checked present and string-typed, then the key
@@ -285,7 +285,7 @@ The migration was applied in the Supabase SQL editor, and all nine verification 
       no price), the story and stock were still saved; that is the owner's own data and the form is shown again with their input.
     - **Generation claim.** One conditional UPDATE sets `ai_status = 'generating'`, `ai_started_at` and the story, only for a
       draft that is not generating or whose run started more than 180 s ago (`STALE_GENERATION_MS`, longer than the worst case of
-      photo download plus two 45 s calls). Losing the race gives 409 `GENERATION_IN_PROGRESS` and spends nothing. Published
+      photo download plus two 30 s calls). Losing the race gives 409 `GENERATION_IN_PROGRESS` and spends nothing. Published
       products give 409 `NOT_DRAFT`. On failure the state becomes `failed`; when the budget refused (no AI attempted) it returns to
       `idle`. `save_ai_listing` clears it on success. A crashed request therefore blocks the product for at most 3 minutes.
     - **Budget order:** validate story, claim, download photo, then per attempt reserve, call Claude, settle. Reservation failure
@@ -297,7 +297,7 @@ The migration was applied in the Supabase SQL editor, and all nine verification 
     - **Retry.** Output that fails the strict schema (including truncation at max_tokens) is retried once with a fresh
       reservation; a refusal is not retried; timeouts and provider errors are not retried. The `ai_drafts` row records the
       summed tokens and cost of all attempts. After two failures the owner sees `AI_INVALID_OUTPUT` and nothing is saved.
-    - **Claude request** (`src/ai/listingGenerator.js`): `maxRetries: 0`, `timeout: 45000` plus a `withTimeout` backstop at 47 s,
+    - **Claude request** (`src/ai/listingGenerator.js`): `maxRetries: 0`, `timeout: 30000` plus a `withTimeout` backstop at 32 s,
       `max_tokens` 2500, `thinking: {type: 'disabled'}`, forced `propose_listing` with `disable_parallel_tool_use`, model from
       `config.ai.model`. These parameters match the installed SDK typings (1.8.0). **Not verified against claude-haiku-5-5**: the
       first live call is the real test. The tool schema has no price, stock, status, approval or store field, and a test checks it.

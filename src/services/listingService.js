@@ -72,8 +72,10 @@ export function createListingService({ products, images, budgets, generator, log
 
   /** Provider answered with an error status: nothing was billed, free the reservation. Otherwise let it expire (charged). */
   async function afterProviderFailure(error, reservationId, context) {
-    if (error.kind === 'http') await releaseQuietly(reservationId, context);
-    else logger?.warn('ai call outcome unknown; reservation left to expire', { ...context, reservationId, kind: error.kind });
+    if (error.kind === 'http') {
+      await releaseQuietly(reservationId, context);
+      logger?.warn('ai provider answered with an error status', { ...context, reservationId, kind: error.kind, status: error.status });
+    } else logger?.warn('ai call outcome unknown; reservation left to expire', { ...context, reservationId, kind: error.kind });
     throw error.kind === 'timeout' ? ERRORS.timeout() : ERRORS.provider();
   }
 

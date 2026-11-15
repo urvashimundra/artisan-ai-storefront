@@ -105,6 +105,15 @@ describe('listing generation: budget', () => {
     assert.equal(ctx.products.rows[0].translations.length, 0);
   });
 
+  it('logs the provider status on an error answer, without any provider message text', async () => {
+    const ctx = await setup({ script: [new ListingProviderError('http', 529)] });
+    await assert.rejects(ctx.generate(), { code: 'AI_PROVIDER_ERROR' });
+    const line = ctx.logger.entries.find((e) => e.level === 'warn' && e.kind === 'http');
+    assert.equal(line.status, 529);
+    assert.ok(line.reservationId);
+    assert.doesNotMatch(JSON.stringify(ctx.logger.entries), /provider call failed|sk-|x-api-key/i);
+  });
+
   it('on a timeout leaves the reservation to expire (charged), because the call may have been billed', async () => {
     const ctx = await setup({ script: [new ListingProviderError('timeout')] });
     await assert.rejects(ctx.generate(), { code: 'AI_TIMEOUT', httpStatus: 504 });

@@ -6,7 +6,7 @@ import { LISTING_PROMPT_VERSION, buildListingSystemPrompt, buildListingUserText 
 import { LISTING_TOOL_NAME, buildListingTool, parseListingOutput } from './schemas/listing.js';
 
 /** One Claude call may take at most this long (the SDK aborts it; withTimeout is a second, slightly later guard). */
-export const LISTING_TIMEOUT_MS = 45_000;
+export const LISTING_TIMEOUT_MS = 30_000;
 const BACKSTOP_MARGIN_MS = 2_000;
 const REFUSAL_STOP_REASON = 'refusal';
 const TIMEOUT_ERROR_NAMES = new Set(['TimeoutError', 'APIConnectionTimeoutError']);

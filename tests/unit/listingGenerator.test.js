@@ -17,11 +17,11 @@ function build(create) {
 }
 
 describe('listing generator request', () => {
-  it('forces propose_listing with thinking disabled, 2500 max tokens, no retries and a 45 s timeout', async () => {
+  it('forces propose_listing with thinking disabled, 2500 max tokens, no retries and a 30 s timeout', async () => {
     const { generator, seen } = build(async () => response([toolUse({ translations: GOOD_TRANSLATIONS })]));
     await generator.generate({ story: 'A pot', image: IMAGE });
-    assert.deepEqual(seen.options, { apiKey: 'k', timeout: 45_000, maxRetries: 0 });
-    assert.equal(LISTING_TIMEOUT_MS, 45_000);
+    assert.deepEqual(seen.options, { apiKey: 'k', timeout: 30_000, maxRetries: 0 });
+    assert.equal(LISTING_TIMEOUT_MS, 30_000);
     const request = seen.requests[0];
     assert.equal(request.model, 'claude-haiku-5-5');
     assert.equal(request.max_tokens, 2500);
