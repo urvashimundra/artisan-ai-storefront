@@ -9,7 +9,10 @@ const SENSITIVE_KEY =
 const PHONE_IN_TEXT = /\+?\d[\d\s().-]{8,}\d/g;
 const BEARER_IN_TEXT = /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi;
 
+const WHOLE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 function scrubString(text) {
+  if (WHOLE_UUID.test(text)) return text;
   return text.replace(BEARER_IN_TEXT, `Bearer ${REDACTED}`).replace(PHONE_IN_TEXT, REDACTED_PHONE);
 }
 

@@ -64,12 +64,26 @@ describe('app basics', () => {
     assert.equal(res.headers.get('x-powered-by'), null);
   });
 
+  it('sends Referrer-Policy strict-origin-when-cross-origin so same-origin form POSTs keep their real Origin', async () => {
+    const res = await fetch(`${app.url}/health`);
+    await res.arrayBuffer();
+    assert.equal(res.headers.get('referrer-policy'), 'strict-origin-when-cross-origin');
+  });
+
   it('logs requests with the correlation id and without the query string', async () => {
     const res = await fetch(`${app.url}/health?secret=abc123`);
     const id = res.headers.get('x-request-id');
-    const entry = app.logs.find((log) => log.msg === 'request completed' && log.correlationId === id);
+    const entry = await app.waitForLog((log) => log.msg === 'request completed' && log.correlationId === id);
     assert.ok(entry);
     assert.equal(entry.path, '/health');
     assert.doesNotMatch(JSON.stringify(app.logs), /abc123/);
+  });
+
+  it('redacts a phone-number-shaped client X-Request-Id in the log line', async () => {
+    const res = await fetch(`${app.url}/health`, { headers: { 'x-request-id': '9876543210' } });
+    await res.arrayBuffer();
+    const entry = await app.waitForLog((log) => log.msg === 'request completed' && log.correlationId === '[REDACTED_PHONE]');
+    assert.equal(entry.path, '/health');
+    assert.doesNotMatch(JSON.stringify(app.logs), /9876543210/);
   });
 });

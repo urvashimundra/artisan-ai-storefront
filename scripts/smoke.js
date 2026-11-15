@@ -29,7 +29,7 @@ async function sendTest(sendTestEmail) {
 
 async function main() {
   const config = loadEnv();
-  const { diagnostics, sendTestEmail } = buildDependencies(config);
+  const { diagnostics, sendTestEmail } = await buildDependencies(config);
   const { ok, checks } = await diagnostics.run(SMOKE_CHECKS);
   checks.forEach(printCheck);
   const sendOk = process.argv.includes(SEND_TEST_FLAG) ? await sendTest(sendTestEmail) : true;

@@ -7,7 +7,13 @@ import { EnvValidationError, loadEnv } from '../../src/config/env.js';
 
 const run = promisify(execFile);
 const SERVER_PATH = fileURLToPath(new URL('../../src/server.js', import.meta.url));
-const MINIMAL = { NODE_ENV: 'test', BASE_URL: 'http://localhost:3000' };
+const REQUIRED_NAMES = ['BASE_URL', 'NODE_ENV', 'SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_URL'];
+const MINIMAL = {
+  NODE_ENV: 'test',
+  BASE_URL: 'http://localhost:3000',
+  SUPABASE_URL: 'https://project.supabase.test',
+  SUPABASE_SERVICE_ROLE_KEY: 'service-key',
+};
 
 function failureOf(source) {
   try {
@@ -23,7 +29,8 @@ describe('loadEnv', () => {
     const config = loadEnv(MINIMAL);
     assert.equal(config.port, 3000);
     assert.equal(config.trustProxy, 1);
-    assert.equal(config.supabase, null);
+    assert.deepEqual(config.supabase, { url: 'https://project.supabase.test', serviceRoleKey: 'service-key' });
+    assert.equal(config.signupInviteCode, undefined);
     assert.equal(config.ai, null);
     assert.equal(config.smtp, null);
   });
@@ -31,14 +38,13 @@ describe('loadEnv', () => {
   it('lists names only for missing required variables', () => {
     const error = failureOf({});
     assert.ok(error instanceof EnvValidationError);
-    assert.deepEqual(error.variables.sort(), ['BASE_URL', 'NODE_ENV']);
+    assert.deepEqual(error.variables.sort(), REQUIRED_NAMES);
   });
 
   it('never includes values in the error, even for invalid ones', () => {
     const secret = 'super-secret-value-123';
-    const error = failureOf({ ...MINIMAL, PORT: secret, SUPABASE_URL: `https://${secret}.example` });
-    assert.ok(error.variables.includes('PORT'));
-    assert.ok(error.variables.includes('SUPABASE_SERVICE_ROLE_KEY'));
+    const error = failureOf({ ...MINIMAL, PORT: secret, SUPABASE_URL: secret, SIGNUP_INVITE_CODE: secret.slice(0, 5) });
+    assert.deepEqual(error.variables.sort(), ['PORT', 'SIGNUP_INVITE_CODE', 'SUPABASE_URL']);
     assert.doesNotMatch(error.message, new RegExp(secret));
     assert.doesNotMatch(JSON.stringify(error.variables), new RegExp(secret));
   });
@@ -66,7 +72,55 @@ describe('loadEnv', () => {
 
   it('rejects a short DIAGNOSTICS_TOKEN and treats blank values as unset', () => {
     assert.deepEqual(failureOf({ ...MINIMAL, DIAGNOSTICS_TOKEN: 'short' }).variables, ['DIAGNOSTICS_TOKEN']);
-    assert.equal(loadEnv({ ...MINIMAL, SUPABASE_URL: '  ', DIAGNOSTICS_TOKEN: '' }).supabase, null);
+    assert.equal(loadEnv({ ...MINIMAL, SIGNUP_INVITE_CODE: '  ', DIAGNOSTICS_TOKEN: '' }).signupInviteCode, undefined);
+  });
+
+  it('requires Supabase from Module 1 on', () => {
+    assert.deepEqual(failureOf({ NODE_ENV: 'test', BASE_URL: 'http://localhost:3000' }).variables.sort(), [
+      'SUPABASE_SERVICE_ROLE_KEY',
+      'SUPABASE_URL',
+    ]);
+  });
+
+  it('signup invite code is optional but must be at least 16 characters when set', () => {
+    assert.deepEqual(failureOf({ ...MINIMAL, SIGNUP_INVITE_CODE: 'short-code' }).variables, ['SIGNUP_INVITE_CODE']);
+    assert.equal(loadEnv({ ...MINIMAL, SIGNUP_INVITE_CODE: 'a'.repeat(16) }).signupInviteCode, 'a'.repeat(16));
+  });
+
+  it('ALLOWED_ORIGINS accepts bare origins and always includes the BASE_URL origin', () => {
+    const config = loadEnv({
+      ...MINIMAL,
+      BASE_URL: 'https://app.example.test/some/path',
+      ALLOWED_ORIGINS: 'https://theartisanstory.in, http://localhost:3000',
+    });
+    assert.deepEqual(config.allowedOrigins, [
+      'https://app.example.test',
+      'https://theartisanstory.in',
+      'http://localhost:3000',
+    ]);
+    assert.deepEqual(loadEnv(MINIMAL).allowedOrigins, ['http://localhost:3000']);
+  });
+
+  it('rejects configured origins that are not bare origins', () => {
+    const invalid = [
+      'https://example.test/path',
+      'https://example.test/',
+      'https://example.test?x=1',
+      'https://example.test#frag',
+      'example.test',
+      'ftp://example.test',
+      'https://ok.test,https://bad.test/x',
+    ];
+    for (const value of invalid) {
+      assert.deepEqual(failureOf({ ...MINIMAL, ALLOWED_ORIGINS: value }).variables, ['ALLOWED_ORIGINS'], value);
+    }
+  });
+
+  it('derives cookie settings from BASE_URL, not NODE_ENV', () => {
+    const https = loadEnv({ ...MINIMAL, NODE_ENV: 'development', BASE_URL: 'https://example.test' });
+    assert.deepEqual(https.cookie, { name: '__Host-session', secure: true });
+    const http = loadEnv({ ...MINIMAL, NODE_ENV: 'production', BASE_URL: 'http://localhost:3000' });
+    assert.deepEqual(http.cookie, { name: 'session', secure: false });
   });
 
   it('server process exits non-zero printing names only when env is missing', async () => {

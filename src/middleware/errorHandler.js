@@ -4,6 +4,10 @@ import { AppError, notFound } from '../lib/errors.js';
 const HTTP_BAD_REQUEST = 400;
 const HTTP_PAYLOAD_TOO_LARGE = 413;
 const HTTP_INTERNAL_ERROR = 500;
+export const RETRY_AFTER_SECONDS = 5;
+const JSON_ONLY_PREFIXES = ['/api', '/internal', '/health'];
+const PAGE_TITLES = { 403: 'Not allowed', 404: 'Page not found', 429: 'Too many requests', 503: 'Server busy' };
+const DEFAULT_PAGE_TITLE = 'Something went wrong';
 const GENERIC_MESSAGE = 'Something went wrong';
 const BODY_PARSER_ERRORS = {
   'entity.too.large': new AppError('PAYLOAD_TOO_LARGE', HTTP_PAYLOAD_TOO_LARGE, 'Request body is too large'),
@@ -11,7 +15,7 @@ const BODY_PARSER_ERRORS = {
 };
 
 /**
- * JSON 404 for unmatched routes.
+ * 404 for unmatched routes (rendered as HTML or JSON by the central error handler).
  * @returns {import('express').RequestHandler}
  */
 export function notFoundHandler() {
@@ -38,8 +42,25 @@ function toSafeError(error) {
   return { appError: new AppError('INTERNAL_ERROR', HTTP_INTERNAL_ERROR, GENERIC_MESSAGE) };
 }
 
+function wantsHtml(req) {
+  const jsonOnly = JSON_ONLY_PREFIXES.some((prefix) => req.path === prefix || req.path.startsWith(`${prefix}/`));
+  return !jsonOnly && req.accepts(['json', 'html']) === 'html';
+}
+
+function respond(req, res, appError, fields) {
+  const status = appError.httpStatus;
+  if (appError.code === 'BUSY') res.set('Retry-After', String(RETRY_AFTER_SECONDS));
+  const body = { code: appError.code, message: appError.message, correlationId: req.correlationId };
+  if (fields) body.details = fields;
+  const sendJson = () => res.status(status).json({ error: body });
+  if (!wantsHtml(req)) return sendJson();
+  const page = { title: PAGE_TITLES[status] ?? DEFAULT_PAGE_TITLE, status, message: appError.message, correlationId: req.correlationId };
+  return res.status(status).render('error', page, (renderError, html) => (renderError ? sendJson() : res.send(html)));
+}
+
 /**
- * Central error handler. Never exposes stacks, SQL, provider errors or internal details.
+ * Central error handler. Renders an HTML page for browsers and JSON for /api, /internal, /health and clients that
+ * do not ask for HTML. Both carry the correlation id. Never exposes stacks, SQL, provider errors or internal details.
  * @param {ReturnType<import('../lib/logger.js').createLogger>} logger
  * @returns {import('express').ErrorRequestHandler}
  */
@@ -55,8 +76,6 @@ export function errorHandler(logger) {
       status: appError.httpStatus,
       err: appError.code === 'INTERNAL_ERROR' ? error : undefined,
     });
-    const body = { code: appError.code, message: appError.message, correlationId: req.correlationId };
-    if (fields) body.details = fields;
-    return res.status(appError.httpStatus).json({ error: body });
+    return respond(req, res, appError, fields);
   };
 }

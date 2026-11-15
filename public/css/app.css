@@ -1,0 +1,119 @@
+/* Mobile-first, single stylesheet. Text/background pairs below all meet WCAG 4.5:1.
+   ink #1a1a1a on #ffffff, link #0b4f8a on #ffffff, error #8a1c1c on #ffffff, button text #ffffff on #0b4f8a. */
+:root {
+  --ink: #1a1a1a;
+  --muted: #4a4a4a;
+  --paper: #ffffff;
+  --band: #f3efe8;
+  --link: #0b4f8a;
+  --error: #8a1c1c;
+  --success: #1e5a2e;
+  --border: #6b6b6b;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { font-size: 100%; }
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Noto Sans Gujarati", "Noto Sans Devanagari", sans-serif;
+  line-height: 1.6;
+  color: var(--ink);
+  background: var(--paper);
+}
+
+main { max-width: 40rem; margin: 0 auto; padding: 1rem; }
+main:focus { outline: none; }
+
+h1 { font-size: 1.6rem; line-height: 1.25; margin: 1rem 0; }
+
+a { color: var(--link); text-decoration: underline; }
+
+a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 5px var(--paper);
+}
+
+.skip-link {
+  position: absolute;
+  left: -999px;
+  top: 0;
+  background: var(--paper);
+  padding: 0.5rem 1rem;
+  z-index: 10;
+}
+.skip-link:focus { left: 0; }
+
+.site-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: var(--band);
+}
+.site-header nav { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; }
+.brand { font-weight: 700; }
+
+.inline-form { display: inline; margin: 0; }
+
+.link-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: var(--link);
+  text-decoration: underline;
+  cursor: pointer;
+  min-height: 2.75rem;
+}
+
+form.stack { display: grid; gap: 1.25rem; }
+
+.field { display: grid; gap: 0.35rem; }
+.field label { font-weight: 600; }
+.hint { color: var(--muted); font-size: 0.95rem; }
+
+input[type="text"], input[type="email"], input[type="password"], select, textarea {
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.75rem;
+  font: inherit;
+  color: var(--ink);
+  background: var(--paper);
+  border: 2px solid var(--border);
+  border-radius: 0.25rem;
+}
+textarea { min-height: 9rem; }
+
+[aria-invalid="true"] { border-color: var(--error); }
+
+.error-text { color: var(--error); font-weight: 600; }
+.notice { padding: 0.75rem 1rem; border-left: 0.35rem solid var(--success); background: var(--band); }
+.alert { padding: 0.75rem 1rem; border-left: 0.35rem solid var(--error); background: var(--band); }
+
+.button {
+  min-height: 2.75rem;
+  padding: 0.5rem 1.25rem;
+  font: inherit;
+  font-weight: 600;
+  color: #ffffff;
+  background: var(--link);
+  border: 2px solid var(--link);
+  border-radius: 0.25rem;
+  cursor: pointer;
+}
+
+.meta { color: var(--muted); font-size: 0.95rem; }
+
+dl.details { display: grid; gap: 0.25rem 1rem; }
+dl.details dt { font-weight: 700; margin-top: 0.75rem; }
+dl.details dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
+
+@media (min-width: 48rem) {
+  main { padding: 2rem; }
+  h1 { font-size: 2rem; }
+}

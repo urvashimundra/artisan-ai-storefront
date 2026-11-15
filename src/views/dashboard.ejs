@@ -1,0 +1,13 @@
+<%- include('partials/header') %>
+    <h1>Your store</h1>
+    <dl class="details">
+      <dt>Store name</dt>
+      <dd><%= store.name %></dd>
+      <dt>Store address</dt>
+      <dd>/s/<%= store.slug %></dd>
+      <dt>Default language</dt>
+      <dd><%= languageName %></dd>
+      <dt>Story</dt>
+      <dd lang="<%= store.defaultLanguage %>"><%= store.story %></dd>
+    </dl>
+<%- include('partials/footer') %>
