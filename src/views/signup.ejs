@@ -1,0 +1,30 @@
+<%- include('partials/header') %>
+    <h1>Create your owner account</h1>
+    <% const errors = locals.errors || {}; const values = locals.values || {}; %>
+    <% if (Object.keys(errors).length > 0) { %>
+    <p class="alert" role="alert">Please check the fields marked below.</p>
+    <% } %>
+    <form method="post" action="/signup" class="stack" novalidate>
+      <div class="field">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" autocomplete="email" required maxlength="254"
+          value="<%= values.email || '' %>"<% if (errors.email) { %> aria-invalid="true" aria-describedby="email-error"<% } %>>
+        <% if (errors.email) { %><p id="email-error" class="error-text"><%= errors.email %></p><% } %>
+      </div>
+      <div class="field">
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password" autocomplete="new-password" required minlength="12"
+          aria-describedby="password-hint<%= errors.password ? ' password-error' : '' %>"<% if (errors.password) { %> aria-invalid="true"<% } %>>
+        <p id="password-hint" class="hint">12 to 128 characters.</p>
+        <% if (errors.password) { %><p id="password-error" class="error-text"><%= errors.password %></p><% } %>
+      </div>
+      <div class="field">
+        <label for="inviteCode">Invite code</label>
+        <input type="text" id="inviteCode" name="inviteCode" autocomplete="off" required
+          <% if (errors.inviteCode) { %>aria-invalid="true" aria-describedby="inviteCode-error"<% } %>>
+        <% if (errors.inviteCode) { %><p id="inviteCode-error" class="error-text"><%= errors.inviteCode %></p><% } %>
+      </div>
+      <div><button type="submit" class="button">Sign up</button></div>
+    </form>
+    <p>Already have an account? <a href="/login">Log in</a></p>
+<%- include('partials/footer') %>

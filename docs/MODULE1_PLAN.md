@@ -56,3 +56,4 @@ committed with the next commit; the last goes in a final docs commit).
 - Commit 1 (migration + verify): npm test green, 54 tests. SQL not executed (developer applies it).
 - Commit 2 (libs + domain): npm test green. Password, queue, cookies, rules covered by unit tests.
 - Commit 3 (repositories, services, env): npm test green, 119 tests. Supabase now required at boot; client factory extracted from the probe.
+- Commit 4 (middleware, error rendering, ejs): npm test green, 136 tests. ejs ^7.0.2 added; npm audit: 0 vulnerabilities. Error pages are HTML only when the client prefers text/html (JSON for /api, /internal, /health).

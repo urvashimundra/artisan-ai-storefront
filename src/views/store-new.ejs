@@ -1,0 +1,40 @@
+<%- include('partials/header') %>
+    <h1>Create your store</h1>
+    <% const errors = locals.errors || {}; const values = locals.values || {}; %>
+    <% if (Object.keys(errors).length > 0) { %>
+    <p class="alert" role="alert">Please check the fields marked below.</p>
+    <% } %>
+    <form method="post" action="/store/new" class="stack" novalidate>
+      <div class="field">
+        <label for="name">Store name</label>
+        <input type="text" id="name" name="name" required maxlength="80" value="<%= values.name || '' %>"
+          <% if (errors.name) { %>aria-invalid="true" aria-describedby="name-error"<% } %>>
+        <% if (errors.name) { %><p id="name-error" class="error-text"><%= errors.name %></p><% } %>
+      </div>
+      <div class="field">
+        <label for="slug">Store address</label>
+        <input type="text" id="slug" name="slug" required maxlength="40" autocapitalize="none" spellcheck="false"
+          value="<%= values.slug || '' %>"
+          aria-describedby="slug-hint<%= errors.slug ? ' slug-error' : '' %>"<% if (errors.slug) { %> aria-invalid="true"<% } %>>
+        <p id="slug-hint" class="hint">Lowercase letters, numbers and hyphens. Your shop will live at /s/your-address.</p>
+        <% if (errors.slug) { %><p id="slug-error" class="error-text"><%= errors.slug %></p><% } %>
+      </div>
+      <div class="field">
+        <label for="defaultLanguage">Default language</label>
+        <select id="defaultLanguage" name="defaultLanguage" required
+          <% if (errors.defaultLanguage) { %>aria-invalid="true" aria-describedby="defaultLanguage-error"<% } %>>
+          <option value="en"<%= values.defaultLanguage === 'en' ? ' selected' : '' %>>English</option>
+          <option value="gu"<%= values.defaultLanguage === 'gu' ? ' selected' : '' %>>Gujarati</option>
+          <option value="hi"<%= values.defaultLanguage === 'hi' ? ' selected' : '' %>>Hindi</option>
+        </select>
+        <% if (errors.defaultLanguage) { %><p id="defaultLanguage-error" class="error-text"><%= errors.defaultLanguage %></p><% } %>
+      </div>
+      <div class="field">
+        <label for="story">Your story</label>
+        <textarea id="story" name="story" required maxlength="2000"
+          <% if (errors.story) { %>aria-invalid="true" aria-describedby="story-error"<% } %>><%= values.story || '' %></textarea>
+        <% if (errors.story) { %><p id="story-error" class="error-text"><%= errors.story %></p><% } %>
+      </div>
+      <div><button type="submit" class="button">Create store</button></div>
+    </form>
+<%- include('partials/footer') %>

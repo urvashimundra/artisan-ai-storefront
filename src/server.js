@@ -17,11 +17,11 @@ function loadConfigOrExit() {
   }
 }
 
-function start() {
+async function start() {
   const config = loadConfigOrExit();
   const logger = createLogger({ level: config.nodeEnv === 'test' ? 'silent' : 'info' });
-  const { diagnostics } = buildDependencies(config);
-  const app = createApp({ config, logger, diagnostics });
+  const { diagnostics, services } = await buildDependencies(config);
+  const app = createApp({ config, logger, diagnostics, services });
   const server = app.listen(config.port, () => {
     logger.info('server listening', { port: config.port, nodeEnv: config.nodeEnv });
   });
@@ -29,4 +29,7 @@ function start() {
   for (const signal of SHUTDOWN_SIGNALS) process.on(signal, () => shutdown(signal));
 }
 
-start();
+start().catch((error) => {
+  process.stderr.write(`Startup failed: ${error?.name ?? 'Error'}\n`);
+  process.exit(EXIT_CONFIG_ERROR);
+});

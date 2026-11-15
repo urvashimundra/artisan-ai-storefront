@@ -7,6 +7,7 @@ import { correlationId } from './middleware/correlationId.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { createRateLimiter } from './middleware/rateLimit.js';
 import { requestLogger } from './middleware/requestLogger.js';
+import { createBrowserRouter } from './routes/browser.js';
 import { createHealthRouter } from './routes/health.js';
 import { createInternalRouter } from './routes/internal.js';
 
@@ -25,12 +26,22 @@ const noDiagnostics = { run: async () => ({ ok: false, checks: [] }) };
  *   config: ReturnType<import('./config/env.js').loadEnv>,
  *   logger?: ReturnType<typeof createLogger>,
  *   diagnostics?: { run: (names: string[]) => Promise<object> },
+ *   services?: { auth: object, sessions: object, stores: object },
+ *   authRateLimits?: { loginFailure?: object, loginIp?: object, signup?: object },
  *   version?: string,
  *   globalRateLimit?: { windowMs: number, limit: number },
  * }} deps
  * @returns {import('express').Express}
  */
-export function createApp({ config, logger, diagnostics = noDiagnostics, version, globalRateLimit }) {
+export function createApp({
+  config,
+  logger,
+  diagnostics = noDiagnostics,
+  services,
+  authRateLimits,
+  version,
+  globalRateLimit,
+}) {
   const log = logger ?? createLogger({ level: config.nodeEnv === 'test' ? 'silent' : 'info' });
   const limits = globalRateLimit ?? { windowMs: GLOBAL_RATE_WINDOW_MS, limit: GLOBAL_RATE_LIMIT };
   const app = express();
@@ -49,6 +60,7 @@ export function createApp({ config, logger, diagnostics = noDiagnostics, version
 
   app.use(createHealthRouter({ version: version ?? readVersion() }));
   app.use(createInternalRouter({ diagnosticsToken: config.diagnosticsToken, diagnostics }));
+  if (services) app.use(createBrowserRouter({ config, services, authRateLimits }));
 
   app.use(notFoundHandler());
   app.use(errorHandler(log));
