@@ -53,3 +53,5 @@ Cookie name and Secure derive from the `BASE_URL` protocol, never from `NODE_ENV
 committed with the next commit; the last goes in a final docs commit).
 
 ## Progress
+- Commit 1 (migration + verify): npm test green, 54 tests. SQL not executed (developer applies it).
+- Commit 2 (libs + domain): npm test green. Password, queue, cookies, rules covered by unit tests.
