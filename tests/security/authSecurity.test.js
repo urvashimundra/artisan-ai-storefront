@@ -278,6 +278,31 @@ describe('login and signup rate limits', () => {
     }
   });
 
+  it('a spoofed leading X-Forwarded-For entry does not change the client IP with trust proxy 1', async () => {
+    const app = await startAuthApp({ authRateLimits: tight({ loginIp: { windowMs: 60_000, limit: 1 } }) });
+    try {
+      const real = '203.0.113.7';
+      assert.equal((await attempt(app, 'a@example.com', `9.9.9.9, ${real}`)).status, 401);
+      assert.equal((await attempt(app, 'a@example.com', `8.8.8.8, ${real}`)).status, 429);
+      const logged = await app.waitForLog((log) => log.msg === 'request completed' && log.status === 429);
+      assert.equal(logged.ip, real);
+      assert.equal(logged.xffHops, 2);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('IPv6 clients in the same /56 share a limiter bucket; another /56 does not', async () => {
+    const app = await startAuthApp({ authRateLimits: tight({ loginIp: { windowMs: 60_000, limit: 1 } }) });
+    try {
+      assert.equal((await attempt(app, 'a@example.com', '2001:db8:1:2::1')).status, 401);
+      assert.equal((await attempt(app, 'b@example.com', '2001:db8:1:ff:abcd::9')).status, 429);
+      assert.equal((await attempt(app, 'c@example.com', '2001:db8:1:100::1')).status, 401);
+    } finally {
+      await app.close();
+    }
+  });
+
   it('different emails from one IP do not bypass the per-IP login limiter', async () => {
     const app = await startAuthApp({ authRateLimits: tight({ loginIp: { windowMs: 60_000, limit: 3 } }) });
     try {

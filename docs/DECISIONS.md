@@ -150,3 +150,13 @@ The migration was applied in the Supabase SQL editor, and all nine verification 
     server logs only and used for those two purposes. The logger no longer scrubs a string that is entirely a valid IP
     (`node:net` `isIP`, including IPv4-mapped IPv6), because the phone regex was corrupting values like
     103.21.244.10. The phone regex is unchanged, so phone numbers in other fields or in free text are still redacted.
+
+41. **Audit fixes (branch fix-audit-1).**
+    - Diagnostics: the SMTP failure `detail` field (`safeDetail`, `describeSmtpFailure`, `redactFirstLine`) is removed;
+      failures return only the existing `reason`. This supersedes the `safeDetail` addition described in the Module 0
+      diagnostics decision. `DIAGNOSTICS_TOKEN` handling is unchanged.
+    - Config: `SUPABASE_URL` must be `https:`. `BASE_URL` must be `https:`, except `http://localhost` and
+      `http://127.0.0.1` for local development; other schemes (including `data:`) are rejected. `NODE_ENV` no longer
+      fails boot: any string is accepted and unknown values become `production` (only the logger level reads it).
+    - Sessions: a successful login deletes the session row for the request's existing cookie token (if any) before the
+      new session is issued. A failed login leaves the existing session untouched.
