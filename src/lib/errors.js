@@ -4,6 +4,7 @@ const HTTP_FORBIDDEN = 403;
 const HTTP_NOT_FOUND = 404;
 const HTTP_CONFLICT = 409;
 const HTTP_TOO_MANY_REQUESTS = 429;
+const HTTP_SERVICE_UNAVAILABLE = 503;
 
 /**
  * Application error. `message` is safe to show to clients; `details` is for logs only.
@@ -47,3 +48,7 @@ export const conflict = (message = 'Conflict', details) =>
 /** @param {string} [message] @param {unknown} [details] @returns {AppError} */
 export const tooManyRequests = (message = 'Too many requests, please try again later', details) =>
   new AppError('TOO_MANY_REQUESTS', HTTP_TOO_MANY_REQUESTS, message, details);
+
+/** @param {string} [message] @returns {AppError} Temporary overload; the client may retry later. */
+export const busy = (message = 'The server is busy, please try again shortly') =>
+  new AppError('BUSY', HTTP_SERVICE_UNAVAILABLE, message);
