@@ -133,3 +133,9 @@ The developer applies it in the Supabase SQL editor, runs `db/verify/001_module1
     (no session persistence, 8 s timeout). The probe and all repositories use it.
 35. **Dependencies.** Added `ejs` (^7.0.2, latest stable). `npm audit`: 0 vulnerabilities at install time.
 36. **Known limits (SPEC):** no email verification, no password reset, in-memory limits, no session cleanup job.
+37. **Logger UUID exemption.** The phone-number scrub matched digit runs inside UUIDs, so about 14% of request log lines
+    had a corrupted `correlationId` (it surfaced as a flaky `app.test.js` test). Any string value that is entirely a
+    UUID (8-4-4-4-12 hex, case-insensitive) is now exempt from phone scrubbing, in every field and not keyed on field
+    names, so client-supplied `X-Request-Id` values that are not UUIDs are still scrubbed. The phone regex is unchanged.
+    Known limitation: a UUID embedded in longer text can still be redacted. Tests also gained `waitForLog`, because the
+    request logger emits on `finish`, which can run after the client has the response.

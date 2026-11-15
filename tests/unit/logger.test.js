@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
 import { describe, it } from 'node:test';
 import { createLogger } from '../../src/lib/logger.js';
 
@@ -57,5 +58,39 @@ describe('logger', () => {
     loop.self = loop;
     logger.info('circular', { loop });
     assert.match(lines[0], /TRUNCATED/);
+  });
+
+  it('leaves 1000 random UUIDs unchanged as correlationId and as ownerId', () => {
+    const { lines, logger } = capture();
+    const ids = Array.from({ length: 1000 }, () => randomUUID());
+    for (const id of ids) logger.child({ correlationId: id }).info('x', { ownerId: id.toUpperCase() });
+    ids.forEach((id, index) => {
+      const entry = JSON.parse(lines[index]);
+      assert.equal(entry.correlationId, id);
+      assert.equal(entry.ownerId, id.toUpperCase());
+    });
+  });
+
+  const phoneForms = [
+    ['9876543210', ''],
+    ['+91 98765 43210', ''],
+    ['+91-9876543210', ''],
+    ['098765-43210', ''],
+    ['(079) 2345 6789', '('],
+  ];
+  for (const [phone, keptPrefix] of phoneForms) {
+    it(`still redacts the phone number "${phone}" as a whole value and inside a sentence`, () => {
+      const { lines, logger } = capture();
+      logger.info('x', { value: phone, note: `call me on ${phone} today` });
+      const entry = JSON.parse(lines[0]);
+      assert.equal(entry.value, `${keptPrefix}[REDACTED_PHONE]`);
+      assert.equal(entry.note, `call me on ${keptPrefix}[REDACTED_PHONE] today`);
+    });
+  }
+
+  it('scrubs a UUID embedded in a longer message as before (known limitation: embedded UUIDs can be redacted)', () => {
+    const { lines, logger } = capture();
+    logger.info('x', { note: 'order 51211283-27c5-4b3e-937d-655e3d141ade failed' });
+    assert.match(JSON.parse(lines[0]).note, /REDACTED_PHONE/);
   });
 });
