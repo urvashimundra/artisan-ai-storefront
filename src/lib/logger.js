@@ -1,3 +1,5 @@
+import { isIP } from 'node:net';
+
 const LEVELS = { debug: 10, info: 20, warn: 30, error: 40, silent: 100 };
 const LOG_METHODS = ['debug', 'info', 'warn', 'error'];
 const REDACTED = '[REDACTED]';
@@ -12,7 +14,7 @@ const BEARER_IN_TEXT = /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi;
 const WHOLE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function scrubString(text) {
-  if (WHOLE_UUID.test(text)) return text;
+  if (WHOLE_UUID.test(text) || isIP(text) !== 0) return text;
   return text.replace(BEARER_IN_TEXT, `Bearer ${REDACTED}`).replace(PHONE_IN_TEXT, REDACTED_PHONE);
 }
 

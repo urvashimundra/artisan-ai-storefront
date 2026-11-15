@@ -142,3 +142,11 @@ The migration was applied in the Supabase SQL editor, and all nine verification 
 38. **Helmet Referrer-Policy and same-origin CSRF.** The browser signup flow exposed a compatibility issue: Helmet's default `Referrer-Policy: no-referrer` caused same-origin browser POST requests in the tested environment to arrive with `Origin: null`. The existing CSRF middleware correctly rejects a literal `Origin: null`. Helmet now explicitly uses `strict-origin-when-cross-origin`. CSRF validation was not weakened. Automated tests cover the response header, acceptance of a same-origin request with its real Origin, rejection of literal `Origin: null`, and rejection of a mismatched Origin. The updated suite passed: 191 tests, successful build, and 191 tests under Node v22.23.5.
 
 39. **Module 1 local browser verification.** On 15 November 2026, the owner flow was manually exercised in the local browser: signup page loaded; invalid invite code, invalid email and invalid password were rejected; successful signup created the account and redirected to login; login succeeded; store creation saved the store name, slug, default language and story; the dashboard displayed the saved store details; refresh preserved the authenticated session; logout succeeded; and a subsequent attempt to open the protected dashboard redirected to login. This records local browser verification only, not GoDaddy Preview or Published verification, and is not a claim of exhaustive security testing.
+
+40. **Client IPs are now logged (reverses the IP part of decision 8).** Request log lines carry `ip` (`req.ip`, resolved
+    with `trust proxy`) and `xffHops` (the NUMBER of X-Forwarded-For entries, 0 if absent; the raw header is never
+    logged). Why: to verify on GoDaddy how many proxy hops really sit in front of the app, so `TRUST_PROXY` and the
+    per-IP rate limits can be set correctly, and to investigate abuse. A client IP is personal data; it is kept in
+    server logs only and used for those two purposes. The logger no longer scrubs a string that is entirely a valid IP
+    (`node:net` `isIP`, including IPv4-mapped IPv6), because the phone regex was corrupting values like
+    103.21.244.10. The phone regex is unchanged, so phone numbers in other fields or in free text are still redacted.

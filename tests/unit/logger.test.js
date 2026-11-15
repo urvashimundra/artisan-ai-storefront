@@ -52,6 +52,17 @@ describe('logger', () => {
     assert.match(lines[0], /REDACTED/);
   });
 
+  it('leaves a whole IP address value unchanged but still redacts a phone number in another field', () => {
+    const { lines, logger } = capture();
+    logger.info('x', { ip: '103.21.244.10', mapped: '::ffff:103.21.244.10', v6: '2001:db8:1:2::1', note: 'call 98765 43210 now' });
+    const entry = JSON.parse(lines[0]);
+    assert.equal(entry.ip, '103.21.244.10');
+    assert.equal(entry.mapped, '::ffff:103.21.244.10');
+    assert.equal(entry.v6, '2001:db8:1:2::1');
+    assert.match(entry.note, /REDACTED_PHONE/);
+    assert.doesNotMatch(lines[0], /98765/);
+  });
+
   it('survives circular references', () => {
     const { lines, logger } = capture();
     const loop = { name: 'loop' };

@@ -79,6 +79,24 @@ describe('app basics', () => {
     assert.doesNotMatch(JSON.stringify(app.logs), /abc123/);
   });
 
+  it('logs the client IP unmangled and only the count of X-Forwarded-For entries, never the raw header', async () => {
+    const res = await fetch(`${app.url}/health`, { headers: { 'x-forwarded-for': '9.9.9.9, 103.21.244.10' } });
+    const id = res.headers.get('x-request-id');
+    await res.arrayBuffer();
+    const entry = await app.waitForLog((log) => log.msg === 'request completed' && log.correlationId === id);
+    assert.equal(entry.ip, '103.21.244.10');
+    assert.equal(entry.xffHops, 2);
+    assert.doesNotMatch(JSON.stringify(entry), /9\.9\.9\.9/);
+  });
+
+  it('logs xffHops 0 when X-Forwarded-For is absent', async () => {
+    const res = await fetch(`${app.url}/health`);
+    const id = res.headers.get('x-request-id');
+    await res.arrayBuffer();
+    const entry = await app.waitForLog((log) => log.msg === 'request completed' && log.correlationId === id);
+    assert.equal(entry.xffHops, 0);
+  });
+
   it('redacts a phone-number-shaped client X-Request-Id in the log line', async () => {
     const res = await fetch(`${app.url}/health`, { headers: { 'x-request-id': '9876543210' } });
     await res.arrayBuffer();
