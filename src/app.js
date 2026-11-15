@@ -17,6 +17,12 @@ const VIEWS_DIR = fileURLToPath(new URL('./views', import.meta.url));
 const PUBLIC_DIR = fileURLToPath(new URL('../public', import.meta.url));
 export const GLOBAL_RATE_WINDOW_MS = 60_000;
 export const GLOBAL_RATE_LIMIT = 120;
+/**
+ * Helmet's default `no-referrer` makes Chrome send `Origin: null` on same-origin form POSTs, which the origin check
+ * rejects. This policy is the browser default: same-origin requests keep their real Origin, and cross-origin
+ * requests still get only the origin, never the path.
+ */
+export const REFERRER_POLICY = 'strict-origin-when-cross-origin';
 
 const noDiagnostics = { run: async () => ({ ok: false, checks: [] }) };
 
@@ -50,7 +56,7 @@ export function createApp({
   app.set('views', VIEWS_DIR);
 
   app.use(correlationId());
-  app.use(helmet());
+  app.use(helmet({ referrerPolicy: { policy: REFERRER_POLICY } }));
   app.set('trust proxy', config.trustProxy);
   app.use(express.json({ limit: JSON_BODY_LIMIT }));
   app.use(express.urlencoded({ extended: false, limit: FORM_BODY_LIMIT }));

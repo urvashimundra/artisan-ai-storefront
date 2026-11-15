@@ -22,14 +22,17 @@ SELECT schemaname, tablename, policyname
 FROM pg_policies
 WHERE schemaname = 'public' AND tablename IN ('owners', 'sessions', 'stores');
 
--- 4. Table privileges for anon and authenticated on the three tables. Expect zero rows.
-SELECT c.relname AS table_name, r.rolname AS grantee, a.privilege_type
-FROM pg_class c
-JOIN pg_namespace n ON n.oid = c.relnamespace
-CROSS JOIN LATERAL aclexplode(c.relacl) a
-JOIN pg_roles r ON r.oid = a.grantee
-WHERE n.nspname = 'public' AND c.relname IN ('owners', 'sessions', 'stores') AND r.rolname IN ('anon', 'authenticated')
-ORDER BY c.relname, r.rolname, a.privilege_type;
+-- 4. Effective table privileges for anon and authenticated on the three tables, for SELECT, INSERT, UPDATE and DELETE.
+--    has_table_privilege includes privileges inherited from PUBLIC, so this is the check that matters.
+--    Expect every can_* column to be false for every row (six rows: three tables x two roles).
+SELECT t.table_name, g.grantee,
+       has_table_privilege(g.grantee, format('public.%I', t.table_name), 'SELECT') AS can_select,
+       has_table_privilege(g.grantee, format('public.%I', t.table_name), 'INSERT') AS can_insert,
+       has_table_privilege(g.grantee, format('public.%I', t.table_name), 'UPDATE') AS can_update,
+       has_table_privilege(g.grantee, format('public.%I', t.table_name), 'DELETE') AS can_delete
+FROM (VALUES ('owners'), ('sessions'), ('stores')) AS t (table_name)
+CROSS JOIN (VALUES ('anon'), ('authenticated')) AS g (grantee)
+ORDER BY t.table_name, g.grantee;
 
 -- 5. service_role privileges. Expect select, insert, update and delete all true for every table.
 SELECT t.table_name,
@@ -60,8 +63,10 @@ FROM pg_indexes
 WHERE schemaname = 'public' AND tablename IN ('owners', 'sessions', 'stores')
 ORDER BY tablename, indexname;
 
--- 8. Every grant held by anon or authenticated on ANY relation in the public schema. Expect zero rows for the Module 1
---    tables; rows for godaddy_probe (and any table you created earlier) are expected and unrelated.
+-- 8. Explicit ACL entries (relacl) naming anon or authenticated on ANY relation in the public schema. Expect zero rows for
+--    the Module 1 tables; rows for godaddy_probe (and any table you created earlier) are expected and unrelated.
+--    This reports explicit entries only. It does NOT list effective inherited privileges, such as grants to PUBLIC,
+--    which this query does not show; block 4 covers the Module 1 tables' effective privileges.
 SELECT n.nspname AS schema_name, c.relname AS relation, c.relkind, r.rolname AS grantee, a.privilege_type
 FROM pg_class c
 JOIN pg_namespace n ON n.oid = c.relnamespace
@@ -70,8 +75,10 @@ JOIN pg_roles r ON r.oid = a.grantee
 WHERE n.nspname = 'public' AND r.rolname IN ('anon', 'authenticated')
 ORDER BY c.relname, r.rolname, a.privilege_type;
 
--- 9. Every EXECUTE grant held by anon or authenticated on functions in the public schema. Module 1 creates no
---    functions, so expect zero rows unless you created functions earlier.
+-- 9. Explicit function ACL entries (proacl) naming anon or authenticated on functions in the public schema. Module 1
+--    creates no functions, so expect zero rows unless you created functions earlier. This does NOT prove the absence
+--    of inherited PUBLIC EXECUTE: a NULL proacl means the default ACL, which grants EXECUTE to PUBLIC, and no row here
+--    shows that.
 SELECT n.nspname AS schema_name, p.proname AS function_name, r.rolname AS grantee, a.privilege_type
 FROM pg_proc p
 JOIN pg_namespace n ON n.oid = p.pronamespace

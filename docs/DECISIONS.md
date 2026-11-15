@@ -63,8 +63,8 @@ Records choices made while building, including assumptions. CLAUDE.md and SPEC.m
 
 ## Module 1: Owner access and store setup
 
-Full plan: `docs/MODULE1_PLAN.md`. **Migration 001 (`db/migrations/001_owners_sessions_stores.sql`): NOT yet applied.**
-The developer applies it in the Supabase SQL editor, runs `db/verify/001_module1_checks.sql`, and records the date here.
+Full plan: `docs/MODULE1_PLAN.md`. **Migration 001 (`db/migrations/001_owners_sessions_stores.sql`): applied and verified 15 November 2026.**
+The migration was applied in the Supabase SQL editor, and all nine verification blocks in `db/verify/001_module1_checks.sql` passed.
 
 20. **Password hash is one encoded string, not a salt column.** `owners.password_hash` holds
     `scrypt$N$r$p$saltB64$hashB64` (SPEC section 4 also says "encoded scrypt string including salt", so there is no
@@ -139,3 +139,6 @@ The developer applies it in the Supabase SQL editor, runs `db/verify/001_module1
     names, so client-supplied `X-Request-Id` values that are not UUIDs are still scrubbed. The phone regex is unchanged.
     Known limitation: a UUID embedded in longer text can still be redacted. Tests also gained `waitForLog`, because the
     request logger emits on `finish`, which can run after the client has the response.
+38. **Helmet Referrer-Policy and same-origin CSRF.** The browser signup flow exposed a compatibility issue: Helmet's default `Referrer-Policy: no-referrer` caused same-origin browser POST requests in the tested environment to arrive with `Origin: null`. The existing CSRF middleware correctly rejects a literal `Origin: null`. Helmet now explicitly uses `strict-origin-when-cross-origin`. CSRF validation was not weakened. Automated tests cover the response header, acceptance of a same-origin request with its real Origin, rejection of literal `Origin: null`, and rejection of a mismatched Origin. The updated suite passed: 191 tests, successful build, and 191 tests under Node v22.23.5.
+
+39. **Module 1 local browser verification.** On 15 November 2026, the owner flow was manually exercised in the local browser: signup page loaded; invalid invite code, invalid email and invalid password were rejected; successful signup created the account and redirected to login; login succeeded; store creation saved the store name, slug, default language and story; the dashboard displayed the saved store details; refresh preserved the authenticated session; logout succeeded; and a subsequent attempt to open the protected dashboard redirected to login. This records local browser verification only, not GoDaddy Preview or Published verification, and is not a claim of exhaustive security testing.

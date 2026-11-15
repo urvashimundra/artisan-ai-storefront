@@ -54,6 +54,40 @@ describe('origin check on browser routes', () => {
     }
   });
 
+  it('a same-origin form POST that sends its real Origin is accepted', async () => {
+    const app = await startAuthApp();
+    try {
+      const res = await app.request('/login', {
+        method: 'POST',
+        form: LOGIN,
+        origin: ORIGIN,
+        headers: { 'sec-fetch-site': 'same-origin', 'sec-fetch-mode': 'navigate' },
+      });
+      assert.equal(res.status, 401);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('a literal Origin: null is rejected with 403 on every state-changing route, even with same-origin Sec-Fetch-Site', async () => {
+    const app = await startAuthApp();
+    try {
+      const cookie = await signupAndLogin(app);
+      for (const [path, form] of [['/login', LOGIN], ['/signup', SIGNUP], ['/logout', {}], ['/store/new', STORE_FORM]]) {
+        const res = await app.request(path, {
+          method: 'POST',
+          form,
+          cookie,
+          origin: null,
+          headers: { origin: 'null', 'sec-fetch-site': 'same-origin' },
+        });
+        assert.equal(res.status, 403, path);
+      }
+    } finally {
+      await app.close();
+    }
+  });
+
   it('does not trust forwarded host headers', async () => {
     const app = await startAuthApp();
     try {
