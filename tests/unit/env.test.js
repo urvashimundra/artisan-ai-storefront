@@ -86,12 +86,12 @@ describe('loadEnv', () => {
 
   it('a lone CLAUDE_MODEL starts the ai group', () => {
     const error = failureOf({ ...MINIMAL, CLAUDE_MODEL: 'x' });
-    assert.deepEqual(error.variables.sort(), ['AI_DAILY_BUDGET_USD', 'ANTHROPIC_API_KEY']);
+    assert.deepEqual(error.variables, ['ANTHROPIC_API_KEY']);
   });
 
   it('parses a complete ai group with the default model', () => {
-    const config = loadEnv({ ...MINIMAL, ANTHROPIC_API_KEY: 'k', AI_DAILY_BUDGET_USD: '2.5' });
-    assert.deepEqual(config.ai, { apiKey: 'k', model: 'claude-haiku-5-5', dailyBudgetUsd: 2.5 });
+    const config = loadEnv({ ...MINIMAL, ANTHROPIC_API_KEY: 'k' });
+    assert.deepEqual(config.ai, { apiKey: 'k', model: 'claude-haiku-5-5' });
   });
 
   it('rejects a short DIAGNOSTICS_TOKEN and treats blank values as unset', () => {
@@ -156,5 +156,39 @@ describe('loadEnv', () => {
       assert.doesNotMatch(error.stderr, /leaky-port-value/);
       return true;
     });
+  });
+});
+
+describe('AI budget variables', () => {
+  it('are optional and default to 1.00 / 0.50 / 5.00 USD in micro-USD', () => {
+    assert.deepEqual(loadEnv(MINIMAL).aiBudget, {
+      ownerDailyMicroUsd: 1_000_000,
+      demoDailyMicroUsd: 500_000,
+      globalDailyMicroUsd: 5_000_000,
+    });
+    assert.equal(loadEnv({ ...MINIMAL, AI_DAILY_BUDGET_USD: ' ' }).aiBudget.ownerDailyMicroUsd, 1_000_000);
+  });
+
+  it('parse provided decimal strings without starting the ai group', () => {
+    const config = loadEnv({
+      ...MINIMAL,
+      AI_DAILY_BUDGET_USD: '2.5',
+      AI_DEMO_DAILY_BUDGET_USD: '0.000001',
+      AI_GLOBAL_DAILY_BUDGET_USD: '10',
+    });
+    assert.deepEqual(config.aiBudget, {
+      ownerDailyMicroUsd: 2_500_000,
+      demoDailyMicroUsd: 1,
+      globalDailyMicroUsd: 10_000_000,
+    });
+    assert.equal(config.ai, null);
+  });
+
+  it('reject invalid values by name', () => {
+    for (const name of ['AI_DAILY_BUDGET_USD', 'AI_DEMO_DAILY_BUDGET_USD', 'AI_GLOBAL_DAILY_BUDGET_USD']) {
+      for (const bad of ['-1', 'abc', '1e3', '1.0000001']) {
+        assert.deepEqual(failureOf({ ...MINIMAL, [name]: bad }).variables, [name], `${name}=${bad}`);
+      }
+    }
   });
 });
