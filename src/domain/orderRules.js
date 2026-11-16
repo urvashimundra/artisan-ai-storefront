@@ -5,7 +5,10 @@ import { cleanLine, codePointLength, normalizeParagraph } from './productRules.j
 /** Limits. Mirrored in db/migrations/008_orders.sql (a unit test compares them). */
 export const MIN_QUANTITY = 1;
 export const MAX_QUANTITY = 20;
-export const ORDER_EXPIRY_MINUTES = 60;
+export const ORDER_EXPIRY_MINUTES = 10;
+export const ORDER_RESUBMIT_MINUTES = 60;
+const MS_PER_MINUTE = 60_000;
+const MS_PER_SECOND = 1000;
 export const MAX_UTR_SUBMISSIONS = 3;
 export const MAX_CUSTOMER_NAME_LENGTH = 80;
 export const MAX_ADDRESS_LENGTH = 300;
@@ -82,6 +85,39 @@ export function customerActions(status) {
     canSubmitUtr: canTransition(ACTORS.CUSTOMER, status, PAYMENT_SUBMITTED),
     canCancel: canTransition(ACTORS.CUSTOMER, status, CANCELLED),
   };
+}
+
+/**
+ * Seconds left before an order's server-side deadline, never negative. Display only: the database decides validity.
+ * @param {string | null} expiresAt ISO timestamp from the database
+ * @param {number} nowMs Current time in epoch milliseconds
+ * @returns {number | null} null when the order has no deadline
+ */
+export function secondsUntil(expiresAt, nowMs) {
+  const deadline = expiresAt ? Date.parse(expiresAt) : Number.NaN;
+  return Number.isNaN(deadline) ? null : Math.max(0, Math.ceil((deadline - nowMs) / MS_PER_SECOND));
+}
+
+/**
+ * True when an order still waiting for payment is already past its deadline (the sweep has not reached it yet). Such an
+ * order must be shown as expired and must not offer the UTR form, whatever the status column still says.
+ * @param {{ status: string, expiresAt: string | null }} order
+ * @param {number} nowMs
+ * @returns {boolean}
+ */
+export function isPastDeadline(order, nowMs) {
+  const waiting = order.status === STATUS.AWAITING_PAYMENT || order.status === STATUS.NOT_RECEIVED;
+  return waiting && secondsUntil(order.expiresAt, nowMs) === 0;
+}
+
+/**
+ * Deadline of an awaiting_payment order: ten minutes after creation. Used to explain legacy orders (migration 009 moves
+ * their stored deadline to this value).
+ * @param {string} createdAt ISO timestamp
+ * @returns {string} ISO timestamp
+ */
+export function reservationDeadline(createdAt) {
+  return new Date(Date.parse(createdAt) + ORDER_EXPIRY_MINUTES * MS_PER_MINUTE).toISOString();
 }
 
 /**

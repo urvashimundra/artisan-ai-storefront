@@ -5,7 +5,8 @@ import { requireStoreId } from './requireStoreId.js';
 
 const HTTP_INTERNAL_ERROR = 500;
 const HTTP_CONFLICT = 409;
-const MAX_LISTED_ORDERS = 200;
+/** The most orders the owner list returns (newest first). */
+export const MAX_LISTED_ORDERS = 200;
 
 /*
  * Explicit column allowlists. status_token_hash is never selected: the hash is only ever a lookup key, and the raw token
@@ -226,9 +227,9 @@ export function createOrderRepository({ client }) {
       return data ? toOrder(parse(orderRow, data, 'orders.findByTokenHash')) : null;
     },
 
-    /** Newest first, at most 200; optional status filter. @returns {Promise<object[]>} */
+    /** Newest first, at most 200, with their lines; optional status filter. @returns {Promise<object[]>} */
     async listForOwner(storeId, { status = null } = {}) {
-      let query = ordersOf(storeId, ORDER_COLUMNS).order('created_at', { ascending: false }).order('id', { ascending: false }).limit(MAX_LISTED_ORDERS);
+      let query = ordersOf(storeId, `${ORDER_COLUMNS}, ${ITEM_COLUMNS}`).order('created_at', { ascending: false }).order('id', { ascending: false }).limit(MAX_LISTED_ORDERS);
       if (status) query = query.eq('status', status);
       const { data, error } = await query;
       throwIfError(error);

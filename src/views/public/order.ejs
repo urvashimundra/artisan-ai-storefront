@@ -1,64 +1,78 @@
 <%- include('layout') %>
-    <h1><%= strings.orderHeading %></h1>
+    <header class="order-head">
+      <h1><%= strings.orderHeading %></h1>
+      <p class="order-ref-line"><span class="summary-label"><%= strings.orderReferenceLabel %></span> <strong class="order-ref"><%= order.reference %></strong></p>
+    </header>
 <% if (locals.formError) { %>    <p class="error-summary" role="alert"><%= formError %></p>
-<% } %>    <section class="status-box" aria-labelledby="status-heading">
-      <h2 id="status-heading"><%= strings.statusLabel %></h2>
-      <p><strong><%= order.statusLabel %></strong></p>
-      <p><%= order.help %></p>
-    </section>
-    <section aria-labelledby="summary-heading">
-      <h2 id="summary-heading"><%= strings.orderSummary %></h2>
-      <dl class="order-summary">
-        <dt><%= strings.orderReferenceLabel %></dt>
-        <dd><%= order.reference %></dd>
-<% order.items.forEach((item) => { %>        <dt><span lang="<%= item.titleLang %>"><%= item.title %></span></dt>
-        <dd><%= strings.quantityLabel %>: <%= item.quantity %> x <%= item.unitPrice %> = <%= item.lineTotal %></dd>
-<% }) %>        <dt><%= strings.orderTotalLabel %></dt>
-        <dd><%= order.total %></dd>
-<% if (order.expiresText) { %>        <dt><%= strings.payBefore %></dt>
-        <dd><%= order.expiresText %></dd>
-<% } %><% if (order.utr) { %>        <dt><%= strings.utrSentLabel %></dt>
-        <dd><%= order.utr %></dd>
-<% } %>      </dl>
-    </section>
-<% if (payment) { %>    <section aria-labelledby="pay-heading">
-      <h2 id="pay-heading"><%= strings.paymentHeading %></h2>
-      <div class="pay-block">
-        <div class="pay-qr">
-          <h3><%= strings.scanToPay %></h3>
-          <svg role="img" aria-labelledby="qr-title qr-desc" viewBox="0 0 <%= payment.qr.size %> <%= payment.qr.size %>" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">
-            <title id="qr-title"><%= strings.scanToPay %></title>
-            <desc id="qr-desc"><%= payment.qrDescription %></desc>
-            <path d="<%= payment.qr.path %>"></path>
-          </svg>
-        </div>
-        <p class="pay-button"><a class="button" href="<%= payment.upiUri %>"><%= strings.payWithUpi %></a></p>
-        <div class="pay-details">
-          <p><%= payment.instructions %></p>
-          <p class="upi-id"><span><%= strings.upiIdLabel %>:</span> <code><%= payment.vpa %></code>
-            <button type="button" class="button button-secondary" data-copy-upi="<%= payment.vpa %>" data-copied="<%= strings.upiIdCopied %>" hidden><%= strings.copyUpiId %></button></p>
-          <p class="share-status" role="status" aria-live="polite" data-copy-status></p>
-        </div>
-      </div>
-    </section>
-<% } %><% if (order.canSubmitUtr) { %>    <section aria-labelledby="utr-heading">
-      <h2 id="utr-heading"><%= strings.utrHeading %></h2>
-      <form method="post" action="<%= paths.utr %>" class="form-stack">
-        <div class="field">
-          <label for="utr"><%= strings.utrLabel %></label>
-          <input type="text" id="utr" name="utr" inputmode="numeric" pattern="[0-9]{12}" minlength="12" maxlength="12" autocomplete="off" required aria-describedby="utr-hint utr-note"<% if (locals.formError) { %> aria-invalid="true"<% } %>>
-          <p id="utr-hint" class="hint"><%= strings.utrHint %></p>
-          <p id="utr-note" class="hint"><strong><%= strings.utrNotVerified %></strong> <%= order.attemptsText %></p>
-        </div>
-        <p><button type="submit" class="button"><%= strings.submitUtr %></button></p>
-      </form>
-    </section>
-<% } else if (order.status === 'payment_submitted') { %>    <p class="hint"><%= strings.utrNotVerified %></p>
-<% } %><% if (whatsappUrl) { %>    <p><a class="button button-secondary" href="<%= whatsappUrl %>" rel="noopener noreferrer"><%= strings.notifyWhatsApp %></a></p>
-<% } %><% if (order.canCancel) { %>    <section aria-labelledby="cancel-heading">
-      <h2 id="cancel-heading"><%= strings.cancelHeading %></h2>
-      <p><%= strings.cancelNote %></p>
-      <form method="post" action="<%= paths.cancel %>"><button type="submit" class="button button-secondary"><%= strings.cancelOrder %></button></form>
-    </section>
-<% } %>    <p class="hint"><%= strings.keepLinkNote %></p>
+<% } %>    <div class="order-layout">
+      <div class="order-main">
+        <section class="card status-box status-<%= order.status %>" aria-labelledby="status-heading">
+          <h2 id="status-heading"><%= strings.statusLabel %></h2>
+          <p class="status-text"><strong><%= order.statusLabel %></strong></p>
+          <p><%= order.help %></p>
+<% if (order.expired) { %>          <p class="callout"><%= strings.reservationReleased %></p>
+<% } %><% if (order.countdown) { %>          <div class="countdown" data-countdown data-seconds-left="<%= order.countdown.secondsLeft %>" data-status-url="<%= paths.status %>" data-expired-text="<%= strings.countdownExpired %>" data-checking-text="<%= strings.countdownChecking %>" data-minute-text="<%= strings.countdownMinuteLeft %>">
+            <span class="countdown-label"><%= strings.timeLeftLabel %></span>
+            <span class="countdown-time" data-countdown-time><%= String(Math.floor(order.countdown.secondsLeft / 60)).padStart(2, '0') %>:<%= String(order.countdown.secondsLeft % 60).padStart(2, '0') %></span>
+            <span class="visually-hidden" role="status" aria-live="polite" data-countdown-live></span>
+          </div>
+          <p class="hint"><%= order.reservationNote %></p>
+          <p class="hint"><%= strings.payBefore %>: <%= order.expiresText %></p>
+<% } %>        </section>
+<% if (payment) { %>        <section class="card" aria-labelledby="pay-heading">
+          <h2 id="pay-heading"><%= strings.paymentHeading %></h2>
+          <div class="pay-block">
+            <div class="pay-qr">
+              <h3><%= strings.scanToPay %></h3>
+              <svg role="img" aria-labelledby="qr-title qr-desc" viewBox="0 0 <%= payment.qr.size %> <%= payment.qr.size %>" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">
+                <title id="qr-title"><%= strings.scanToPay %></title>
+                <desc id="qr-desc"><%= payment.qrDescription %></desc>
+                <path d="<%= payment.qr.path %>"></path>
+              </svg>
+            </div>
+            <p class="pay-button"><a class="button button-large" href="<%= payment.upiUri %>"><%= strings.payWithUpi %></a></p>
+            <div class="pay-details">
+              <p><%= payment.instructions %></p>
+              <p class="upi-id"><span><%= strings.upiIdLabel %>:</span> <code><%= payment.vpa %></code>
+                <button type="button" class="button button-secondary" data-copy-upi="<%= payment.vpa %>" data-copied="<%= strings.upiIdCopied %>" hidden><%= strings.copyUpiId %></button></p>
+              <p class="share-status" role="status" aria-live="polite" data-copy-status></p>
+            </div>
+          </div>
+        </section>
+<% } %><% if (order.canSubmitUtr) { %>        <section class="card" aria-labelledby="utr-heading">
+          <h2 id="utr-heading"><%= strings.utrHeading %></h2>
+          <form method="post" action="<%= paths.utr %>" class="utr-form">
+            <div class="field">
+              <label for="utr"><%= strings.utrLabel %></label>
+              <input type="text" id="utr" name="utr" inputmode="numeric" pattern="[0-9]{12}" minlength="12" maxlength="12" autocomplete="off" required aria-describedby="utr-hint utr-note"<% if (locals.formError) { %> aria-invalid="true"<% } %>>
+              <p id="utr-hint" class="hint"><%= strings.utrHint %></p>
+              <p id="utr-note" class="hint"><strong><%= strings.utrNotVerified %></strong> <%= order.attemptsText %></p>
+            </div>
+            <p><button type="submit" class="button"><%= strings.submitUtr %></button></p>
+          </form>
+        </section>
+<% } else if (order.status === 'payment_submitted') { %>        <p class="hint"><%= strings.utrNotVerified %></p>
+<% } %>      </div>
+      <aside class="order-side">
+        <section class="card" aria-labelledby="summary-heading">
+          <h2 id="summary-heading"><%= strings.orderSummary %></h2>
+          <ul class="plain summary-lines">
+<% order.items.forEach((item) => { %>            <li>
+              <span class="summary-product" lang="<%= item.titleLang %>"><%= item.title %></span>
+              <span class="summary-sub"><%= strings.quantityLabel %>: <%= item.quantity %> &times; <%= item.unitPrice %></span>
+              <span class="summary-amount"><%= item.lineTotal %></span>
+            </li>
+<% }) %>          </ul>
+          <p class="summary-total"><span><%= strings.orderTotalLabel %></span> <strong><%= order.total %></strong></p>
+<% if (order.utr) { %>          <p class="summary-utr"><span class="summary-label"><%= strings.utrSentLabel %></span> <code><%= order.utr %></code></p>
+<% } %>        </section>
+<% if (whatsappUrl) { %>        <p><a class="button button-secondary button-block" href="<%= whatsappUrl %>" rel="noopener noreferrer"><%= strings.notifyWhatsApp %></a></p>
+<% } %><% if (order.canCancel) { %>        <section class="card" aria-labelledby="cancel-heading">
+          <h2 id="cancel-heading"><%= strings.cancelHeading %></h2>
+          <p><%= strings.cancelNote %></p>
+          <form method="post" action="<%= paths.cancel %>"><button type="submit" class="button button-secondary"><%= strings.cancelOrder %></button></form>
+        </section>
+<% } %>        <p class="hint"><%= strings.keepLinkNote %></p>
+      </aside>
+    </div>
 <%- include('layout-end') %>

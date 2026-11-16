@@ -26,4 +26,4 @@
 <% if (['product', 'checkout', 'order'].includes(locals.kind)) { %>    <p class="brand"><a href="<%= shopHref %>" lang="<%= shop.lang %>"><%= shop.name %></a></p>
 <% } %><% if (locals.languageLinks) { %><%- include('partials/lang-switcher') %>
 <% } %>  </header>
-  <main id="main" tabindex="-1">
+  <main id="main" tabindex="-1"<% if (['checkout', 'order'].includes(locals.kind)) { %> class="main-wide"<% } %>>

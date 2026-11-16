@@ -193,10 +193,25 @@ p.badge { margin-left: 0; }
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
 
-/* Ordering (Module 4a): checkout form, private order page, UPI payment block. Colours are palette tokens only. */
-.form-stack { display: grid; gap: 1rem; max-width: 32rem; }
-.field { display: flex; flex-direction: column; align-items: flex-start; gap: 0.35rem; }
+/* Ordering (Module 4a): checkout, private order page and UPI payment block. Colours are palette tokens only; tints are
+   mixed from tokens with color-mix, so every text colour is still a palette pair covered by the contrast tests.
+   Layout: one column on phones, two columns (form or payment beside the order summary) from 56rem. */
+.main-wide { max-width: 68rem; padding: 1rem 1rem 2rem; }
+.main-wide + .site-footer, body:has(.main-wide) .site-footer, body:has(.main-wide) .site-header { max-width: 68rem; }
+.crumb { margin: 0.25rem 0 0; }
+.crumb a { display: inline-block; min-height: 2.75rem; line-height: 2.75rem; }
+.lead { margin: 0 0 1rem; color: var(--muted); max-width: 46rem; }
+.callout { margin: 0.75rem 0 0; padding: 0.75rem 1rem; border-left: 0.35rem solid var(--accent); border-radius: 0.25rem; background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.card { padding: 1rem; border: 1px solid color-mix(in srgb, var(--text) 18%, var(--surface)); border-radius: 0.75rem; background: var(--surface); box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 10%, transparent); overflow: visible; }
+.card h2 { margin: 0 0 0.75rem; font-size: 1.15rem; }
+.card h3 { margin: 0 0 0.5rem; font-size: 1rem; }
+.button-large { min-height: 3rem; padding: 0.7rem 1.5rem; font-size: 1.05rem; }
+.button-block { display: block; width: 100%; }
+
+/* Forms. Labels above fields; every control is as wide as its column. */
+.field { display: flex; flex-direction: column; align-items: stretch; gap: 0.35rem; }
 .field label { font-weight: 600; }
+.optional { font-weight: 400; color: var(--muted); }
 /* One rule for every text-like control (text, email, tel, number, url, ...). Checkbox, radio, file and buttons are excluded. */
 input:not([type="checkbox"], [type="radio"], [type="file"], [type="submit"], [type="button"], [type="reset"], [type="image"], [type="hidden"], [type="range"], [type="color"]), select, textarea {
   box-sizing: border-box;
@@ -205,32 +220,88 @@ input:not([type="checkbox"], [type="radio"], [type="file"], [type="submit"], [ty
   min-height: 44px;
   padding: 0.65rem 0.75rem;
   border: 2px solid var(--muted);
-  border-radius: 0.4rem;
+  border-radius: 0.5rem;
   background: var(--surface);
   color: var(--text);
   font: inherit;
 }
-.field textarea { min-height: 6rem; }
+.field textarea { min-height: 7.5rem; resize: vertical; }
+.checkout input, .checkout textarea, .order-layout input { max-width: none; }
 .field input:focus-visible, .field select:focus-visible, .field textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
-.hint { color: var(--muted); margin: 0; }
+.field [aria-invalid="true"] { border-color: var(--accent); border-width: 3px; }
+.hint { color: var(--muted); margin: 0; font-size: 0.95rem; }
 .field-error { margin: 0; font-weight: 700; color: var(--text); border-left: 0.35rem solid var(--accent); padding-left: 0.5rem; }
-.error-summary { border: 2px solid var(--accent); border-radius: 0.4rem; padding: 0.75rem 1rem; max-width: 32rem; }
+.error-summary { border: 2px solid var(--accent); border-radius: 0.5rem; padding: 0.75rem 1rem; margin: 0 0 1rem; background: var(--surface); }
 .error-summary h2 { margin-top: 0; font-size: 1.1rem; }
-.status-box { border: 2px solid var(--accent); border-radius: 0.4rem; padding: 0.75rem 1rem; max-width: 42rem; background: var(--surface); }
+.error-summary ul { margin: 0; padding-left: 1.25rem; }
+
+/* Checkout. The summary comes first in the DOM (what you are buying), and sits beside the form on wide screens. */
+.checkout { display: grid; gap: 1rem; }
+.checkout-form { display: grid; gap: 1rem; align-content: start; min-width: 0; }
+.field-grid { display: grid; gap: 1rem; }
+.summary-product { margin: 0 0 0.25rem; font-size: 1.15rem; font-weight: 700; }
+.summary-price { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin: 0 0 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid color-mix(in srgb, var(--text) 18%, var(--surface)); }
+.summary-price strong { color: var(--accent); font-size: 1.4rem; }
+.summary-label { color: var(--muted); }
+.quantity-row { display: flex; align-items: center; gap: 0.75rem; }
+.quantity-row input { width: 6rem; flex: none; text-align: center; }
+.stock-pill { display: inline-block; padding: 0.15rem 0.7rem; border: 2px solid var(--accent); border-radius: 1rem; font-weight: 600; color: var(--text); }
+.form-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.5rem; }
+.form-actions .button { flex: 1 1 14rem; }
+
+/* Order page. */
+.order-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 0.25rem 1.5rem; }
+.order-ref-line { margin: 0; }
+.order-ref { font-size: 1.35rem; letter-spacing: 0.02em; }
+.order-layout { display: grid; gap: 1rem; margin-top: 0.75rem; }
+.order-main, .order-side { display: grid; gap: 1rem; align-content: start; min-width: 0; }
+.status-box { border-left: 0.5rem solid var(--accent); }
 .status-box p { margin: 0.25rem 0 0; }
-.order-summary { display: grid; gap: 0.25rem 1rem; max-width: 42rem; }
-.order-summary dt { font-weight: 700; margin-top: 0.5rem; }
-.order-summary dd { margin: 0; overflow-wrap: anywhere; }
-.pay-block { display: grid; gap: 1rem; max-width: 42rem; margin: 1rem 0; }
+.status-text { font-size: 1.2rem; }
+.status-cancelled { border-left-style: dashed; }
+.countdown { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1rem; margin-top: 0.75rem; padding: 0.75rem 1rem; border: 2px solid var(--accent); border-radius: 0.5rem; background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.countdown-label { font-weight: 600; }
+.countdown-time { font-size: 1.75rem; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--accent); }
+.summary-lines { display: grid; gap: 0.75rem; margin: 0; }
+.summary-lines li { display: grid; grid-template-columns: 1fr auto; gap: 0 1rem; }
+.summary-lines .summary-product { grid-column: 1; margin: 0; font-size: 1rem; }
+.summary-lines .summary-sub { grid-column: 1; color: var(--muted); font-size: 0.95rem; }
+.summary-lines .summary-amount { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-weight: 600; }
+.summary-total { display: flex; justify-content: space-between; align-items: baseline; margin: 1rem 0 0; padding-top: 0.75rem; border-top: 2px solid var(--text); font-size: 1.15rem; }
+.summary-total strong { color: var(--accent); font-size: 1.4rem; }
+.summary-utr { margin: 0.75rem 0 0; }
+.plain { list-style: none; padding: 0; margin: 0; }
+.utr-form { display: grid; gap: 1rem; }
+.utr-form p { margin: 0; }
+.pay-block { display: grid; gap: 1rem; margin: 0; }
 .pay-qr { order: 1; width: 100%; max-width: 15rem; }
 .pay-qr svg { width: 100%; height: auto; background: var(--surface); }
 .pay-qr path { fill: var(--text); }
-.pay-button { order: 2; }
+.pay-button { order: 2; margin: 0; }
 .pay-details { order: 3; }
+.pay-details p { margin: 0 0 0.5rem; }
 .upi-id { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
 .upi-id code { overflow-wrap: anywhere; font-size: 1.05rem; }
 .upi-id button[hidden] { display: none; }
 @media (pointer: coarse) {
   .pay-button { order: 1; }
   .pay-qr { order: 2; }
+}
+
+@media (min-width: 40em) {
+  .field-grid { grid-template-columns: 1fr 1fr; }
+  .field-wide { grid-column: 1 / -1; }
+  .card { padding: 1.5rem; }
+  .pay-block { grid-template-columns: 15rem 1fr; align-items: start; }
+  .pay-qr { grid-row: 1 / span 2; }
+}
+
+@media (min-width: 56em) {
+  .main-wide { padding: 1.5rem 2rem 3rem; }
+  body:has(.main-wide) .site-header, body:has(.main-wide) .site-footer { padding-inline: 2rem; }
+  .checkout { grid-template-columns: minmax(0, 1fr) 22rem; align-items: start; gap: 1.5rem; }
+  .checkout-side { grid-column: 2; grid-row: 1; position: sticky; top: 1rem; }
+  .checkout-form { grid-column: 1; grid-row: 1; }
+  .order-layout { grid-template-columns: minmax(0, 1fr) 22rem; gap: 1.5rem; }
+  .order-side { position: sticky; top: 1rem; }
 }

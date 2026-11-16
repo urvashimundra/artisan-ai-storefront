@@ -1,8 +1,11 @@
 <%- include('layout') %>
+    <p class="crumb"><a href="<%= checkout.productHref %>"><span aria-hidden="true">&larr;</span> <%= strings.backToShop %></a></p>
     <h1><%= strings.buyNow %></h1>
-    <p><strong lang="<%= checkout.title.lang %>"><%= checkout.title.text %></strong>: <%= checkout.price %></p>
-<% if (checkout.soldOut) { %>    <p class="badge"><%= strings.soldOut %></p>
-    <p><a href="<%= checkout.productHref %>"><%= strings.backToShop %></a></p>
+<% if (checkout.soldOut) { %>    <section class="card" aria-labelledby="sold-heading">
+      <h2 id="sold-heading" lang="<%= checkout.title.lang %>"><%= checkout.title.text %></h2>
+      <p class="badge"><%= strings.soldOut %></p>
+      <p><a class="button" href="<%= checkout.productHref %>"><%= strings.backToShop %></a></p>
+    </section>
 <% } else { %><% const errorFields = Object.keys(checkout.errors); %><% if (checkout.formError || errorFields.length > 0) { %>    <div class="error-summary" role="alert" id="errors">
       <h2><%= strings.errorsHeading %></h2>
 <% if (checkout.formError) { %>      <p><%= checkout.formError %></p>
@@ -10,36 +13,60 @@
 <% errorFields.forEach((field) => { %>        <li><a href="#<%= field %>"><%= checkout.errors[field] %></a></li>
 <% }) %>      </ul>
 <% } %>    </div>
-<% } %>    <p><%= strings.checkoutIntro %></p>
-    <form method="post" action="<%= checkout.action %>" class="form-stack">
-      <div class="field">
-        <label for="quantity"><%= strings.quantityLabel %></label>
-        <input type="number" id="quantity" name="quantity" min="1" max="<%= checkout.maxQuantity %>" step="1" inputmode="numeric" required value="<%= checkout.values.quantity || '1' %>" aria-describedby="quantity-hint<%= checkout.errors.quantity ? ' quantity-error' : '' %>"<% if (checkout.errors.quantity) { %> aria-invalid="true"<% } %>>
-        <p id="quantity-hint" class="hint"><%= (checkout.stockLimited ? strings.quantityOnlyAvailable : strings.quantityHint).replace('{max}', checkout.maxQuantity) %></p>
-<% if (checkout.errors.quantity) { %>        <p id="quantity-error" class="field-error"><%= checkout.errors.quantity %></p>
-<% } %>      </div>
-      <div class="field">
-        <label for="name"><%= strings.yourName %></label>
-        <input type="text" id="name" name="name" maxlength="80" autocomplete="name" autocapitalize="words" required value="<%= checkout.values.name || '' %>"<% if (checkout.errors.name) { %> aria-invalid="true" aria-describedby="name-error"<% } %>>
-<% if (checkout.errors.name) { %>        <p id="name-error" class="field-error"><%= checkout.errors.name %></p>
-<% } %>      </div>
-      <div class="field">
-        <label for="phone"><%= strings.yourPhone %></label>
-        <input type="tel" id="phone" name="phone" maxlength="30" inputmode="tel" autocomplete="tel" required value="<%= checkout.values.phone || '' %>" aria-describedby="phone-hint<%= checkout.errors.phone ? ' phone-error' : '' %>"<% if (checkout.errors.phone) { %> aria-invalid="true"<% } %>>
-        <p id="phone-hint" class="hint"><%= strings.phoneHint %></p>
-<% if (checkout.errors.phone) { %>        <p id="phone-error" class="field-error"><%= checkout.errors.phone %></p>
-<% } %>      </div>
-      <div class="field">
-        <label for="email"><%= strings.yourEmail %> <%= strings.optionalField %></label>
-        <input type="email" id="email" name="email" maxlength="254" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" value="<%= checkout.values.email || '' %>"<% if (checkout.errors.email) { %> aria-invalid="true" aria-describedby="email-error"<% } %>>
-<% if (checkout.errors.email) { %>        <p id="email-error" class="field-error"><%= checkout.errors.email %></p>
-<% } %>      </div>
-      <div class="field">
-        <label for="address"><%= strings.yourAddress %></label>
-        <textarea id="address" name="address" maxlength="300" rows="4" autocomplete="street-address" inputmode="text" required<% if (checkout.errors.address) { %> aria-invalid="true" aria-describedby="address-error"<% } %>><%= checkout.values.address || '' %></textarea>
-<% if (checkout.errors.address) { %>        <p id="address-error" class="field-error"><%= checkout.errors.address %></p>
-<% } %>      </div>
-      <p><button type="submit" class="button"><%= strings.continueToPayment %></button></p>
-    </form>
-    <p><a href="<%= checkout.productHref %>"><%= strings.backToShop %></a></p>
+<% } %>    <p class="lead"><%= strings.checkoutIntro %></p>
+    <div class="checkout">
+      <aside class="checkout-side" aria-labelledby="summary-heading">
+        <section class="card summary-card">
+          <h2 id="summary-heading"><%= strings.orderSummary %></h2>
+          <p class="summary-product" lang="<%= checkout.title.lang %>"><%= checkout.title.text %></p>
+          <p class="summary-price"><span class="summary-label"><%= strings.price %></span> <strong><%= checkout.price %></strong></p>
+          <div class="field">
+            <label for="quantity"><%= strings.quantityLabel %></label>
+            <div class="quantity-row">
+              <input type="number" id="quantity" name="quantity" form="checkout-form" min="1" max="<%= checkout.maxQuantity %>" step="1" inputmode="numeric" required value="<%= checkout.values.quantity || '1' %>" aria-describedby="quantity-hint<%= checkout.errors.quantity ? ' quantity-error' : '' %>"<% if (checkout.errors.quantity) { %> aria-invalid="true"<% } %>>
+<% if (checkout.stockText) { %>              <span class="stock-pill"><%= checkout.stockText %></span>
+<% } %>            </div>
+            <p id="quantity-hint" class="hint"><%= (checkout.stockLimited ? strings.quantityOnlyAvailable : strings.quantityHint).replace('{max}', checkout.maxQuantity) %></p>
+<% if (checkout.errors.quantity) { %>            <p id="quantity-error" class="field-error"><%= checkout.errors.quantity %></p>
+<% } %>          </div>
+          <p class="callout"><%= checkout.reservationNote %></p>
+        </section>
+      </aside>
+      <form method="post" action="<%= checkout.action %>" class="checkout-form" id="checkout-form">
+        <section class="card" aria-labelledby="details-heading">
+          <h2 id="details-heading"><%= strings.yourDetails %></h2>
+          <div class="field-grid">
+            <div class="field">
+              <label for="name"><%= strings.yourName %></label>
+              <input type="text" id="name" name="name" maxlength="80" autocomplete="name" autocapitalize="words" required value="<%= checkout.values.name || '' %>"<% if (checkout.errors.name) { %> aria-invalid="true" aria-describedby="name-error"<% } %>>
+<% if (checkout.errors.name) { %>              <p id="name-error" class="field-error"><%= checkout.errors.name %></p>
+<% } %>            </div>
+            <div class="field">
+              <label for="phone"><%= strings.yourPhone %></label>
+              <input type="tel" id="phone" name="phone" maxlength="30" inputmode="tel" autocomplete="tel" required value="<%= checkout.values.phone || '' %>" aria-describedby="phone-hint<%= checkout.errors.phone ? ' phone-error' : '' %>"<% if (checkout.errors.phone) { %> aria-invalid="true"<% } %>>
+              <p id="phone-hint" class="hint"><%= strings.phoneHint %></p>
+<% if (checkout.errors.phone) { %>              <p id="phone-error" class="field-error"><%= checkout.errors.phone %></p>
+<% } %>            </div>
+            <div class="field field-wide">
+              <label for="email"><%= strings.yourEmail %> <span class="optional"><%= strings.optionalField %></span></label>
+              <input type="email" id="email" name="email" maxlength="254" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" value="<%= checkout.values.email || '' %>"<% if (checkout.errors.email) { %> aria-invalid="true" aria-describedby="email-error"<% } %>>
+<% if (checkout.errors.email) { %>              <p id="email-error" class="field-error"><%= checkout.errors.email %></p>
+<% } %>            </div>
+          </div>
+        </section>
+        <section class="card" aria-labelledby="address-heading">
+          <h2 id="address-heading"><%= strings.yourAddress %></h2>
+          <div class="field">
+            <label for="address" class="visually-hidden"><%= strings.yourAddress %></label>
+            <textarea id="address" name="address" maxlength="300" rows="4" autocomplete="street-address" inputmode="text" required aria-describedby="address-hint<%= checkout.errors.address ? ' address-error' : '' %>"<% if (checkout.errors.address) { %> aria-invalid="true"<% } %>><%= checkout.values.address || '' %></textarea>
+            <p id="address-hint" class="hint"><%= strings.addressHint %></p>
+<% if (checkout.errors.address) { %>            <p id="address-error" class="field-error"><%= checkout.errors.address %></p>
+<% } %>          </div>
+        </section>
+        <div class="form-actions">
+          <button type="submit" class="button button-large"><%= strings.continueToPayment %></button>
+          <a href="<%= checkout.productHref %>"><%= strings.backToShop %></a>
+        </div>
+      </form>
+    </div>
 <% } %><%- include('layout-end') %>

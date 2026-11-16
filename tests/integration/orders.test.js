@@ -361,7 +361,7 @@ describe('UTR submission, cancellation and the state machine', () => {
       const token = await app.place();
       assert.equal(app.product.stock, 0);
       assert.equal((await app.buy()).status, 409);
-      app.orderClock.now += 61 * 60_000;
+      app.orderClock.now += 11 * 60_000;
       const page = await app.status(token);
       assert.ok(page.text.includes(EN.cancelledExpired));
       assert.equal(app.product.stock, 2);
@@ -636,6 +636,164 @@ describe('checkout form and stock display', () => {
       assert.equal(page.headers.get('cache-control'), 'no-cache');
       app.product.stock = 0;
       assert.ok((await app.request(`/s/${app.shop.slug}/p/${app.product.id}`)).text.includes(EN.soldOut));
+    } finally {
+      await app.close();
+    }
+  });
+});
+describe('10 minute reservation', () => {
+  const MINUTE = 60_000;
+
+  it('gives a new order a deadline exactly 10 minutes after creation and shows the server countdown, also after a refresh', async () => {
+    const app = await setup();
+    try {
+      const token = await app.place();
+      const [order] = app.orderRepo.orders;
+      assert.equal(Date.parse(order.expiresAt) - Date.parse(order.createdAt), 10 * MINUTE);
+      assert.match((await app.status(token)).text, /data-seconds-left="600"/);
+      app.orderClock.now += 3 * MINUTE;
+      const refreshed = await app.status(token);
+      assert.match(refreshed.text, /data-seconds-left="420"/);
+      assert.ok(refreshed.text.includes('07:00'));
+      assert.ok(refreshed.text.includes(EN.timeLeftLabel));
+      assert.ok(refreshed.text.includes('/js/countdown.js'));
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('a UTR before the deadline stops the countdown and keeps the stock reserved without a second decrement', async () => {
+    const app = await setup();
+    try {
+      const token = await app.place();
+      assert.equal(app.product.stock, 3);
+      app.orderClock.now += 9 * MINUTE;
+      assert.equal((await app.postTo(token, 'utr', { utr: UTR1 })).status, 303);
+      app.orderClock.now += 3 * 60 * MINUTE;
+      const page = await app.status(token);
+      assert.equal(page.text.includes('data-countdown'), false);
+      assert.ok(page.text.includes(EN.statusPaymentSubmitted));
+      assert.ok(page.text.includes(EN.reservationHeld));
+      await app.owner('/orders');
+      assert.equal(app.orderRepo.orders[0].status, 'payment_submitted');
+      assert.equal(app.product.stock, 3);
+      await app.ownerPost(token, 'paid');
+      assert.equal(app.product.stock, 3);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects a UTR after the deadline, explains the release, restores the stock once and hides the UTR form', async () => {
+    const app = await setup();
+    try {
+      const token = await app.place();
+      app.orderClock.now += 10 * MINUTE;
+      const late = await app.postTo(token, 'utr', { utr: UTR1 });
+      assert.equal(late.status, 409);
+      assert.ok(late.text.includes(EN.errOrderExpired));
+      assert.equal(app.product.stock, 5);
+      const page = await app.status(token);
+      assert.ok(page.text.includes(EN.reservationReleased));
+      assert.equal(page.text.includes('name="utr"'), false);
+      assert.equal(page.text.includes('data-countdown'), false);
+      assert.equal(app.product.stock, 5);
+      assert.equal(app.orderRepo.orders[0].attempts.length, 0);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('does not accept a late UTR or offer the form even when the sweep has not run (the deadline, not the sweep, decides)', async () => {
+    const app = await setup();
+    try {
+      const token = await app.place();
+      app.orderClock.now += 11 * MINUTE;
+      app.orderRepo.expireOverdue = async () => 0;
+      const page = await app.status(token);
+      assert.ok(page.text.includes(EN.reservationReleased));
+      assert.equal(page.text.includes('name="utr"'), false);
+      assert.equal(page.text.includes('upi://'), false);
+      assert.equal((await app.postTo(token, 'utr', { utr: UTR1 })).status, 409);
+      assert.equal(app.orderRepo.orders[0].attempts.length, 0);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('shows the released reservation in Gujarati and Hindi', async () => {
+    const app = await setup();
+    try {
+      const token = await app.place();
+      app.orderClock.now += 11 * MINUTE;
+      for (const lang of ['gu', 'hi']) {
+        const res = await app.request(`/o/${token}?lang=${lang}`);
+        assert.ok(res.text.includes(PUBLIC_STRINGS[lang].reservationReleased), lang);
+      }
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('releases an abandoned last unit so the checkout page is not shown as sold out', async () => {
+    const app = await setup();
+    try {
+      app.product.stock = 1;
+      await app.place({ ...FORM, quantity: '1' });
+      assert.equal(app.product.stock, 0);
+      app.orderClock.now += 10 * MINUTE;
+      const checkout = await app.request(app.buyPath());
+      assert.equal(checkout.status, 200);
+      assert.equal(checkout.text.includes(EN.soldOut), false);
+      assert.equal(app.product.stock, 1);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('keeps the longer window for a payment marked not received', async () => {
+    const app = await setup();
+    try {
+      const token = await app.place();
+      await app.postTo(token, 'utr', { utr: UTR1 });
+      await app.ownerPost(token, 'not-received');
+      const [order] = app.orderRepo.orders;
+      assert.equal(Date.parse(order.expiresAt) - app.orderClock.now, 60 * MINUTE);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('shows the quantity beside the available stock on checkout and mentions the 10 minute hold', async () => {
+    const app = await setup();
+    try {
+      const page = await app.request(app.buyPath());
+      assert.ok(page.text.includes('Available: 5'));
+      assert.ok(page.text.includes('10 minutes'));
+      assert.match(page.text, /name="quantity" form="checkout-form"/);
+      assert.match(page.text, /id="checkout-form"/);
+    } finally {
+      await app.close();
+    }
+  });
+});
+
+describe('owner orders table', () => {
+  it('lists reference, customer, formatted phone, date, items, total, status and a View order action', async () => {
+    const app = await setup();
+    try {
+      const token = await app.place();
+      const page = await app.owner('/orders');
+      for (const header of ['Reference', 'Customer', 'Phone', 'Date and time', 'Items', 'Total', 'Status']) assert.ok(page.text.includes(`>${header}</th>`), header);
+      assert.ok(page.text.includes('+91 98765 43210'));
+      assert.ok(page.text.includes('Clay diya'));
+      assert.ok(page.text.includes('₹500.00'));
+      assert.ok(page.text.includes(`href="/orders/${app.orderIdOf(token)}"`));
+      assert.ok(page.text.includes('View order'));
+      assert.ok(page.text.includes('/js/order-search.js'));
+      const detail = await app.owner(`/orders/${app.orderIdOf(token)}`);
+      for (const section of ['Customer', 'Items', 'Payment', 'Actions']) assert.ok(detail.text.includes(`>${section}</h2>`), section);
+      assert.ok(detail.text.includes('data-confirm="Cancel this order?'));
     } finally {
       await app.close();
     }

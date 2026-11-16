@@ -3,15 +3,27 @@
       <h1>Orders</h1>
       <p class="page-count" id="order-count"><%= rows.length %> <%= rows.length === 1 ? 'order' : 'orders' %><%= filter ? ' with this status' : ' in total' %></p>
     </div>
-    <form method="get" action="/orders" class="filter-form" aria-label="Filter orders">
+    <% if (summary) { %>
+    <ul class="status-summary" aria-label="Orders by status">
+      <% summary.forEach((item) => { %><li><a class="summary-chip" href="/orders?status=<%= item.value %>"><span class="summary-count"><%= item.count %></span> <span class="status-badge status-<%= item.value %>"><%= item.label %></span></a></li><% }) %>
+    </ul>
+    <% } %>
+    <form method="get" action="/orders" class="toolbar" aria-label="Search and filter orders">
+      <div class="field toolbar-search" data-order-search hidden>
+        <label for="order-search">Search this page</label>
+        <input type="search" id="order-search" autocomplete="off" placeholder="Reference, customer, phone or product" aria-controls="order-results">
+      </div>
       <div class="field">
-        <label for="status">Show</label>
+        <label for="status">Status</label>
         <select id="status" name="status">
           <option value="">All orders</option>
           <% statuses.forEach((status) => { %><option value="<%= status.value %>"<%= status.selected ? ' selected' : '' %>><%= status.label %></option><% }) %>
         </select>
       </div>
-      <button type="submit" class="button">Filter</button>
+      <div class="toolbar-actions">
+        <button type="submit" class="button">Filter</button>
+        <% if (filter) { %><a class="button button-secondary" href="/orders">Reset</a><% } %>
+      </div>
     </form>
     <% if (rows.length === 0) { %>
     <div class="empty-state">
@@ -20,23 +32,53 @@
       <p><% if (filter) { %><a class="button" href="/orders">Show all orders</a><% } else { %><a class="button" href="/dashboard">Back to dashboard</a><% } %></p>
     </div>
     <% } else { %>
-    <table class="order-table" aria-describedby="order-count">
-      <caption class="visually-hidden">Orders, newest first</caption>
-      <thead>
-        <tr><th scope="col">Reference</th><th scope="col">Customer</th><th scope="col">Date</th><th scope="col">Total</th><th scope="col">Status</th></tr>
-      </thead>
-      <tbody>
+    <div id="order-results">
+      <div class="table-wrap order-table-wrap">
+        <table class="data-table order-table" aria-describedby="order-count">
+          <caption class="visually-hidden">Orders, newest first</caption>
+          <thead>
+            <tr>
+              <th scope="col">Reference</th><th scope="col">Customer</th><th scope="col">Phone</th><th scope="col">Date and time</th>
+              <th scope="col">Items</th><th scope="col" class="num">Total</th><th scope="col">Status</th><th scope="col"><span class="visually-hidden">Action</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <% rows.forEach((row) => { %>
+            <tr data-order-row data-search="<%= [row.reference, row.customerName, row.phone, row.items.first].join(' ').toLowerCase() %>">
+              <th scope="row" class="order-ref"><a href="/orders/<%= row.id %>"><%= row.reference %><span class="visually-hidden">, view order</span></a></th>
+              <td class="cell-name"><span class="clamp" title="<%= row.customerName %>"><%= row.customerName %></span></td>
+              <td class="cell-nowrap"><%= row.phone %></td>
+              <td class="cell-nowrap"><%= row.createdAt %></td>
+              <td class="cell-items"><span class="clamp" title="<%= row.items.first %>"><%= row.items.first %></span><span class="item-qty">&times; <%= row.items.quantity %></span><% if (row.items.more > 0) { %><span class="item-more">+<%= row.items.more %> more</span><% } %></td>
+              <td class="num order-total"><%= row.total %></td>
+              <td><span class="status-badge status-<%= row.status %>"><%= row.statusLabel %></span></td>
+              <td class="cell-action"><a class="button button-small button-secondary" href="/orders/<%= row.id %>">View order<span class="visually-hidden"> <%= row.reference %></span></a></td>
+            </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+      <ul class="order-cards plain" aria-label="Orders, newest first">
         <% rows.forEach((row) => { %>
-        <tr>
-          <th scope="row" class="order-ref"><a href="/orders/<%= row.id %>"><%= row.reference %><span class="visually-hidden">, view order</span></a></th>
-          <td data-label="Customer"><%= row.customerName %></td>
-          <td data-label="Date"><%= row.createdAt %></td>
-          <td data-label="Total" class="order-total"><%= row.total %></td>
-          <td data-label="Status"><span class="status-badge status-<%= row.status %>"><%= row.statusLabel %></span></td>
-        </tr>
+        <li class="order-card" data-order-row data-search="<%= [row.reference, row.customerName, row.phone, row.items.first].join(' ').toLowerCase() %>">
+          <div class="order-card-top">
+            <a class="order-ref" href="/orders/<%= row.id %>"><%= row.reference %></a>
+            <span class="status-badge status-<%= row.status %>"><%= row.statusLabel %></span>
+          </div>
+          <p class="order-card-name"><%= row.customerName %></p>
+          <dl class="order-card-meta">
+            <div><dt>Date</dt><dd><%= row.createdAt %></dd></div>
+            <div><dt>Total</dt><dd class="order-total"><%= row.total %></dd></div>
+            <div><dt>Phone</dt><dd><%= row.phone %></dd></div>
+            <div><dt>Items</dt><dd><span class="item-title"><%= row.items.first %></span> &times; <%= row.items.quantity %><% if (row.items.more > 0) { %> +<%= row.items.more %> more<% } %></dd></div>
+          </dl>
+          <a class="button button-secondary order-card-action" href="/orders/<%= row.id %>">View order<span class="visually-hidden"> <%= row.reference %></span></a>
+        </li>
         <% }) %>
-      </tbody>
-    </table>
+      </ul>
+      <p class="empty-state search-empty" id="order-search-empty" role="status" hidden>No order on this page matches your search.</p>
+    </div>
+    <script src="/js/order-search.js" defer></script>
     <% } %>
     <p><a href="/dashboard">Back to dashboard</a></p>
 <%- include('partials/footer') %>
