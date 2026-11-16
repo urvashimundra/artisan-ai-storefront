@@ -1,0 +1,12 @@
+<% const showWhatsapp = locals.kind === 'shop' && whatsappUrl; %>
+<% if (showWhatsapp || instagramUrl || locals.kind === 'shop') { %>
+    <section class="contact" aria-labelledby="contact-heading">
+      <h2 id="contact-heading"><%= strings.contactHeading %></h2>
+      <div class="actions">
+<% if (showWhatsapp) { %>        <a class="button" href="<%= whatsappUrl %>" rel="noopener noreferrer"><%= strings.askOnWhatsApp %></a>
+<% } %><% if (instagramUrl) { %>        <a class="button button-secondary" href="<%= instagramUrl %>" rel="noopener noreferrer"><%= strings.instagram %></a>
+<% } %><% if (locals.kind === 'shop') { %>        <button type="button" class="button button-secondary" data-share data-share-title="<%= shop.name %>" data-copied="<%= strings.linkCopied %>" hidden><%= strings.share %></button>
+<% } %>      </div>
+<% if (locals.kind === 'shop') { %>      <p class="share-status" role="status" aria-live="polite" data-share-status></p>
+<% } %>    </section>
+<% } %>

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="<%= language %>">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title><%= meta.title %></title>
+<% if (meta.description) { %>  <meta name="description" content="<%= meta.description %>">
+<% } %><% if (meta.robots) { %>  <meta name="robots" content="<%= meta.robots %>">
+<% } %><% if (meta.canonical) { %>  <link rel="canonical" href="<%= meta.canonical %>">
+  <meta property="og:title" content="<%= meta.title %>">
+  <meta property="og:description" content="<%= meta.description %>">
+  <meta property="og:url" content="<%= meta.ogUrl %>">
+  <meta property="og:type" content="<%= meta.ogType %>">
+  <meta property="og:locale" content="<%= meta.ogLocale %>">
+  <meta property="og:site_name" content="<%= meta.ogSiteName %>">
+<% if (meta.ogImage) { %>  <meta property="og:image" content="<%= meta.ogImage %>">
+  <meta name="twitter:image" content="<%= meta.ogImage %>">
+<% } %>  <meta name="twitter:card" content="<%= meta.twitterCard %>">
+  <meta name="twitter:title" content="<%= meta.title %>">
+  <meta name="twitter:description" content="<%= meta.description %>">
+<% } %>  <link rel="stylesheet" href="/css/public.css">
+</head>
+<body class="<%= themeClass %>">
+  <a class="skip-link" href="#main"><%= strings.skipToContent %></a>
+  <header class="site-header">
+<% if (locals.kind === 'product') { %>    <p class="brand"><a href="<%= shopHref %>" lang="<%= shop.lang %>"><%= shop.name %></a></p>
+<% } %><% if (locals.languageLinks) { %><%- include('partials/lang-switcher') %>
+<% } %>  </header>
+  <main id="main" tabindex="-1">

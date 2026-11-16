@@ -1,0 +1,31 @@
+<%- include('layout') %>
+    <section class="hero" aria-labelledby="shop-title">
+      <h1 id="shop-title" lang="<%= shop.lang %>"><%= shop.name %></h1>
+<% if (shop.tagline) { %>      <p class="tagline" lang="<%= shop.lang %>"><%= shop.tagline %></p>
+<% } %>    </section>
+<%- include('partials/contact-block') %>
+<% if (products.length === 0) { %>
+    <section aria-labelledby="soon-heading">
+      <h2 id="soon-heading"><%= strings.comingSoonTitle %></h2>
+      <p><%= strings.comingSoonBody %></p>
+    </section>
+<% } else { %>
+    <section aria-labelledby="products-heading">
+      <h2 id="products-heading"><%= strings.products %></h2>
+      <ul class="grid">
+<% products.forEach((item) => { %>        <li class="card">
+          <a class="card-link" href="<%= item.href %>">
+            <img src="<%= item.imageSrc %>" alt="<%= item.alt.text %>" lang="<%= item.alt.lang %>" width="600" height="600" loading="<%= item.eager ? 'eager' : 'lazy' %>" decoding="async">
+            <span class="card-title" lang="<%= item.title.lang %>"><%= item.title.text %></span>
+<% if (item.price) { %>            <span class="price"><span class="visually-hidden"><%= strings.price %>: </span><%= item.price %></span>
+<% } %><% if (item.soldOut) { %>            <span class="badge"><%= strings.soldOut %></span>
+<% } %>          </a>
+        </li>
+<% }) %>      </ul>
+    </section>
+<% } %>
+    <section class="story" aria-labelledby="story-heading">
+      <h2 id="story-heading"><%= strings.ourStory %></h2>
+      <p class="prose" lang="<%= shop.lang %>"><%= shop.story %></p>
+    </section>
+<%- include('layout-end') %>
