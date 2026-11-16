@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { MAX_UTR_SUBMISSIONS, ORDER_EXPIRY_MINUTES, STATUS, canTransition } from '../../src/domain/orderRules.js';
+import { MAX_UTR_SUBMISSIONS, ORDER_EXPIRY_MINUTES, ORDER_RESUBMIT_MINUTES, STATUS, canTransition } from '../../src/domain/orderRules.js';
 import { requireStoreId } from '../../src/repositories/requireStoreId.js';
 import { createOrderService } from '../../src/services/orderService.js';
 import { createLogCollector } from './productFakes.js';
@@ -23,7 +23,7 @@ export function createFakeOrderRepo({ publicRepo, ownsStore, clock }) {
   const inStore = (storeId) => orders.filter((order) => order.storeId === requireStoreId(storeId));
   const attemptsInStore = (storeId, utr) => orders.some((o) => o.storeId === storeId && o.attempts.some((a) => a.utr === utr));
   const productOf = (storeId, id) => publicRepo.products.find((p) => p.id === id && p.storeId === storeId);
-  const windowEnd = () => new Date(clock.now + ORDER_EXPIRY_MINUTES * MS_PER_MINUTE).toISOString();
+  const windowEnd = (minutes = ORDER_EXPIRY_MINUTES) => new Date(clock.now + minutes * MS_PER_MINUTE).toISOString();
   const isOverdue = (order) => order.expiresAt !== null && Date.parse(order.expiresAt) <= clock.now;
 
   function cancelLocked(order, reason) {
@@ -108,7 +108,7 @@ export function createFakeOrderRepo({ publicRepo, ownsStore, clock }) {
       if (!canTransition('owner', order.status, outcome)) return fail('invalid_transition');
       Object.assign(order, outcome === STATUS.PAID
         ? { status: STATUS.PAID, paidAt: new Date(clock.now).toISOString(), expiresAt: null }
-        : { status: STATUS.NOT_RECEIVED, expiresAt: windowEnd() });
+        : { status: STATUS.NOT_RECEIVED, expiresAt: windowEnd(ORDER_RESUBMIT_MINUTES) });
       return done();
     },
 
@@ -159,7 +159,7 @@ export async function startOrderApp({ config = {}, appOptions = {}, tokens = nul
   let app;
   const ownsStore = (storeId, ownerId) => app.storesRepo.rows.some((row) => row.id === storeId && row.ownerId === ownerId);
   const orderRepo = createFakeOrderRepo({ publicRepo: repo, ownsStore, clock });
-  const orders = createOrderService({ orders: orderRepo, shops: repo, logger: logs, ...(tokens ? { newToken: tokens } : {}) });
+  const orders = createOrderService({ orders: orderRepo, shops: repo, logger: logs, now: () => clock.now, ...(tokens ? { newToken: tokens } : {}) });
   app = await startPublicApp({ config, appOptions, repo, extraServices: { orders } });
   return { ...app, orderRepo, orders, orderClock: clock, orderLogs: logs };
 }

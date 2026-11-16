@@ -65,7 +65,7 @@ describe('dashboard actions', () => {
 describe('orders page styling', () => {
   it('shows status as a text badge and collapses the table to cards on narrow screens', () => {
     assert.match(read('src/views/orders.ejs'), /class="status-badge status-<%= row\.status %>"><%= row\.statusLabel %>/);
-    assert.match(appCss, /@media \(max-width: 47\.99rem\)[\s\S]*\.order-table td::before \{ content: attr\(data-label\)/);
+    assert.match(appCss, /@media \(max-width: 63\.99rem\)\s*\{\s*\.order-table-wrap \{ display: none; \}\s*\.order-cards \{ display: grid;/);
   });
 });
 

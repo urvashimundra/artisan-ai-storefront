@@ -4,7 +4,7 @@ import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { ORDER_CONSTRAINTS, ORDER_FUNCTIONS, ORDER_INDEXES } from '../../src/domain/dbConstraints.js';
 import {
-  MAX_ADDRESS_LENGTH, MAX_CUSTOMER_NAME_LENGTH, MAX_EMAIL_LENGTH, MAX_QUANTITY, MAX_UTR_SUBMISSIONS, MIN_QUANTITY, ORDER_EXPIRY_MINUTES, ORDER_STATUSES,
+  MAX_ADDRESS_LENGTH, MAX_CUSTOMER_NAME_LENGTH, MAX_EMAIL_LENGTH, MAX_QUANTITY, MAX_UTR_SUBMISSIONS, MIN_QUANTITY, ORDER_STATUSES,
   CANCEL_REASONS,
 } from '../../src/domain/orderRules.js';
 
@@ -31,7 +31,7 @@ describe('migration 008 text', () => {
     assert.match(code, new RegExp(`customer_name\\) BETWEEN 1 AND ${MAX_CUSTOMER_NAME_LENGTH}`));
     assert.match(code, new RegExp(`delivery_address\\) BETWEEN 1 AND ${MAX_ADDRESS_LENGTH}`));
     assert.match(code, new RegExp(`customer_email\\) <= ${MAX_EMAIL_LENGTH}`));
-    assert.match(code, new RegExp(`interval '${ORDER_EXPIRY_MINUTES / 60} hour'`));
+    assert.match(code, new RegExp(`interval '1 hour'`));
     for (const status of ORDER_STATUSES) assert.ok(code.includes(`'${status}'`), status);
     for (const reason of CANCEL_REASONS) assert.ok(code.includes(`'${reason}'`), reason);
   });

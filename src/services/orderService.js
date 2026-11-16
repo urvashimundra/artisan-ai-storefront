@@ -1,6 +1,7 @@
 import { LANGUAGE_NAMES, pickField, resolveLanguage } from '../domain/language.js';
 import {
-  ACTORS, ORDER_STATUSES, STATUS, MAX_QUANTITY, MAX_UTR_SUBMISSIONS, checkoutSchema, customerActions, ownerActions, priceOrder, utrSchema,
+  ACTORS, ORDER_EXPIRY_MINUTES, ORDER_STATUSES, STATUS, MAX_QUANTITY, MAX_UTR_SUBMISSIONS, checkoutSchema, customerActions, isPastDeadline, ownerActions, priceOrder,
+  secondsUntil, utrSchema,
 } from '../domain/orderRules.js';
 import { themeClass } from '../domain/palette.js';
 import { fillTemplate, stringsFor } from '../domain/publicStrings.js';
@@ -95,17 +96,37 @@ function paymentView(order, shop, strings) {
 }
 
 /**
+ * The deadline shown to the customer. Only an order still waiting for payment has one. The browser counts down from
+ * `secondsLeft` (computed from the server clock) and reloads the page at zero; the server alone decides what happens then.
+ */
+function countdownView(order, nowMs) {
+  const waiting = PAYABLE.has(order.status) && order.expiresAt;
+  return waiting ? { expiresAt: order.expiresAt, serverNow: new Date(nowMs).toISOString(), secondsLeft: secondsUntil(order.expiresAt, nowMs) } : null;
+}
+
+/** An order past its deadline is shown as expired even if the sweep has not recorded it yet. */
+const effectiveOrder = (order, nowMs) =>
+  isPastDeadline(order, nowMs) ? { ...order, status: STATUS.CANCELLED, cancelReason: 'expired', expiresAt: null } : order;
+
+function statusHelp(order, strings) {
+  if (order.status === STATUS.CANCELLED) return strings[CANCEL_STRING_KEYS[order.cancelReason]];
+  return strings[order.status === STATUS.PAYMENT_SUBMITTED ? 'reservationHeld' : HELP_STRING_KEYS[order.status]];
+}
+
+/**
  * Pure view model of the customer's private status page.
- * @param {{ order: object, language: string, statusPath: string }} input order comes from the repository (with `shop`).
+ * @param {{ order: object, language: string, statusPath: string, nowMs?: number }} input order comes from the repository
+ *   (with `shop`). nowMs is the server clock; an order past its deadline is rendered as expired whatever its stored status.
  * @returns {object}
  */
-export function buildStatusView({ order, language, statusPath }) {
+export function buildStatusView({ order: stored, language, statusPath, nowMs = Date.now() }) {
+  const order = effectiveOrder(stored, nowMs);
   const strings = stringsFor(language);
   const { shop } = order;
   const amount = amountText(order.totalPaise);
   const actions = customerActions(order.status);
-  const help = order.status === STATUS.CANCELLED ? strings[CANCEL_STRING_KEYS[order.cancelReason]] : strings[HELP_STRING_KEYS[order.status]];
   const message = fillTemplate(strings.orderWhatsappToSeller, { shop: shop.name, ref: order.reference, amount });
+  const expired = order.status === STATUS.CANCELLED && order.cancelReason === 'expired';
   return {
     kind: 'order',
     language,
@@ -119,16 +140,19 @@ export function buildStatusView({ order, language, statusPath }) {
       reference: order.reference,
       status: order.status,
       statusLabel: strings[STATUS_STRING_KEYS[order.status]],
-      help,
+      help: statusHelp(order, strings),
       total: amount,
       items: order.items.map(lineView),
       expiresText: PAYABLE.has(order.status) ? formatExpiry(order.expiresAt, language) : null,
+      countdown: countdownView(order, nowMs),
+      reservationNote: fillTemplate(strings.reservationNote, { minutes: String(ORDER_EXPIRY_MINUTES) }),
+      expired,
       attemptsText: fillTemplate(strings.attemptsLeft, { count: String(Math.max(0, MAX_UTR_SUBMISSIONS - order.utrSubmissions)) }),
       utr: order.utr,
       canSubmitUtr: actions.canSubmitUtr && order.utrSubmissions < MAX_UTR_SUBMISSIONS,
       canCancel: actions.canCancel,
     },
-    paths: { utr: `${statusPath}/utr`, cancel: `${statusPath}/cancel` },
+    paths: { status: statusPath, utr: `${statusPath}/utr`, cancel: `${statusPath}/cancel` },
     payment: paymentView(order, shop, strings),
     whatsappUrl: whatsappLinkFor(shop, message),
   };
@@ -152,15 +176,22 @@ export function buildOwnerWhatsappLink(order, shopName) {
  * client sends only the product id, quantity and contact details: store, price, title, payee and totals are resolved here.
  * @param {{ orders: ReturnType<import('../repositories/orderRepository.js').createOrderRepository>,
  *   shops: { findShopBySlug: Function, findPublished: Function }, logger: { info: Function, warn: Function },
- *   newToken?: () => string }} deps
+ *   newToken?: () => string, now?: () => number }} deps. `now` is the server clock (epoch ms), injectable for tests.
  */
-export function createOrderService({ orders, shops, logger, newToken = generateStatusToken }) {
+export function createOrderService({ orders, shops, logger, newToken = generateStatusToken, now = Date.now }) {
+  /** A product at stock 0 may only be held by overdue orders: release those first so it is not shown as sold out. */
+  async function findFreshProduct(storeId, productId) {
+    const product = await shops.findPublished(storeId, productId);
+    if (!product || product.stock !== 0 || (await orders.expireOverdue(storeId, [productId])) === 0) return product;
+    return shops.findPublished(storeId, productId);
+  }
+
   async function checkoutContext(slug, productId, prefs) {
     const parsed = normalizeSlug(slug);
     if (!parsed || !isProductId(productId)) return null;
     const shop = await shops.findShopBySlug(parsed.slug);
     if (!shop) return null;
-    const product = await shops.findPublished(shop.id, productId);
+    const product = await findFreshProduct(shop.id, productId);
     const payee = product ? await orders.findPayee(shop.id) : null;
     if (!product || !payee || !isValidVpa(payee.upiId)) return null;
     const { language } = resolveLanguage({ ...prefs, shopDefault: shop.defaultLanguage });
@@ -187,6 +218,8 @@ export function createOrderService({ orders, shops, logger, newToken = generateS
         soldOut: product.stock === 0,
         maxQuantity: product.stock === null ? MAX_QUANTITY : Math.min(MAX_QUANTITY, product.stock),
         stockLimited: product.stock !== null && product.stock < MAX_QUANTITY,
+        stockText: product.stock === null ? null : fillTemplate(strings.stockAvailable, { count: String(product.stock) }),
+        reservationNote: fillTemplate(strings.checkoutReservationNote, { minutes: String(ORDER_EXPIRY_MINUTES) }),
         productHref: withLang(path, language, shop.defaultLanguage),
         action: `${path}/buy?lang=${language}`,
         values,
@@ -265,13 +298,14 @@ export function createOrderService({ orders, shops, logger, newToken = generateS
       const loaded = await loadOrder(token);
       if (!loaded) return null;
       const { language } = resolveLanguage({ ...prefs, shopDefault: loaded.order.language });
-      return { language, view: buildStatusView({ order: loaded.order, language, statusPath: `/o/${token}` }) };
+      return { language, view: buildStatusView({ order: loaded.order, language, statusPath: `/o/${token}`, nowMs: now() }) };
     },
 
     /** Records the customer's UTR (12 digits). Throws ZodError, or AppError for state, limit and reuse problems. */
     async submitUtr(token, body) {
       const { order, tokenHash } = await requireOrder(token);
       const { utr } = utrSchema.parse(body ?? {});
+      if (order.status === STATUS.CANCELLED && order.cancelReason === 'expired') throw REASON_ERRORS.expired();
       ensureOk(await orders.submitPaymentReference(order.storeId, tokenHash, utr));
       logger.info('payment reference submitted', { storeId: order.storeId, orderId: order.id });
     },

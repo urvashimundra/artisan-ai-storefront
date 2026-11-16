@@ -98,7 +98,7 @@ BEGIN
   PERFORM pg_temp.check_that(pg_temp.stock_of(pa) = 3, 'stock reserved (5 - 2)');
   PERFORM pg_temp.check_that((SELECT total_paise = 50000 AND payee_vpa = 'smoke.shop@okbank' AND status = 'awaiting_payment'
     AND utr_submissions = 0 AND utr IS NULL AND stock_restored_at IS NULL FROM public.orders WHERE id = (r ->> 'order_id')::uuid), 'order snapshot fields');
-  PERFORM pg_temp.check_that((SELECT expires_at - now() = interval '1 hour' FROM public.orders WHERE id = (r ->> 'order_id')::uuid), 'expiry is now + 1 hour (database time)');
+  PERFORM pg_temp.check_that((SELECT expires_at - now() = public.order_expiry_interval() FROM public.orders WHERE id = (r ->> 'order_id')::uuid), 'expiry is now + the order window (database time)');
   PERFORM pg_temp.check_that((SELECT unit_price_paise = 25000 AND quantity = 2 AND line_total_paise = 50000 AND stock_reserved
     FROM public.order_items WHERE order_id = (r ->> 'order_id')::uuid), 'item snapshot');
   r := pg_temp.place(s1, 'u1', jsonb_build_array(pg_temp.item(pu, 3, 9900)), 29700);
