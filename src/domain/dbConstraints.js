@@ -39,3 +39,15 @@ export const PRODUCT_CONSTRAINTS = Object.freeze([
 ]);
 
 export const PRODUCT_INDEXES = Object.freeze(['products_store_id_created_at_idx', 'ai_drafts_store_id_created_at_idx']);
+
+/** Module 3 (migration 006) constraint and index names. Mirrored in db/migrations/006_storefront.sql. */
+export const STOREFRONT_CONSTRAINTS = Object.freeze({
+  tagline: 'stores_tagline_length_check',
+  accent: 'stores_accent_key_check',
+  whatsappNumber: 'stores_whatsapp_number_format_check',
+  whatsappEnabled: 'stores_whatsapp_enabled_requires_number_check',
+  instagram: 'stores_instagram_handle_format_check',
+  upi: 'stores_upi_id_format_check',
+});
+
+export const STOREFRONT_INDEXES = Object.freeze(['products_store_id_published_created_idx']);
