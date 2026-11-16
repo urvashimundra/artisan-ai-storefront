@@ -7,6 +7,7 @@ import {
   MAX_MAKER_EXCERPT_LENGTH,
   absoluteUrl,
   buildMeta,
+  buildSitemapXml,
   productImagePath,
   productPath,
   shopPath,
@@ -21,6 +22,16 @@ import { formatInr } from '../lib/money.js';
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CASE_INSENSITIVE_SLUG = new RegExp(SLUG_PATTERN.source, 'i');
 const EAGER_IMAGE_COUNT = 2;
+export const SITEMAP_MAX_URLS = 5000;
+export const SITEMAP_TTL_MS = 600_000;
+
+/** Plain module variable (no ttlCache): the memoised sitemap XML and when it expires. */
+let sitemapCache = null;
+
+/** Clears the memoised sitemap. For tests. */
+export function resetSitemapCache() {
+  sitemapCache = null;
+}
 
 /**
  * Validates a slug taken from the URL, case-insensitively, against the stored format and the reserved list.
@@ -163,6 +174,39 @@ export function buildProductPage({ shop, product, language, baseUrl }) {
   };
 }
 
+const byText = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+
+function isoOrNull(value) {
+  const time = Date.parse(value);
+  return Number.isNaN(time) ? null : new Date(time).toISOString();
+}
+
+/**
+ * Pure: turns repository rows into sitemap entries. Shops sorted by slug, each followed by its products sorted by id;
+ * at most maxUrls entries in total. Only public fields are read.
+ * @param {{ productId: string, productUpdatedAt: string, slug: string, shopUpdatedAt: string }[]} rows
+ * @param {string} baseUrl
+ * @param {number} maxUrls
+ * @returns {{ loc: string, lastmod: string | null }[]}
+ */
+export function buildSitemapEntries(rows, baseUrl, maxUrls) {
+  const shops = new Map();
+  for (const row of rows) {
+    const shop = shops.get(row.slug) ?? { updatedAt: row.shopUpdatedAt, products: [] };
+    shop.products.push(row);
+    shops.set(row.slug, shop);
+  }
+  const entries = [];
+  for (const slug of [...shops.keys()].sort(byText)) {
+    const shop = shops.get(slug);
+    entries.push({ loc: absoluteUrl(baseUrl, shopPath(slug)), lastmod: isoOrNull(shop.updatedAt) });
+    for (const row of shop.products.sort((a, b) => byText(a.productId, b.productId))) {
+      entries.push({ loc: absoluteUrl(baseUrl, productPath(slug, row.productId)), lastmod: isoOrNull(row.productUpdatedAt) });
+    }
+  }
+  return entries.slice(0, maxUrls);
+}
+
 /**
  * Generic page (not found, error, coming soon) in the visitor's language.
  * @param {{ language: string, titleKey: string, bodyKey: string }} input
@@ -185,14 +229,24 @@ export function buildNoticePage({ language, titleKey, bodyKey }) {
  * above; this factory only orchestrates repository calls. Never imports owner services or session code.
  * @param {{ shops: ReturnType<import('../repositories/publicShopRepository.js').createPublicShopRepository>,
  *   images: { createSignedUrl: (storeId: string, productId: string, path: string) => Promise<string> },
- *   logger: { warn: Function }, baseUrl: string }} deps
+ *   logger: { warn: Function }, baseUrl: string, now?: () => number }} deps
  */
-export function createPublicShopService({ shops, images, logger, baseUrl }) {
+export function createPublicShopService({ shops, images, logger, baseUrl, now = Date.now }) {
   const pick = (prefs, shopDefault) => resolveLanguage({ ...prefs, shopDefault });
 
   return {
     /** Language for pages that have no shop (not found, errors): cookie, then Accept-Language, then English. */
     noticeLanguage: (prefs) => pick({ cookie: prefs.cookie, acceptLanguage: prefs.acceptLanguage }, 'en').language,
+
+    /** sitemap.xml: shops with a published product plus those products. Memoised for 10 minutes. @returns {Promise<string>} */
+    async getSitemapXml() {
+      const time = now();
+      if (sitemapCache && sitemapCache.baseUrl === baseUrl && sitemapCache.expiresAt > time) return sitemapCache.xml;
+      const rows = await shops.listSitemapEntries(SITEMAP_MAX_URLS);
+      const xml = buildSitemapXml(buildSitemapEntries(rows, baseUrl, SITEMAP_MAX_URLS));
+      sitemapCache = { xml, baseUrl, expiresAt: time + SITEMAP_TTL_MS };
+      return xml;
+    },
 
     /** @returns {Promise<{ language: string, fromQuery: boolean, view: object } | null>} null when the shop is unknown. */
     async getShopPage(slug, prefs) {

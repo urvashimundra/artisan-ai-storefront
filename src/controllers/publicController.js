@@ -1,4 +1,5 @@
 import { LANGUAGE_COOKIE_MAX_AGE_SECONDS, LANGUAGE_COOKIE_NAME } from '../domain/language.js';
+import { buildRobotsTxt } from '../domain/seo.js';
 import { parseCookies, serializeCookie } from '../lib/cookies.js';
 import { AppError } from '../lib/errors.js';
 import { buildNoticePage, isProductId, normalizeSlug } from '../services/publicShopService.js';
@@ -8,6 +9,8 @@ const HTTP_FOUND = 302;
 const HTTP_NOT_FOUND = 404;
 const HTTP_INTERNAL_ERROR = 500;
 const IMAGE_CACHE_CONTROL = 'private, max-age=60';
+const ROBOTS_CACHE_CONTROL = 'public, max-age=3600';
+const SITEMAP_CACHE_CONTROL = 'public, max-age=600';
 const SHOP_PATH_PREFIX = /^\/s\/[^/?#]+/;
 
 /**
@@ -15,9 +18,9 @@ const SHOP_PATH_PREFIX = /^\/s\/[^/?#]+/;
  * parameters before anything reaches a service, and renders pure view models. Unknown shops, drafts, other shops'
  * products, invalid ids and reserved slugs all produce the same generic 404.
  * @param {{ publicShop: ReturnType<import('../services/publicShopService.js').createPublicShopService>,
- *   cookieSecure: boolean }} deps
+ *   cookieSecure: boolean, baseUrl: string }} deps
  */
-export function createPublicController({ publicShop, cookieSecure }) {
+export function createPublicController({ publicShop, cookieSecure, baseUrl }) {
   const preferences = (req) => ({
     query: req.query?.lang,
     cookie: parseCookies(req.get('cookie'))[LANGUAGE_COOKIE_NAME],
@@ -76,6 +79,15 @@ export function createPublicController({ publicShop, cookieSecure }) {
       if (!url) return notFound(req, res);
       res.set('Cache-Control', IMAGE_CACHE_CONTROL);
       return res.redirect(HTTP_FOUND, url);
+    },
+
+    robots(_req, res) {
+      res.type('text/plain').set('Cache-Control', ROBOTS_CACHE_CONTROL).send(buildRobotsTxt(baseUrl));
+    },
+
+    async sitemap(_req, res) {
+      const xml = await publicShop.getSitemapXml();
+      res.type('application/xml').set('Cache-Control', SITEMAP_CACHE_CONTROL).send(xml);
     },
 
     /** Error handler for the public router only: a friendly page in the visitor's language, never provider details. */

@@ -88,3 +88,34 @@ export function buildMeta({ title, description, path, imagePath, language, baseU
     robots: indexable ? null : 'noindex',
   };
 }
+
+const XML_ESCAPES = Object.freeze({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' });
+
+/** @param {string} text @returns {string} Text safe inside XML element content. */
+export const escapeXml = (text) => String(text).replace(/[&<>"']/g, (char) => XML_ESCAPES[char]);
+
+/** Paths crawlers must not fetch. Public shops live under /s/. */
+export const ROBOTS_DISALLOWED_PATHS = Object.freeze(['/dashboard', '/products', '/store', '/login', '/signup', '/internal']);
+
+/**
+ * robots.txt: allow the public shops, disallow owner and internal areas, point at the absolute sitemap URL.
+ * @param {string} baseUrl
+ * @returns {string}
+ */
+export function buildRobotsTxt(baseUrl) {
+  const lines = ['User-agent: *', 'Allow: /s/', ...ROBOTS_DISALLOWED_PATHS.map((path) => `Disallow: ${path}`)];
+  return `${lines.join('\n')}\n\nSitemap: ${absoluteUrl(baseUrl, '/sitemap.xml')}\n`;
+}
+
+/**
+ * sitemap.xml body.
+ * @param {{ loc: string, lastmod: string | null }[]} entries
+ * @returns {string}
+ */
+export function buildSitemapXml(entries) {
+  const urls = entries.map(({ loc, lastmod }) => {
+    const modified = lastmod ? `<lastmod>${escapeXml(lastmod)}</lastmod>` : '';
+    return `<url><loc>${escapeXml(loc)}</loc>${modified}</url>`;
+  });
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>\n`;
+}

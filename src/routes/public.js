@@ -17,10 +17,16 @@ export const IMAGE_LIMITS = Object.freeze({ windowMs: ONE_MINUTE_MS, limit: 600 
  */
 export function createPublicRouter({ config, publicShop, logger, rateLimits = {} }) {
   const router = Router();
-  const controller = createPublicController({ publicShop, cookieSecure: deriveCookieConfig(config.baseUrl).secure });
+  const controller = createPublicController({
+    publicShop,
+    cookieSecure: deriveCookieConfig(config.baseUrl).secure,
+    baseUrl: config.baseUrl,
+  });
   const pages = createRateLimiter(rateLimits.pages ?? PAGE_LIMITS);
   const image = createRateLimiter(rateLimits.image ?? IMAGE_LIMITS);
 
+  router.get('/robots.txt', pages, controller.robots);
+  router.get('/sitemap.xml', pages, controller.sitemap);
   router.get('/s/:slug', pages, controller.shop);
   router.get('/s/:slug/p/:productId', pages, controller.product);
   router.get('/s/:slug/p/:productId/image', image, controller.image);
