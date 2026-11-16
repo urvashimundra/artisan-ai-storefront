@@ -11,7 +11,7 @@ const HTTP_INTERNAL_ERROR = 500;
 const IMAGE_CACHE_CONTROL = 'private, max-age=60';
 const ROBOTS_CACHE_CONTROL = 'public, max-age=3600';
 const SITEMAP_CACHE_CONTROL = 'public, max-age=600';
-const SHOP_PATH_PREFIX = /^\/s\/[^/?#]+/;
+const SHOP_PATH_PREFIX = /^\/s\/[^/?#]+/i;
 
 /**
  * HTTP layer for the public storefront. Reads only the `lang` cookie (never the session cookie), validates URL

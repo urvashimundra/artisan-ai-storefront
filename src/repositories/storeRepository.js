@@ -58,6 +58,7 @@ export function createStoreRepository({ client }) {
      * @returns {Promise<ReturnType<typeof toStore>>} null when the store no longer exists.
      */
     async updateSettings(storeId, settings) {
+      requireStoreId(storeId);
       const changes = {
         tagline: settings.tagline,
         accent_key: settings.accentKey,
@@ -67,7 +68,7 @@ export function createStoreRepository({ client }) {
         upi_id: settings.upiId,
         updated_at: new Date().toISOString(),
       };
-      const query = client.from('stores').update(changes).eq('id', requireStoreId(storeId)).select(STORE_COLUMNS);
+      const query = client.from('stores').update(changes).eq('id', storeId).select(STORE_COLUMNS);
       const { data, error } = await query.maybeSingle();
       throwIfError(error);
       return toStore(data);

@@ -100,7 +100,11 @@ const toShop = (row) => ({
  * @param {{ client: any }} deps
  */
 export function createPublicShopRepository({ client }) {
-  const publishedOf = (query, storeId) => query.eq('store_id', requireStoreId(storeId)).eq('status', 'published');
+  /** Validates the store id BEFORE building any query, then scopes to that store's published products. */
+  const publishedProducts = (storeId, columns) => {
+    requireStoreId(storeId);
+    return client.from('products').select(columns).eq('store_id', storeId).eq('status', 'published');
+  };
 
   return {
     /** Resolves a validated, lowercase slug to the public shop fields. @returns {Promise<object | null>} */
@@ -112,7 +116,7 @@ export function createPublicShopRepository({ client }) {
 
     /** Newest first, at most 48, approved translations only. @returns {Promise<object[]>} */
     async listPublished(storeId) {
-      const query = publishedOf(client.from('products').select(CARD_COLUMNS), storeId)
+      const query = publishedProducts(storeId, CARD_COLUMNS)
         .eq(APPROVED_FILTER_COLUMN, true)
         .order('created_at', { ascending: false })
         .order('id', { ascending: false })
@@ -124,7 +128,7 @@ export function createPublicShopRepository({ client }) {
 
     /** @returns {Promise<object | null>} null unless the product is published in THIS store. */
     async findPublished(storeId, productId) {
-      const query = publishedOf(client.from('products').select(PAGE_COLUMNS), storeId)
+      const query = publishedProducts(storeId, PAGE_COLUMNS)
         .eq('id', productId)
         .eq(APPROVED_FILTER_COLUMN, true);
       const { data, error } = await query.maybeSingle();
@@ -134,7 +138,7 @@ export function createPublicShopRepository({ client }) {
 
     /** @returns {Promise<{ id: string, imagePath: string } | null>} null unless published in THIS store. */
     async findPublishedImage(storeId, productId) {
-      const query = publishedOf(client.from('products').select(IMAGE_COLUMNS), storeId).eq('id', productId);
+      const query = publishedProducts(storeId, IMAGE_COLUMNS).eq('id', productId);
       const { data, error } = await query.maybeSingle();
       throwIfError(error);
       if (!data) return null;

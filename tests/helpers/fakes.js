@@ -93,8 +93,17 @@ export function createFakeStores() {
     async insert({ ownerId, slug, name, defaultLanguage, story }) {
       if (rows.some((row) => row.ownerId === ownerId)) throw new UniqueViolation(STORES_OWNER_ID_KEY);
       if (rows.some((row) => row.slug === slug)) throw new UniqueViolation(STORES_SLUG_KEY);
-      const row = { id: randomUUID(), ownerId, slug, name, defaultLanguage, story, contactEmail: null };
+      const row = {
+        id: randomUUID(), ownerId, slug, name, defaultLanguage, story, contactEmail: null, tagline: '', accentKey: 'terracotta',
+        whatsappNumber: null, whatsappEnabled: false, instagramHandle: null, upiId: null, updatedAt: new Date().toISOString(),
+      };
       rows.push(row);
+      return row;
+    },
+    async updateSettings(storeId, settings) {
+      const row = rows.find((candidate) => candidate.id === storeId);
+      if (!row) return null;
+      Object.assign(row, settings, { updatedAt: new Date().toISOString() });
       return row;
     },
   };
