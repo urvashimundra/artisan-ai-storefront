@@ -29,12 +29,19 @@ const ERROR_STRING_KEYS = Object.freeze({
 });
 
 /**
+ * `same-origin` sends no Referer to any other site (so the private status link cannot leak) while same-origin form POSTs
+ * keep their real Origin header. `no-referrer` must not be used: Chrome then sends `Origin: null` on those POSTs, which
+ * the Origin check rightly rejects.
+ */
+export const ORDER_REFERRER_POLICY = 'same-origin';
+
+/**
  * Privacy headers for every order response. The status link is a private capability: nothing may cache it, index it, or
  * leak it through a Referer header.
  * @type {import('express').RequestHandler}
  */
 export function privacyHeaders(_req, res, next) {
-  res.set({ 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow', 'Referrer-Policy': 'no-referrer' });
+  res.set({ 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow', 'Referrer-Policy': ORDER_REFERRER_POLICY });
   res.vary('Cookie').vary('Accept-Language');
   next();
 }

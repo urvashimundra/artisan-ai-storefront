@@ -17,7 +17,7 @@ export const ORDER_LIMITS = Object.freeze({
  * Customer order routes: checkout, the private status page, UTR submission and cancel. No session and no owner code. Mounted
  * BEFORE the global limiter with its own per-IP limiters (order creation, UTR submission and status lookup are counted
  * separately). Every POST passes the Origin check BEFORE the limiter and the handler. Every response carries the privacy
- * headers (no-store, noindex, no-referrer).
+ * headers (no-store, noindex, Referrer-Policy same-origin).
  * @param {{ config: { allowedOrigins: string[] }, orders: object, logger: object,
  *   rateLimits?: { page?: object, create?: object, utr?: object, status?: object } }} deps
  * @returns {import('express').Router}

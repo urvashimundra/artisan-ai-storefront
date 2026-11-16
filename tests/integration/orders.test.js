@@ -178,7 +178,7 @@ describe('the private status page', () => {
       for (const res of responses) {
         assert.equal(res.headers.get('cache-control'), 'no-store');
         assert.match(res.headers.get('x-robots-tag'), /noindex/);
-        assert.equal(res.headers.get('referrer-policy'), 'no-referrer');
+        assert.equal(res.headers.get('referrer-policy'), 'same-origin');
       }
       assert.match((await app.status(token)).text, /<meta name="robots" content="noindex, nofollow">/);
       assert.equal((await app.request('/health')).headers.get('cache-control') === 'no-store', false);
@@ -494,6 +494,36 @@ describe('CSRF, rate limits and privacy', () => {
       }
       assert.equal(app.orderRepo.orders.length, 1);
       assert.equal(app.orderRepo.orders[0].status, 'awaiting_payment');
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('never sends no-referrer on a page that contains a form: Chrome would post Origin: null (production 403)', async () => {
+    const app = await setup();
+    try {
+      const token = await app.place();
+      for (const res of [await app.request(app.buyPath()), await app.status(token)]) {
+        assert.match(res.text, /<form method="post"/);
+        assert.notEqual(res.headers.get('referrer-policy'), 'no-referrer');
+        assert.equal(res.headers.get('referrer-policy'), 'same-origin');
+      }
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('rejects the literal Origin: null on every customer POST while a real same-origin Origin is accepted', async () => {
+    const app = await setup();
+    try {
+      const token = await app.place();
+      const literalNull = { origin: 'null' };
+      assert.equal((await app.buy(FORM, literalNull)).status, 403);
+      assert.equal((await app.postTo(token, 'utr', { utr: UTR1 }, literalNull)).status, 403);
+      assert.equal((await app.postTo(token, 'cancel', {}, literalNull)).status, 403);
+      assert.equal(app.orderRepo.orders.length, 1);
+      assert.equal((await app.buy()).status, 303);
+      assert.equal(app.orderRepo.orders.length, 2);
     } finally {
       await app.close();
     }
