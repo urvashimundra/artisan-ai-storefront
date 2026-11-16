@@ -74,15 +74,20 @@ describe('review error mapping', () => {
 describe('browser upload script', () => {
   const script = read('public/js/product-upload.js');
 
-  it('resizes to 1568 px at JPEG quality 0.85 through a canvas (which drops EXIF and GPS data) with a 4 MB guard', () => {
-    assert.match(script, /MAX_SIDE = 1568/);
-    assert.match(script, /JPEG_QUALITY = 0.85/);
-    assert.match(script, /toBlob\([\s\S]*'image\/jpeg', JPEG_QUALITY/);
+  const resize = read('public/js/resize.js');
+
+  it('resizes to 1200 px at JPEG quality 0.82 through a canvas (which drops EXIF and GPS data) with a 4 MB guard', () => {
+    assert.match(resize, /MAX_SIDE = 1200/);
+    assert.match(resize, /JPEG_QUALITY = 0.82/);
+    assert.match(resize, /toBlob\([\s\S]*'image\/jpeg', JPEG_QUALITY/);
+    assert.match(resize, /imageOrientation: 'from-image'/);
     assert.match(script, /MAX_BYTES = 4 \* 1024 \* 1024/);
-    assert.match(script, /imageOrientation: 'from-image'/);
+    assert.match(script, /ArtisanResize/);
   });
 
   it('is plain browser JavaScript with no third-party origins, eval or innerHTML', () => {
-    assert.doesNotMatch(script, /https?:\/\/|eval\(|innerHTML|document\.write|import /);
+    for (const source of [script, resize]) {
+      assert.doesNotMatch(source, /https?:\/\/|eval\(|innerHTML|document\.write|import /);
+    }
   });
 });
