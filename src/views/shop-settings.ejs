@@ -7,7 +7,10 @@
     <% if (Object.keys(errors).length > 0) { %>
     <p class="alert" role="alert">Please check the fields marked below.</p>
     <% } %>
+    <p><a href="/s/<%= shopSlug %>" target="_blank" rel="noopener noreferrer">View your shop (opens in a new tab)</a></p>
     <form method="post" action="/store/settings" class="stack" novalidate>
+    <section class="stack" aria-labelledby="identity-heading">
+      <h2 id="identity-heading">Shop identity</h2>
       <div class="field">
         <label for="tagline">Tagline</label>
         <input type="text" id="tagline" name="tagline" maxlength="120" value="<%= values.tagline || '' %>"
@@ -32,39 +35,15 @@
         </select>
         <% if (errors.accentKey) { %><p id="accentKey-error" class="error-text"><%= errors.accentKey %></p><% } %>
       </div>
-      <div class="field">
-        <label for="whatsappNumber">WhatsApp number</label>
-        <input type="tel" id="whatsappNumber" name="whatsappNumber" maxlength="30" autocomplete="off" inputmode="tel"
-          value="<%= values.whatsappNumber || '' %>"
-          aria-describedby="whatsappNumber-hint<%= errors.whatsappNumber ? ' whatsappNumber-error' : '' %>"<% if (errors.whatsappNumber) { %> aria-invalid="true"<% } %>>
-        <p id="whatsappNumber-hint" class="hint">For example 98765 43210 or +91 98765 43210. Customers can see this number when they tap the WhatsApp button, so use a number you are happy to share.</p>
-        <% if (errors.whatsappNumber) { %><p id="whatsappNumber-error" class="error-text"><%= errors.whatsappNumber %></p><% } %>
-      </div>
-      <div class="field">
-        <label for="whatsappEnabled"><input type="checkbox" id="whatsappEnabled" name="whatsappEnabled" value="on"<%= values.whatsappEnabled ? ' checked' : '' %>> Show the &ldquo;Ask on WhatsApp&rdquo; button on my shop</label>
-        <p class="hint">The button stays hidden until you tick this and enter a number.</p>
-      </div>
-      <div class="field">
-        <label for="instagramHandle">Instagram handle</label>
-        <input type="text" id="instagramHandle" name="instagramHandle" maxlength="31" autocapitalize="none" spellcheck="false"
-          value="<%= values.instagramHandle || '' %>"
-          aria-describedby="instagramHandle-hint<%= errors.instagramHandle ? ' instagramHandle-error' : '' %>"<% if (errors.instagramHandle) { %> aria-invalid="true"<% } %>>
-        <p id="instagramHandle-hint" class="hint">Optional. For example mati.no.rang (a leading @ is fine).</p>
-        <% if (errors.instagramHandle) { %><p id="instagramHandle-error" class="error-text"><%= errors.instagramHandle %></p><% } %>
-      </div>
-      <div class="field">
-        <label for="upiId">UPI ID</label>
-        <input type="text" id="upiId" name="upiId" maxlength="100" autocapitalize="none" spellcheck="false" autocomplete="off"
-          value="<%= values.upiId || '' %>"
-          aria-describedby="upiId-hint<%= errors.upiId ? ' upiId-error' : '' %>"<% if (errors.upiId) { %> aria-invalid="true"<% } %>>
-        <p id="upiId-hint" class="hint">Optional. Saved for payment requests later. It is never shown on your shop page.</p>
-        <% if (errors.upiId) { %><p id="upiId-error" class="error-text"><%= errors.upiId %></p><% } %>
-      </div>
+    </section>
+    <section class="stack" aria-labelledby="contact-heading">
+      <h2 id="contact-heading">Contact and payments</h2>
+<%- include('partials/contact-fields') %>
+    </section>
       <div><button type="submit" class="button">Save settings</button> <a href="/dashboard">Back to dashboard</a></div>
-      <p><a href="/s/<%= shopSlug %>" target="_blank" rel="noopener noreferrer">View your shop (opens in a new tab)</a></p>
     </form>
     <section class="stack" aria-labelledby="translations-heading">
-      <h2 id="translations-heading">Tagline and story in other languages</h2>
+      <h2 id="translations-heading">Languages</h2>
       <p class="hint">Your shop name is never translated. Visitors see a translation only after you approve it; until then they see your <%= defaultLanguageName %> text.</p>
       <dl class="details">
         <dt>Tagline (<%= defaultLanguageName %>)</dt>
@@ -79,8 +58,8 @@
 <% } %><% translationRows.forEach((row) => { %>      <form method="post" action="/store/settings/translations" class="stack" novalidate>
         <h3 id="tr-<%= row.language %>-heading"><%= row.name %></h3>
         <input type="hidden" name="language" value="<%= row.language %>">
-<% if (row.source === 'ai' && (row.tagline || row.story)) { %>        <p><strong>AI draft<%= row.approved ? ', approved by you' : ', not yet approved' %></strong></p>
-<% } %>        <div class="field">
+        <p><span class="chip<%= row.approved ? ' chip-approved' : '' %>"><%= row.approved ? 'Approved' : 'Draft' %></span> <% if (row.source === 'ai' && (row.tagline || row.story)) { %>Written by Claude<% } else if (row.tagline || row.story) { %>Written by you<% } %></p>
+        <div class="field">
           <label for="tr-<%= row.language %>-tagline">Tagline (<%= row.name %>)</label>
           <input type="text" id="tr-<%= row.language %>-tagline" name="tagline" maxlength="120" lang="<%= row.language %>" value="<%= row.tagline %>"<% if (translationErrors[row.language]) { %> aria-invalid="true" aria-describedby="tr-<%= row.language %>-error"<% } %>>
         </div>

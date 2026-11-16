@@ -1,0 +1,29 @@
+<% const errors = locals.errors || {}; const values = locals.values || {}; %>
+      <div class="field">
+        <label for="whatsappNumber">WhatsApp number</label>
+        <input type="tel" id="whatsappNumber" name="whatsappNumber" maxlength="30" autocomplete="off" inputmode="tel"
+          value="<%= values.whatsappNumber || '' %>"
+          aria-describedby="whatsappNumber-hint<%= errors.whatsappNumber ? ' whatsappNumber-error' : '' %>"<% if (errors.whatsappNumber) { %> aria-invalid="true"<% } %>>
+        <p id="whatsappNumber-hint" class="hint">For example 98765 43210 or +91 98765 43210. Customers can see this number when they tap the WhatsApp button, so use a number you are happy to share.</p>
+        <% if (errors.whatsappNumber) { %><p id="whatsappNumber-error" class="error-text"><%= errors.whatsappNumber %></p><% } %>
+      </div>
+      <div class="field">
+        <label for="whatsappEnabled"><input type="checkbox" id="whatsappEnabled" name="whatsappEnabled" value="on"<%= values.whatsappEnabled ? ' checked' : '' %>> Show the &ldquo;Ask on WhatsApp&rdquo; button on my shop</label>
+        <p class="hint">The button stays hidden until you tick this and enter a number.</p>
+      </div>
+      <div class="field">
+        <label for="instagramHandle">Instagram handle</label>
+        <input type="text" id="instagramHandle" name="instagramHandle" maxlength="31" autocapitalize="none" spellcheck="false"
+          value="<%= values.instagramHandle || '' %>"
+          aria-describedby="instagramHandle-hint<%= errors.instagramHandle ? ' instagramHandle-error' : '' %>"<% if (errors.instagramHandle) { %> aria-invalid="true"<% } %>>
+        <p id="instagramHandle-hint" class="hint">Optional. For example mati.no.rang (a leading @ is fine).</p>
+        <% if (errors.instagramHandle) { %><p id="instagramHandle-error" class="error-text"><%= errors.instagramHandle %></p><% } %>
+      </div>
+      <div class="field">
+        <label for="upiId">UPI ID</label>
+        <input type="text" id="upiId" name="upiId" maxlength="100" autocapitalize="none" spellcheck="false" autocomplete="off"
+          value="<%= values.upiId || '' %>"
+          aria-describedby="upiId-hint<%= errors.upiId ? ' upiId-error' : '' %>"<% if (errors.upiId) { %> aria-invalid="true"<% } %>>
+        <p id="upiId-hint" class="hint">Optional. Saved for payment requests later. It is never shown on your shop page.</p>
+        <% if (errors.upiId) { %><p id="upiId-error" class="error-text"><%= errors.upiId %></p><% } %>
+      </div>

@@ -178,7 +178,7 @@ describe('shop settings: Draft translations with Claude', () => {
       assert.deepEqual(generator.calls[0], { tagline: '', story: store.story, targets: ['en', 'hi'] });
       assert.deepEqual(app.translationsRepo.rows.map((row) => [row.language, row.source, row.approved]), [['en', 'ai', false], ['hi', 'ai', false]]);
       const page = (await app.request(res.location, { cookie })).text;
-      assert.ok(page.includes('AI draft, not yet approved'));
+      assert.ok(page.includes('<span class="chip">Draft</span> Written by Claude'));
       assert.ok(page.includes('They are not public until you read them and tick Approve.'));
       assert.doesNotMatch(page, /id="tr-en-approved"[^>]* checked/);
     }));

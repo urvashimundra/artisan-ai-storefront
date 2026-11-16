@@ -75,3 +75,18 @@ describe('store translation repository', () => {
     assert.equal(client.log.length, 1);
   });
 });
+
+describe('approveAll', () => {
+  it('is one UPDATE scoped by store, never the default language, only rows with a story', async () => {
+    const client = recordingClient();
+    const repo = createStoreTranslationRepository({ client, now: () => NOW });
+    await repo.approveAll(STORE, 'gu');
+    assert.equal(client.log.length, 1);
+    const [entry] = client.log;
+    assert.deepEqual(callsNamed(entry, 'update')[0][1], { approved: true, updated_at: '2026-11-16T10:00:00.000Z' });
+    assert.deepEqual(callsNamed(entry, 'eq').map((call) => call.slice(1)), [['store_id', STORE], ['approved', false]]);
+    assert.deepEqual(callsNamed(entry, 'neq').map((call) => call.slice(1)), [['language', 'gu'], ['story', '']]);
+    for (const bad of [undefined, '', 'abc', null]) await assert.rejects(repo.approveAll(bad, 'gu'), TypeError);
+    assert.equal(client.log.length, 1);
+  });
+});

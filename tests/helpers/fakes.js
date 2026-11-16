@@ -92,11 +92,11 @@ export function createFakeStores() {
     async findByOwnerId(ownerId) {
       return rows.find((row) => row.ownerId === ownerId) ?? null;
     },
-    async insert({ ownerId, slug, name, defaultLanguage, story }) {
+    async insert({ ownerId, slug, name, defaultLanguage, story, tagline = '', accentKey = 'terracotta' }) {
       if (rows.some((row) => row.ownerId === ownerId)) throw new UniqueViolation(STORES_OWNER_ID_KEY);
       if (rows.some((row) => row.slug === slug)) throw new UniqueViolation(STORES_SLUG_KEY);
       const row = {
-        id: randomUUID(), ownerId, slug, name, defaultLanguage, story, contactEmail: null, tagline: '', accentKey: 'terracotta',
+        id: randomUUID(), ownerId, slug, name, defaultLanguage, story, contactEmail: null, tagline, accentKey,
         whatsappNumber: null, whatsappEnabled: false, instagramHandle: null, upiId: null, updatedAt: new Date().toISOString(),
       };
       rows.push(row);
@@ -142,6 +142,10 @@ export function createFakeStoreTranslations() {
     async unapproveAll(storeId) {
       calls.push('unapproveAll');
       for (const row of own(storeId)) row.approved = false;
+    },
+    async approveAll(storeId, defaultLanguage) {
+      calls.push('approveAll');
+      for (const row of own(storeId)) if (row.language !== defaultLanguage && row.story !== '') row.approved = true;
     },
   };
 }

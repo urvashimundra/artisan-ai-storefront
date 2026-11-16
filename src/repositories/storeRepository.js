@@ -40,11 +40,11 @@ export function createStoreRepository({ client }) {
     },
 
     /**
-     * @param {{ ownerId: string, slug: string, name: string, defaultLanguage: string, story: string }} store
+     * @param {{ ownerId: string, slug: string, name: string, defaultLanguage: string, story: string, tagline: string, accentKey: string }} store
      * @throws {import('./pgErrors.js').UniqueViolation}
      */
-    async insert({ ownerId, slug, name, defaultLanguage, story }) {
-      const row = { owner_id: ownerId, slug, name, default_language: defaultLanguage, story };
+    async insert({ ownerId, slug, name, defaultLanguage, story, tagline, accentKey }) {
+      const row = { owner_id: ownerId, slug, name, default_language: defaultLanguage, story, tagline, accent_key: accentKey };
       const { data, error } = await client.from('stores').insert(row).select(STORE_COLUMNS).single();
       throwIfError(error);
       return toStore(data);
