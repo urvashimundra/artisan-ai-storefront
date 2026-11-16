@@ -100,7 +100,7 @@ export function createFakePublicRepo() {
 }
 
 /** Starts the real app with the real public service over the fake repository. */
-export async function startPublicApp({ config = {}, appOptions = {}, repo = createFakePublicRepo(), imageOptions } = {}) {
+export async function startPublicApp({ config = {}, appOptions = {}, repo = createFakePublicRepo(), imageOptions, extraServices = {} } = {}) {
   resetSitemapCache();
   const warnings = [];
   const images = createFakeImages();
@@ -120,6 +120,6 @@ export async function startPublicApp({ config = {}, appOptions = {}, repo = crea
     baseUrl: config.baseUrl ?? PUBLIC_BASE_URL,
     now: () => clock.now,
   });
-  const app = await startAuthApp({ extraServices: { publicShop }, config: { baseUrl: PUBLIC_BASE_URL, ...config }, ...appOptions });
+  const app = await startAuthApp({ extraServices: { publicShop, ...extraServices }, config: { baseUrl: PUBLIC_BASE_URL, ...config }, ...appOptions });
   return { ...app, repo, images, signed, warnings, clock };
 }

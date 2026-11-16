@@ -3,6 +3,7 @@ import { buildRobotsTxt } from '../domain/seo.js';
 import { parseCookies, serializeCookie } from '../lib/cookies.js';
 import { AppError } from '../lib/errors.js';
 import { buildNoticePage, isProductId, normalizeSlug } from '../services/publicShopService.js';
+import { checkoutPath } from './orderController.js';
 
 const HTTP_MOVED_PERMANENTLY = 301;
 const HTTP_FOUND = 302;
@@ -18,9 +19,9 @@ const SHOP_PATH_PREFIX = /^\/s\/[^/?#]+/i;
  * parameters before anything reaches a service, and renders pure view models. Unknown shops, drafts, other shops'
  * products, invalid ids and reserved slugs all produce the same generic 404.
  * @param {{ publicShop: ReturnType<import('../services/publicShopService.js').createPublicShopService>,
- *   cookieSecure: boolean, baseUrl: string }} deps
+ *   orders?: { canBuy: (slug: string, productId: string, prefs: object) => Promise<boolean> }, cookieSecure: boolean, baseUrl: string }} deps
  */
-export function createPublicController({ publicShop, cookieSecure, baseUrl }) {
+export function createPublicController({ publicShop, orders, cookieSecure, baseUrl }) {
   const preferences = (req) => ({
     query: req.query?.lang,
     cookie: parseCookies(req.get('cookie'))[LANGUAGE_COOKIE_NAME],
@@ -68,7 +69,10 @@ export function createPublicController({ publicShop, cookieSecure, baseUrl }) {
       if (!slug) return undefined;
       if (!isProductId(req.params.productId)) return notFound(req, res);
       const page = await publicShop.getProductPage(slug, req.params.productId, preferences(req));
-      return page ? sendPage(req, res, 'public/product', page) : notFound(req, res);
+      if (!page) return notFound(req, res);
+      const canBuy = orders ? await orders.canBuy(slug, req.params.productId, preferences(req)) : false;
+      if (canBuy) page.view.buyHref = checkoutPath(slug, req.params.productId, page.language);
+      return sendPage(req, res, 'public/product', page);
     },
 
     async image(req, res) {

@@ -1,9 +1,11 @@
+import { ORDER_STRINGS } from './orderStrings.js';
+
 /*
  * Storefront interface strings in English, Gujarati and Hindi.
  * NOTE: the Gujarati and Hindi text was written by an AI assistant and has NOT been proofread by a native speaker.
  * It needs human review before real customers see it. Placeholders in {braces} must stay identical in every language.
  */
-export const PUBLIC_STRINGS = Object.freeze({
+const BASE_STRINGS = Object.freeze({
   en: Object.freeze({
     skipToContent: 'Skip to content',
     products: 'Products',
@@ -83,6 +85,11 @@ export const PUBLIC_STRINGS = Object.freeze({
     whatsappProductMessage: 'नमस्ते {shop}, मुझे {product} में रुचि है। {url}',
   }),
 });
+
+/** Storefront strings plus the ordering strings (orderStrings.js), per language. */
+export const PUBLIC_STRINGS = Object.freeze(
+  Object.fromEntries(Object.keys(BASE_STRINGS).map((language) => [language, Object.freeze({ ...BASE_STRINGS[language], ...ORDER_STRINGS[language] })])),
+);
 
 export const STRING_KEYS = Object.freeze(Object.keys(PUBLIC_STRINGS.en));
 

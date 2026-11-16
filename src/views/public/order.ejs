@@ -1,0 +1,64 @@
+<%- include('layout') %>
+    <h1><%= strings.orderHeading %></h1>
+<% if (locals.formError) { %>    <p class="error-summary" role="alert"><%= formError %></p>
+<% } %>    <section class="status-box" aria-labelledby="status-heading">
+      <h2 id="status-heading"><%= strings.statusLabel %></h2>
+      <p><strong><%= order.statusLabel %></strong></p>
+      <p><%= order.help %></p>
+    </section>
+    <section aria-labelledby="summary-heading">
+      <h2 id="summary-heading"><%= strings.orderSummary %></h2>
+      <dl class="order-summary">
+        <dt><%= strings.orderReferenceLabel %></dt>
+        <dd><%= order.reference %></dd>
+<% order.items.forEach((item) => { %>        <dt><span lang="<%= item.titleLang %>"><%= item.title %></span></dt>
+        <dd><%= strings.quantityLabel %>: <%= item.quantity %> x <%= item.unitPrice %> = <%= item.lineTotal %></dd>
+<% }) %>        <dt><%= strings.orderTotalLabel %></dt>
+        <dd><%= order.total %></dd>
+<% if (order.expiresText) { %>        <dt><%= strings.payBefore %></dt>
+        <dd><%= order.expiresText %></dd>
+<% } %><% if (order.utr) { %>        <dt><%= strings.utrSentLabel %></dt>
+        <dd><%= order.utr %></dd>
+<% } %>      </dl>
+    </section>
+<% if (payment) { %>    <section aria-labelledby="pay-heading">
+      <h2 id="pay-heading"><%= strings.paymentHeading %></h2>
+      <div class="pay-block">
+        <div class="pay-qr">
+          <h3><%= strings.scanToPay %></h3>
+          <svg role="img" aria-labelledby="qr-title qr-desc" viewBox="0 0 <%= payment.qr.size %> <%= payment.qr.size %>" shape-rendering="crispEdges" xmlns="http://www.w3.org/2000/svg">
+            <title id="qr-title"><%= strings.scanToPay %></title>
+            <desc id="qr-desc"><%= payment.qrDescription %></desc>
+            <path d="<%= payment.qr.path %>"></path>
+          </svg>
+        </div>
+        <p class="pay-button"><a class="button" href="<%= payment.upiUri %>"><%= strings.payWithUpi %></a></p>
+        <div class="pay-details">
+          <p><%= payment.instructions %></p>
+          <p class="upi-id"><span><%= strings.upiIdLabel %>:</span> <code><%= payment.vpa %></code>
+            <button type="button" class="button button-secondary" data-copy-upi="<%= payment.vpa %>" data-copied="<%= strings.upiIdCopied %>" hidden><%= strings.copyUpiId %></button></p>
+          <p class="share-status" role="status" aria-live="polite" data-copy-status></p>
+        </div>
+      </div>
+    </section>
+<% } %><% if (order.canSubmitUtr) { %>    <section aria-labelledby="utr-heading">
+      <h2 id="utr-heading"><%= strings.utrHeading %></h2>
+      <form method="post" action="<%= paths.utr %>" class="form-stack">
+        <div class="field">
+          <label for="utr"><%= strings.utrLabel %></label>
+          <input type="text" id="utr" name="utr" inputmode="numeric" pattern="[0-9]{12}" minlength="12" maxlength="12" autocomplete="off" required aria-describedby="utr-hint utr-note"<% if (locals.formError) { %> aria-invalid="true"<% } %>>
+          <p id="utr-hint" class="hint"><%= strings.utrHint %></p>
+          <p id="utr-note" class="hint"><strong><%= strings.utrNotVerified %></strong> <%= order.attemptsText %></p>
+        </div>
+        <p><button type="submit" class="button"><%= strings.submitUtr %></button></p>
+      </form>
+    </section>
+<% } else if (order.status === 'payment_submitted') { %>    <p class="hint"><%= strings.utrNotVerified %></p>
+<% } %><% if (whatsappUrl) { %>    <p><a class="button button-secondary" href="<%= whatsappUrl %>" rel="noopener noreferrer"><%= strings.notifyWhatsApp %></a></p>
+<% } %><% if (order.canCancel) { %>    <section aria-labelledby="cancel-heading">
+      <h2 id="cancel-heading"><%= strings.cancelHeading %></h2>
+      <p><%= strings.cancelNote %></p>
+      <form method="post" action="<%= paths.cancel %>"><button type="submit" class="button button-secondary"><%= strings.cancelOrder %></button></form>
+    </section>
+<% } %>    <p class="hint"><%= strings.keepLinkNote %></p>
+<%- include('layout-end') %>

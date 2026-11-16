@@ -148,3 +148,10 @@ input[type="file"] { width: 100%; padding: 0.5rem 0; font: inherit; }
 .pre-line { white-space: pre-line; }
 .checklist { list-style: none; padding: 0; display: grid; gap: 0.5rem; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+
+/* Owner Orders pages (Module 4a). */
+.order-table { width: 100%; border-collapse: collapse; }
+.order-table th, .order-table td { text-align: left; padding: 0.5rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+.filter-form { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: end; margin: 1rem 0; }
+.inline-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 1rem 0; }
+.inline-actions form { margin: 0; }

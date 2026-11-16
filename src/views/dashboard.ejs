@@ -28,5 +28,6 @@
     </p>
     <p class="hint" role="status" aria-live="polite" data-share-status></p>
     <% if (locals.productsEnabled) { %><p><a class="button" href="/products">Manage products</a></p><% } %>
+    <% if (locals.ordersEnabled) { %><p><a class="button" href="/orders">Orders<% if (locals.pendingPayments) { %> <span class="badge"><%= pendingPayments %> to check</span><% } %></a></p><% } %>
     <script src="/js/share.js" defer></script>
 <%- include('partials/footer') %>

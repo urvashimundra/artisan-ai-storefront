@@ -56,13 +56,13 @@ describe('share.js', () => {
     }
   });
 
-  it('is the only script referenced by public and dashboard templates', () => {
+  it('references only the self-hosted share.js and copy-upi.js scripts in public templates', () => {
     const files = [];
     const walk = (dir) => readdirSync(dir).forEach((name) => (statSync(join(dir, name)).isDirectory() ? walk(join(dir, name)) : files.push(join(dir, name))));
     walk(fileURLToPath(new URL('../../src/views/public', import.meta.url)));
     for (const file of files) {
       const scripts = readFileSync(file, 'utf8').match(/<script[^>]*>/g) ?? [];
-      for (const tag of scripts) assert.equal(tag, '<script src="/js/share.js" defer>', file);
+      for (const tag of scripts) assert.ok(['<script src="/js/share.js" defer>', '<script src="/js/copy-upi.js" defer>'].includes(tag), `${file}: ${tag}`);
     }
   });
 });

@@ -8,6 +8,7 @@ import { createAiBudgetRepository } from './repositories/aiBudgetRepository.js';
 import { createImageStorageRepository } from './repositories/imageStorageRepository.js';
 import { createProductRepository } from './repositories/productRepository.js';
 import { createPublicShopRepository } from './repositories/publicShopRepository.js';
+import { createOrderRepository } from './repositories/orderRepository.js';
 import { createOwnerRepository } from './repositories/ownerRepository.js';
 import { createSessionRepository } from './repositories/sessionRepository.js';
 import { createStoreRepository } from './repositories/storeRepository.js';
@@ -18,6 +19,7 @@ import { createAiBudgetService } from './services/aiBudgetService.js';
 import { createAuthService } from './services/authService.js';
 import { createDiagnosticsService } from './services/diagnosticsService.js';
 import { createListingService } from './services/listingService.js';
+import { createOrderService } from './services/orderService.js';
 import { createProductService } from './services/productService.js';
 import { createPublicShopService } from './services/publicShopService.js';
 import { createSessionService } from './services/sessionService.js';
@@ -74,6 +76,11 @@ function buildPublicShopService({ config, client, logger }) {
   });
 }
 
+/** Orders and manual UPI payment: database functions plus the public read repository for prices and titles. */
+function buildOrderService({ client, logger }) {
+  return createOrderService({ orders: createOrderRepository({ client }), shops: createPublicShopRepository({ client }), logger });
+}
+
 /**
  * Wires real integrations from validated config. Only configured optional groups get a probe.
  * Async because the password service computes its dummy hash once at startup; the server must await this
@@ -103,6 +110,7 @@ export async function buildDependencies(config) {
     sessions,
     stores,
     publicShop: buildPublicShopService({ config, client, logger }),
+    orders: buildOrderService({ client, logger }),
     ...buildTranslationServices({ config, client, logger, translations }),
     ...buildProductServices({ config, client, logger }),
   };

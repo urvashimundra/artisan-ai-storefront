@@ -1,0 +1,40 @@
+<%- include('partials/header') %>
+    <h1>Order <%= order.reference %></h1>
+    <% if (done) { %><p class="notice" role="status"><%= done %></p><% } %>
+    <% if (stateError) { %><p class="error-text" role="alert">This order has changed and that action is no longer possible. The page now shows its current state.</p><% } %>
+    <p><strong>Status: <%= order.statusLabel %></strong><% if (order.cancelReasonLabel) { %> (<%= order.cancelReasonLabel %>)<% } %></p>
+    <% if (order.status === 'payment_submitted') { %>
+    <p class="hint">The customer says they paid. Check your bank account for the amount and the UTR below, then choose Mark paid or Not received. Nothing is verified automatically.</p>
+    <% } %>
+    <h2>Items</h2>
+    <ul class="plain">
+      <% order.items.forEach((item) => { %><li><span lang="<%= item.titleLang %>"><%= item.title %></span>: <%= item.quantity %> x <%= item.unitPrice %> = <%= item.lineTotal %></li><% }) %>
+    </ul>
+    <dl class="details">
+      <dt>Total</dt><dd><%= order.total %></dd>
+      <dt>Placed</dt><dd><%= order.createdAt %></dd>
+      <dt>Payee UPI ID (when ordered)</dt><dd><%= order.payeeVpa %></dd>
+      <% if (order.expiresAt) { %><dt>Pay-by time</dt><dd><%= order.expiresAt %></dd><% } %>
+      <% if (order.paidAt) { %><dt>Marked paid</dt><dd><%= order.paidAt %></dd><% } %>
+      <dt>Customer</dt><dd><%= order.customerName %></dd>
+      <dt>Mobile</dt><dd><%= order.customerPhone %></dd>
+      <% if (order.customerEmail) { %><dt>Email</dt><dd><%= order.customerEmail %></dd><% } %>
+      <% if (order.deliveryAddress) { %><dt>Delivery address</dt><dd><%= order.deliveryAddress %></dd><% } %>
+      <dt>Customer language</dt><dd><%= order.language %></dd>
+      <dt>Current UTR</dt><dd><%= order.utr || 'None yet' %></dd>
+      <dt>UTR submissions</dt><dd><%= order.utrSubmissions %> of 3</dd>
+    </dl>
+    <% if (order.attempts.length > 0) { %>
+    <h2>UTR history</h2>
+    <ul class="plain">
+      <% order.attempts.forEach((attempt) => { %><li><%= attempt.utr %> (<%= attempt.at %>)</li><% }) %>
+    </ul>
+    <% } %>
+    <div class="inline-actions">
+      <% if (actions.canMarkPaid) { %><form method="post" action="/orders/<%= order.id %>/paid"><button type="submit" class="button">Mark paid</button></form><% } %>
+      <% if (actions.canMarkNotReceived) { %><form method="post" action="/orders/<%= order.id %>/not-received"><button type="submit" class="button button-secondary">Payment not received</button></form><% } %>
+      <% if (actions.canCancel) { %><form method="post" action="/orders/<%= order.id %>/cancel"><button type="submit" class="button button-danger">Cancel order</button></form><% } %>
+      <a class="button button-secondary" href="<%= whatsappUrl %>" target="_blank" rel="noopener noreferrer">Message customer on WhatsApp (opens in a new tab)</a>
+    </div>
+    <p><a href="/orders">Back to orders</a></p>
+<%- include('partials/footer') %>

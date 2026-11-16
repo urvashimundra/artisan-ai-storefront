@@ -1,5 +1,6 @@
     <div class="actions">
-<% if (whatsappUrl) { %>      <a class="button" href="<%= whatsappUrl %>" rel="noopener noreferrer"><%= strings.askOnWhatsApp %></a>
+<% if (locals.buyHref) { %>      <a class="button" href="<%= buyHref %>"><%= strings.buyNow %></a>
+<% } %><% if (whatsappUrl) { %>      <a class="button" href="<%= whatsappUrl %>" rel="noopener noreferrer"><%= strings.askOnWhatsApp %></a>
 <% } %>      <button type="button" class="button button-secondary" data-share data-share-title="<%= shop.name %>" data-copied="<%= strings.linkCopied %>" hidden><%= strings.share %></button>
     </div>
     <p class="share-status" role="status" aria-live="polite" data-share-status></p>

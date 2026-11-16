@@ -29,9 +29,9 @@ const STORE_MESSAGES = {
  * resolved from that owner id. A store id is never read from the request.
  * Onboarding step 1 (creation) redirects to step 2; the dashboard shows the setup checklist until every step is done.
  * @param {{ stores: object, baseUrl: string, translations: object, products?: { list: (storeId: string) => Promise<object[]> },
- *   canDraft?: boolean }} deps
+ *   orders?: { pendingCount: (storeId: string) => Promise<number> }, canDraft?: boolean }} deps
  */
-export function createStoreController({ stores, baseUrl, translations, products, canDraft = false }) {
+export function createStoreController({ stores, baseUrl, translations, products, orders, canDraft = false }) {
   const formPage = (res, status, errors, values) =>
     res.status(status).render('store-new', { title: 'Create your store', errors, values, accents: ACCENT_OPTIONS });
 
@@ -69,7 +69,8 @@ export function createStoreController({ stores, baseUrl, translations, products,
       const shopUrl = absoluteUrl(baseUrl, shopPath(store.slug));
       const progress = await progressFor(store);
       const welcome = req.query?.welcome === '1';
-      return res.render('dashboard', { title: 'Dashboard', store, shopUrl, languageName: LANGUAGE_NAMES[store.defaultLanguage], progress, welcome });
+      const pendingPayments = orders ? await orders.pendingCount(store.id) : null;
+      return res.render('dashboard', { title: 'Dashboard', store, shopUrl, languageName: LANGUAGE_NAMES[store.defaultLanguage], progress, welcome, pendingPayments });
     },
   };
 }
