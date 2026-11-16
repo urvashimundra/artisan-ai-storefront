@@ -22,7 +22,7 @@ const STALE_MS = 180_000;
  * storeId, claimGeneration is one atomic step that issues a fresh fencing token, and the two RPC fakes apply the same gates
  * as migrations 004 and 005. The token is never exposed except through claimGeneration.
  */
-export function createFakeProducts({ defaultLanguageOf = () => 'en' } = {}) {
+export function createFakeProducts({ defaultLanguageOf = () => 'en', now = Date.now } = {}) {
   const rows = [];
   const draftRows = [];
   const failures = {};
@@ -37,7 +37,7 @@ export function createFakeProducts({ defaultLanguageOf = () => 'en' } = {}) {
     async insert(storeId, { id, imagePath, imageContentType }) {
       maybeFail('insert');
       const row = { id, storeId, status: 'draft', pricePaise: null, stock: null, story: '', imagePath, imageContentType,
-        aiStatus: 'idle', aiStartedAt: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), translations: [] };
+        aiStatus: 'idle', aiStartedAt: null, createdAt: new Date(now()).toISOString(), updatedAt: new Date(now()).toISOString(), translations: [] };
       rows.push(row);
       return cleanRow(row);
     },
@@ -80,7 +80,7 @@ export function createFakeProducts({ defaultLanguageOf = () => 'en' } = {}) {
       maybeFail('saveReview');
       const row = find(storeId, productId);
       if (!row) return { ok: false, reason: 'not_found' };
-      const live = row.aiStatus === 'generating' && Date.parse(row.aiStartedAt ?? '') > Date.now() - STALE_MS;
+      const live = row.aiStatus === 'generating' && Date.parse(row.aiStartedAt ?? '') > now() - STALE_MS;
       if (live) return { ok: false, reason: 'generating' };
       const willBePublished = publish || row.status === 'published';
       if (willBePublished && pricePaise === null) return { ok: false, reason: 'price_required' };

@@ -25,17 +25,22 @@ const dropUndefined = (form) => Object.fromEntries(Object.entries(form).filter((
 const STORY = 'Hand made blue clay pot.';
 const INVITE = 'test-invite-code-0123456789';
 
+/** One fixed clock for every service and fake, so no test depends on the real time or on how long a request takes. */
+const FIXED_NOW = Date.parse('2026-11-16T10:00:00Z');
+const fixedClock = () => FIXED_NOW;
+
 async function startProductApp({ script = [], budgetOptions, productRateLimits, defaultLanguage = 'en' } = {}) {
-  const fakes = await buildFakeServices({ inviteCode: INVITE });
+  const fakes = await buildFakeServices({ inviteCode: INVITE, now: fixedClock });
   const products = createFakeProducts({
+    now: fixedClock,
     defaultLanguageOf: (storeId) => fakes.storesRepo.rows.find((row) => row.id === storeId)?.defaultLanguage ?? defaultLanguage,
   });
   const images = createFakeImages();
   const logger = createLogCollector();
   const { repo, service: budgets } = buildBudgetService(budgetOptions);
   const generator = createFakeGenerator(script);
-  const productService = createProductService({ products, images, logger });
-  const listings = createListingService({ products, images, budgets, generator, logger });
+  const productService = createProductService({ products, images, logger, now: fixedClock });
+  const listings = createListingService({ products, images, budgets, generator, logger, now: fixedClock });
   const { auth, sessions, stores } = fakes;
   const app = await startTestApp({
     config: { signupInviteCode: INVITE },
