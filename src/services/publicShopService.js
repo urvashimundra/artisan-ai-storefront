@@ -259,11 +259,21 @@ export function buildNoticePage({ language, titleKey, bodyKey }) {
 export function createPublicShopService({ shops, images, logger, baseUrl, now = Date.now }) {
   const pick = (prefs, shopDefault) => resolveLanguage({ ...prefs, shopDefault });
 
-  /** The shop plus its approved translated text; the default language needs no translation rows, so none are read. */
-  const withTranslations = async (shop, language) => ({
-    ...shop,
-    translations: language === shop.defaultLanguage ? {} : await shops.listStoreTranslations(shop.id),
-  });
+  /**
+   * Approved translated shop text. The default language needs no rows, so none are read. If the lookup fails, the page
+   * still renders with the default-language text (a warning with IDs only is logged) instead of failing the visit.
+   */
+  async function loadTranslations(shop, language) {
+    if (language === shop.defaultLanguage) return {};
+    try {
+      return await shops.listStoreTranslations(shop.id);
+    } catch {
+      logger.warn('store translations unavailable; showing default-language text', { storeId: shop.id, language });
+      return {};
+    }
+  }
+
+  const withTranslations = async (shop, language) => ({ ...shop, translations: await loadTranslations(shop, language) });
 
   return {
     /** Language for pages that have no shop (not found, errors): cookie, then Accept-Language, then English. */

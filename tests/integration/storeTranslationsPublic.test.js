@@ -176,3 +176,28 @@ describe('public repository: translated text is public-safe', () => {
     assert.deepEqual(Object.keys(await repo.listStoreTranslations(shop.id)), ['en']);
   });
 });
+
+describe('public shop: translation lookup failure', () => {
+  it('shows the default-language text and logs a warning with IDs only, on the shop page and the product page', withApp(async (app, { shop, product }) => {
+    addRow(app.repo, shop, 'en', EN);
+    app.repo.failures.listStoreTranslations = true;
+    for (const path of ['/s/mati-no-rang?lang=en', `/s/mati-no-rang/p/${product.id}?lang=en`]) {
+      const { status, text } = await app.request(path);
+      assert.equal(status, 200, path);
+      assert.ok(text.includes('અમે માટીના દીવા બનાવીએ છીએ.'), path);
+      assert.ok(!text.includes(EN.story) && !text.includes(EN.tagline), path);
+    }
+    const warnings = app.warnings.filter((entry) => entry.message.startsWith('store translations unavailable'));
+    assert.equal(warnings.length, 2);
+    for (const entry of warnings) {
+      assert.deepEqual(Object.keys(entry).sort(), ['language', 'message', 'storeId']);
+      assert.equal(entry.storeId, shop.id);
+    }
+    assert.ok(!JSON.stringify(warnings).includes('Kutch'));
+  }));
+
+  it('still reports a failure of the shop lookup itself as an error page', withApp(async (app) => {
+    app.repo.failures.findShopBySlug = true;
+    assert.equal((await app.request('/s/mati-no-rang?lang=en')).status, 500);
+  }));
+});
