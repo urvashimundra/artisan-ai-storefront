@@ -10,6 +10,7 @@ import { requestLogger } from './middleware/requestLogger.js';
 import { createBrowserRouter } from './routes/browser.js';
 import { createHealthRouter } from './routes/health.js';
 import { createInternalRouter } from './routes/internal.js';
+import { createPublicRouter } from './routes/public.js';
 
 export const JSON_BODY_LIMIT = '100kb';
 export const FORM_BODY_LIMIT = '10kb';
@@ -42,7 +43,8 @@ const noDiagnostics = { run: async () => ({ ok: false, checks: [] }) };
  *   config: ReturnType<import('./config/env.js').loadEnv>,
  *   logger?: ReturnType<typeof createLogger>,
  *   diagnostics?: { run: (names: string[]) => Promise<object> },
- *   services?: { auth: object, sessions: object, stores: object, products?: object, listings?: object },
+ *   services?: { auth: object, sessions: object, stores: object, products?: object, listings?: object, publicShop?: object },
+ *   publicRateLimits?: { pages?: object, image?: object },
  *   productRateLimits?: { upload?: object, generate?: object },
  *   authRateLimits?: { loginFailure?: object, loginIp?: object, signup?: object },
  *   version?: string,
@@ -57,6 +59,7 @@ export function createApp({
   services,
   authRateLimits,
   productRateLimits,
+  publicRateLimits,
   version,
   globalRateLimit,
 }) {
@@ -75,6 +78,10 @@ export function createApp({
   app.use((req, res, next) => (req.path.startsWith(PRODUCT_PATH_PREFIX) ? next() : globalForm(req, res, next)));
   app.use(requestLogger(log));
   app.use(express.static(PUBLIC_DIR));
+  // Public storefront: before the global limiter and before any session-loading route; it has its own limiters.
+  if (services?.publicShop) {
+    app.use(createPublicRouter({ config, publicShop: services.publicShop, logger: log, rateLimits: publicRateLimits }));
+  }
   app.use(createRateLimiter(limits));
 
   app.use(createHealthRouter({ version: version ?? readVersion() }));
