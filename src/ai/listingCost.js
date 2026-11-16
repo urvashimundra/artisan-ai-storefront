@@ -5,8 +5,9 @@ import { codePointLength } from '../domain/productRules.js';
 export const LISTING_MAX_OUTPUT_TOKENS = 2_500;
 
 /**
- * Tokens reserved for the photo. The browser resizes to 1568 px on the longest side, which the API prices at
- * roughly width x height / 750 (about 3,300 tokens for a 1568 px square, the worst case). Rounded up.
+ * Tokens reserved for the photo. The browser now resizes to 1200 px on the longest side, but photos uploaded earlier are
+ * up to 1568 px, which the API prices at roughly width x height / 750 (about 3,300 tokens for a 1568 px square, the worst
+ * case). Rounded up, so this allowance is unchanged.
  */
 export const IMAGE_TOKEN_ALLOWANCE = 4_000;
 
