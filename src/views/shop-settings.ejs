@@ -1,0 +1,56 @@
+<%- include('partials/header') %>
+    <h1>Shop settings</h1>
+    <% const errors = locals.errors || {}; const values = locals.values || {}; %>
+    <% if (locals.saved) { %><p class="notice" role="status">Your shop settings were saved.</p><% } %>
+    <% if (Object.keys(errors).length > 0) { %>
+    <p class="alert" role="alert">Please check the fields marked below.</p>
+    <% } %>
+    <form method="post" action="/store/settings" class="stack" novalidate>
+      <div class="field">
+        <label for="tagline">Tagline</label>
+        <input type="text" id="tagline" name="tagline" maxlength="120" value="<%= values.tagline || '' %>"
+          aria-describedby="tagline-hint<%= errors.tagline ? ' tagline-error' : '' %>"<% if (errors.tagline) { %> aria-invalid="true"<% } %>>
+        <p id="tagline-hint" class="hint">One short line under your shop name. Up to 120 characters.</p>
+        <% if (errors.tagline) { %><p id="tagline-error" class="error-text"><%= errors.tagline %></p><% } %>
+      </div>
+      <div class="field">
+        <label for="accentKey">Shop colour</label>
+        <select id="accentKey" name="accentKey" required
+          <% if (errors.accentKey) { %>aria-invalid="true" aria-describedby="accentKey-error"<% } %>>
+          <% accents.forEach((accent) => { %>
+          <option value="<%= accent.key %>"<%= values.accentKey === accent.key ? ' selected' : '' %>><%= accent.label %></option>
+          <% }) %>
+        </select>
+        <% if (errors.accentKey) { %><p id="accentKey-error" class="error-text"><%= errors.accentKey %></p><% } %>
+      </div>
+      <div class="field">
+        <label for="whatsappNumber">WhatsApp number</label>
+        <input type="tel" id="whatsappNumber" name="whatsappNumber" maxlength="30" autocomplete="off" inputmode="tel"
+          value="<%= values.whatsappNumber || '' %>"
+          aria-describedby="whatsappNumber-hint<%= errors.whatsappNumber ? ' whatsappNumber-error' : '' %>"<% if (errors.whatsappNumber) { %> aria-invalid="true"<% } %>>
+        <p id="whatsappNumber-hint" class="hint">For example 98765 43210 or +91 98765 43210. Customers can see this number when they tap the WhatsApp button, so use a number you are happy to share.</p>
+        <% if (errors.whatsappNumber) { %><p id="whatsappNumber-error" class="error-text"><%= errors.whatsappNumber %></p><% } %>
+      </div>
+      <div class="field">
+        <label for="whatsappEnabled"><input type="checkbox" id="whatsappEnabled" name="whatsappEnabled" value="on"<%= values.whatsappEnabled ? ' checked' : '' %>> Show the &ldquo;Ask on WhatsApp&rdquo; button on my shop</label>
+        <p class="hint">The button stays hidden until you tick this and enter a number.</p>
+      </div>
+      <div class="field">
+        <label for="instagramHandle">Instagram handle</label>
+        <input type="text" id="instagramHandle" name="instagramHandle" maxlength="31" autocapitalize="none" spellcheck="false"
+          value="<%= values.instagramHandle || '' %>"
+          aria-describedby="instagramHandle-hint<%= errors.instagramHandle ? ' instagramHandle-error' : '' %>"<% if (errors.instagramHandle) { %> aria-invalid="true"<% } %>>
+        <p id="instagramHandle-hint" class="hint">Optional. For example mati.no.rang (a leading @ is fine).</p>
+        <% if (errors.instagramHandle) { %><p id="instagramHandle-error" class="error-text"><%= errors.instagramHandle %></p><% } %>
+      </div>
+      <div class="field">
+        <label for="upiId">UPI ID</label>
+        <input type="text" id="upiId" name="upiId" maxlength="100" autocapitalize="none" spellcheck="false" autocomplete="off"
+          value="<%= values.upiId || '' %>"
+          aria-describedby="upiId-hint<%= errors.upiId ? ' upiId-error' : '' %>"<% if (errors.upiId) { %> aria-invalid="true"<% } %>>
+        <p id="upiId-hint" class="hint">Optional. Saved for payment requests later. It is never shown on your shop page.</p>
+        <% if (errors.upiId) { %><p id="upiId-error" class="error-text"><%= errors.upiId %></p><% } %>
+      </div>
+      <div><button type="submit" class="button">Save settings</button> <a href="/dashboard">Back to dashboard</a></div>
+    </form>
+<%- include('partials/footer') %>

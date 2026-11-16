@@ -10,5 +10,12 @@
       <dt>Story</dt>
       <dd lang="<%= store.defaultLanguage %>"><%= store.story %></dd>
     </dl>
+    <p class="actions">
+      <a class="button" href="/s/<%= store.slug %>">View your shop</a>
+      <button type="button" class="button" data-share data-share-url="<%= shopUrl %>" data-share-title="<%= store.name %>" data-copied="Link copied" hidden>Copy shop link</button>
+      <a class="button" href="/store/settings">Shop settings</a>
+    </p>
+    <p class="hint" role="status" aria-live="polite" data-share-status></p>
     <% if (locals.productsEnabled) { %><p><a class="button" href="/products">Manage products</a></p><% } %>
+    <script src="/js/share.js" defer></script>
 <%- include('partials/footer') %>
