@@ -42,5 +42,11 @@ export function createStoreTranslationService({ translations }) {
       const source = sourceAfterSave(existing, input);
       await translations.upsertMany(store.id, [{ ...input, source }]);
     },
+
+    /**
+     * Approves every non-default-language translation that has a story, in one UPDATE scoped to this store.
+     * @param {{ id: string, defaultLanguage: string }} store From the session, never from input.
+     */
+    approveAll: (store) => translations.approveAll(store.id, store.defaultLanguage),
   };
 }

@@ -1,6 +1,7 @@
 import express, { Router } from 'express';
 import { createProductController } from '../controllers/productController.js';
 import { createAuthController } from '../controllers/authController.js';
+import { createOnboardingController } from '../controllers/onboardingController.js';
 import { createShopSettingsController } from '../controllers/shopSettingsController.js';
 import { createStoreController } from '../controllers/storeController.js';
 import { createAuthLimiters } from '../middleware/authRateLimits.js';
@@ -44,8 +45,19 @@ export function createBrowserRouter({ config, services, authRateLimits, productR
   ];
   const ownerOnly = [...guard, requireOwner()];
   const auth = createAuthController({ ...services, cookie: config.cookie });
-  const store = createStoreController({ stores: services.stores, baseUrl: config.baseUrl });
+  const store = createStoreController({
+    stores: services.stores,
+    baseUrl: config.baseUrl,
+    translations: services.translations,
+    products: services.products,
+    canDraft: Boolean(services.translationDrafts),
+  });
   const settings = createShopSettingsController({
+    stores: services.stores,
+    translations: services.translations,
+    drafts: services.translationDrafts,
+  });
+  const onboarding = createOnboardingController({
     stores: services.stores,
     translations: services.translations,
     drafts: services.translationDrafts,
@@ -62,7 +74,12 @@ export function createBrowserRouter({ config, services, authRateLimits, productR
   router.post('/logout', ...guard, auth.postLogout);
   router.get('/dashboard', ...ownerOnly, store.dashboard);
   router.get('/store/new', ...ownerOnly, store.showNewStore);
-  router.post('/store/new', ...ownerOnly, store.postNewStore);
+  router.post('/store/new', ...ownerOnly, settingsForm, store.postNewStore);
+  router.get('/store/new/contact', ...storeGuard, onboarding.showContact);
+  router.post('/store/new/contact', ...storeGuard, settingsForm, onboarding.postContact);
+  router.get('/store/new/languages', ...storeGuard, onboarding.showLanguages);
+  router.post('/store/new/languages', ...storeGuard, productLimiters.draft, onboarding.draftLanguages);
+  router.post('/store/new/languages/approve', ...storeGuard, onboarding.approveLanguages);
   router.get('/store/settings', ...storeGuard, settings.show);
   router.post('/store/settings', ...storeGuard, settingsForm, settings.save);
   router.post('/store/settings/translations', ...storeGuard, settingsForm, settings.saveTranslation);

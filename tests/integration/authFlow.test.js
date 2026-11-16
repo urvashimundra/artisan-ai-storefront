@@ -33,7 +33,7 @@ describe('owner journey', () => {
 
       const created = await app.request('/store/new', { method: 'POST', cookie, form: { ...STORE_FORM, name: '<b>Clay</b> & Co' } });
       assert.equal(created.status, 303);
-      assert.equal(created.location, '/dashboard');
+      assert.equal(created.location, '/store/new/contact');
 
       const dashboard = await app.request('/dashboard', { cookie });
       assert.equal(dashboard.status, 200);

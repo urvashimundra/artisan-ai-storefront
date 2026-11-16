@@ -1,5 +1,6 @@
 <%- include('partials/header') %>
     <h1>Create your store</h1>
+    <p class="hint">Step 1 of 3. Your shop name, address and story.</p>
     <% const errors = locals.errors || {}; const values = locals.values || {}; %>
     <% if (Object.keys(errors).length > 0) { %>
     <p class="alert" role="alert">Please check the fields marked below.</p>
@@ -34,6 +35,23 @@
         <textarea id="story" name="story" required maxlength="2000"
           <% if (errors.story) { %>aria-invalid="true" aria-describedby="story-error"<% } %>><%= values.story || '' %></textarea>
         <% if (errors.story) { %><p id="story-error" class="error-text"><%= errors.story %></p><% } %>
+      </div>
+      <div class="field">
+        <label for="tagline">Tagline (optional)</label>
+        <input type="text" id="tagline" name="tagline" maxlength="120" value="<%= values.tagline || '' %>"
+          aria-describedby="tagline-hint<%= errors.tagline ? ' tagline-error' : '' %>"<% if (errors.tagline) { %> aria-invalid="true"<% } %>>
+        <p id="tagline-hint" class="hint">One short line under your shop name. Up to 120 characters.</p>
+        <% if (errors.tagline) { %><p id="tagline-error" class="error-text"><%= errors.tagline %></p><% } %>
+      </div>
+      <div class="field">
+        <label for="accentKey">Shop colour</label>
+        <select id="accentKey" name="accentKey"
+          <% if (errors.accentKey) { %>aria-invalid="true" aria-describedby="accentKey-error"<% } %>>
+          <% accents.forEach((accent) => { %>
+          <option value="<%= accent.key %>"<%= values.accentKey === accent.key ? ' selected' : '' %>><%= accent.label %></option>
+          <% }) %>
+        </select>
+        <% if (errors.accentKey) { %><p id="accentKey-error" class="error-text"><%= errors.accentKey %></p><% } %>
       </div>
       <div><button type="submit" class="button">Create store</button></div>
     </form>

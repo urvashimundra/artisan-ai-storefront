@@ -35,7 +35,7 @@ function usedInputTypes(source) {
 describe('owner form controls share one style', () => {
   it('every styled input type used in shop-settings.ejs is covered by the shared input selector', () => {
     const selector = sharedInputSelector();
-    const types = new Set(usedInputTypes(read('src/views/shop-settings.ejs')));
+    const types = new Set(usedInputTypes(read('src/views/shop-settings.ejs') + read('src/views/partials/contact-fields.ejs')));
     assert.ok(types.has('tel') && types.has('text'), 'the page uses text and tel inputs');
     for (const type of types) {
       if (UNSTYLED_INPUT_TYPES.has(type)) continue;

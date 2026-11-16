@@ -1,5 +1,16 @@
 <%- include('partials/header') %>
     <h1>Your store</h1>
+    <% if (locals.welcome) { %><p class="notice" role="status">Your shop is ready. <a href="/s/<%= store.slug %>" target="_blank" rel="noopener noreferrer">View your shop (opens in a new tab)</a></p><% } %>
+    <% if (!progress.complete) { %>
+    <section class="stack" aria-labelledby="progress-heading">
+      <h2 id="progress-heading">Finish setting up</h2>
+      <ul class="checklist">
+        <% progress.steps.forEach((step) => { %>
+        <li><%= step.label %>: <strong><%= step.done ? 'Done' : 'To do' %></strong><% if (step.href) { %> <a href="<%= step.href %>"><%= step.done ? 'Review' : 'Continue' %><span class="visually-hidden">: <%= step.label %></span></a><% } %></li>
+        <% }) %>
+      </ul>
+    </section>
+    <% } %>
     <dl class="details">
       <dt>Store name</dt>
       <dd><%= store.name %></dd>

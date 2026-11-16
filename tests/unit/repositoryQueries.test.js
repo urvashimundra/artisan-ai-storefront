@@ -32,8 +32,9 @@ describe('repository queries', () => {
     const store = await repo.findByOwnerId('o1');
     assert.deepEqual(calls[0].steps.find((step) => step[0] === 'eq'), ['eq', 'owner_id', 'o1']);
     assert.equal(store.defaultLanguage, 'en');
-    await repo.insert({ ownerId: 'o1', slug: 'x', name: 'N', defaultLanguage: 'en', story: 'S' });
-    assert.deepEqual(calls[1].steps[0], ['insert', { owner_id: 'o1', slug: 'x', name: 'N', default_language: 'en', story: 'S' }]);
+    await repo.insert({ ownerId: 'o1', slug: 'x', name: 'N', defaultLanguage: 'en', story: 'S', tagline: 'T', accentKey: 'teal' });
+    const inserted = { owner_id: 'o1', slug: 'x', name: 'N', default_language: 'en', story: 'S', tagline: 'T', accent_key: 'teal' };
+    assert.deepEqual(calls[1].steps[0], ['insert', inserted]);
   });
 
   it('owners are inserted with is_demo exactly as passed and a Postgres error becomes UniqueViolation', async () => {

@@ -20,11 +20,12 @@ export const slugSchema = z
       .refine((slug) => !RESERVED_SLUGS.includes(slug)),
   );
 
-export const storeSchema = z
-  .object({
-    name: z.string().trim().min(1).max(MAX_STORE_NAME_LENGTH),
-    slug: slugSchema,
-    defaultLanguage: z.enum(LANGUAGES),
-    story: z.string().trim().min(1).max(MAX_STORY_LENGTH),
-  })
-  .strict();
+/** The four required creation fields (see newStoreSchema in shopFields.js for the full creation form). */
+export const storeFields = {
+  name: z.string().trim().min(1).max(MAX_STORE_NAME_LENGTH),
+  slug: slugSchema,
+  defaultLanguage: z.enum(LANGUAGES),
+  story: z.string().trim().min(1).max(MAX_STORY_LENGTH),
+};
+
+export const storeSchema = z.object(storeFields).strict();

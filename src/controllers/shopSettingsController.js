@@ -1,34 +1,27 @@
 import { ZodError } from 'zod';
-import { ACCENT_KEYS, DEFAULT_ACCENT_KEY } from '../domain/palette.js';
+import { DEFAULT_ACCENT_KEY } from '../domain/palette.js';
 import { LANGUAGE_NAMES_ENGLISH, isSupportedLanguage } from '../domain/language.js';
 import { MAX_TRANSLATED_STORY_LENGTH, MAX_TRANSLATED_TAGLINE_LENGTH } from '../domain/storeTranslations.js';
 import { AppError } from '../lib/errors.js';
 import { echoValues, fieldErrors } from './formErrors.js';
+import {
+  ACCENT_MESSAGE, ACCENT_OPTIONS, CONTACT_MESSAGES, TAGLINE_MESSAGE, contactValuesFromBody, contactValuesFromStore,
+} from './shopForm.js';
 
 const SEE_OTHER = 303;
 const HTTP_OK = 200;
 const HTTP_BAD_REQUEST = 400;
 const SETTINGS_PATH = '/store/settings';
-const TEXT_FIELDS = ['tagline', 'accentKey', 'whatsappNumber', 'instagramHandle', 'upiId'];
+const TEXT_FIELDS = ['tagline', 'accentKey'];
 const STORY_FIELDS = ['story'];
 const TRANSLATION_FIELDS = ['language', 'tagline', 'story'];
 const MAX_ECHO_LENGTH = 200;
 const MAX_STORY_ECHO_LENGTH = MAX_TRANSLATED_STORY_LENGTH * 4;
-const ACCENT_LABELS = Object.freeze({
-  terracotta: 'Terracotta',
-  indigo: 'Indigo',
-  forest: 'Forest green',
-  plum: 'Plum',
-  teal: 'Teal',
-  saffron: 'Saffron',
-});
 const SETTINGS_MESSAGES = {
-  tagline: 'Enter a tagline of up to 120 characters.',
+  tagline: TAGLINE_MESSAGE,
   story: `Write your story, from 1 to ${MAX_TRANSLATED_STORY_LENGTH} characters.`,
-  accentKey: 'Choose one of the listed colours.',
-  whatsappNumber: 'Enter a phone number such as 98765 43210 or +91 98765 43210. To use the WhatsApp button, a number is required.',
-  instagramHandle: 'Enter 1 to 30 letters, numbers, dots or underscores. A leading @ is fine.',
-  upiId: 'Enter a UPI ID like name@bank, without spaces.',
+  accentKey: ACCENT_MESSAGE,
+  ...CONTACT_MESSAGES,
 };
 const TRANSLATION_MESSAGE = `Check the lengths: tagline up to ${MAX_TRANSLATED_TAGLINE_LENGTH}, story up to ${MAX_TRANSLATED_STORY_LENGTH} characters.`;
 const NOTICES = {
@@ -43,10 +36,7 @@ const toFormValues = (store) => ({
   tagline: store.tagline,
   story: store.story,
   accentKey: store.accentKey,
-  whatsappNumber: store.whatsappNumber ?? '',
-  whatsappEnabled: store.whatsappEnabled,
-  instagramHandle: store.instagramHandle ?? '',
-  upiId: store.upiId ?? '',
+  ...contactValuesFromStore(store),
 });
 
 /** Notice text from the redirect query; the skipped list is filtered to real languages before it is shown. */
@@ -80,7 +70,7 @@ export function createShopSettingsController({ stores, translations, drafts }) {
       translationErrors: view.translationErrors ?? {},
       translationRows: withNames(rows),
       canDraft: Boolean(drafts),
-      accents: ACCENT_KEYS.map((key) => ({ key, label: ACCENT_LABELS[key] })),
+      accents: ACCENT_OPTIONS,
       shopSlug: req.store.slug,
       defaultLanguageName: LANGUAGE_NAMES_ENGLISH[req.store.defaultLanguage],
       defaultTagline: req.store.tagline,
@@ -94,7 +84,7 @@ export function createShopSettingsController({ stores, translations, drafts }) {
     const values = {
       ...echoValues(req.body, TEXT_FIELDS, MAX_ECHO_LENGTH),
       ...echoValues(req.body, STORY_FIELDS, MAX_STORY_ECHO_LENGTH),
-      whatsappEnabled: req.body?.whatsappEnabled === 'on',
+      ...contactValuesFromBody(req.body),
     };
     values.accentKey ??= DEFAULT_ACCENT_KEY;
     return page(req, res, HTTP_BAD_REQUEST, { values, errors: fieldErrors(error, SETTINGS_MESSAGES) });

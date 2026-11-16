@@ -66,5 +66,19 @@ export function createStoreTranslationRepository({ client, now = Date.now }) {
       const { error } = await client.from(TABLE).update(changes).eq('store_id', storeId);
       throwIfError(error);
     },
+
+    /**
+     * One UPDATE approving every translation of this store that has a story, except the default language. Rows already
+     * approved are left alone, so repeating the call changes nothing.
+     * @param {string} storeId
+     * @param {string} defaultLanguage The store's own language: its text lives in `stores` and never has a row to approve.
+     */
+    async approveAll(storeId, defaultLanguage) {
+      requireStoreId(storeId);
+      const changes = { approved: true, updated_at: nowIso() };
+      const query = client.from(TABLE).update(changes).eq('store_id', storeId).neq('language', defaultLanguage);
+      const { error } = await query.neq('story', '').eq('approved', false);
+      throwIfError(error);
+    },
   };
 }
