@@ -170,7 +170,9 @@ describe('shop settings: Draft translations with Claude', () => {
 
   it('saves unapproved AI drafts that replace the other languages, and labels them', () =>
     withOwner({ withAi: true, script: [{ ok: true, translations: GOOD, usage: USAGE }] }, async ({ app, cookie, generator, store }) => {
-      await postTranslation(app, cookie, FORM);
+      const { approved: _omitted, ...unapproved } = FORM;
+      assert.equal((await postTranslation(app, cookie, unapproved)).status, 303);
+      assert.equal(app.translationsRepo.rows[0].approved, false);
       const res = await app.request('/store/settings/translations/draft', { method: 'POST', cookie });
       assert.equal(res.location, '/store/settings?saved=drafts');
       assert.deepEqual(generator.calls[0], { tagline: '', story: store.story, targets: ['en', 'hi'] });
@@ -268,4 +270,34 @@ describe('shop settings: editing the default-language story', () => {
       await app.close();
     }
   });
+});
+
+describe('shop settings: drafts skip approved owner text', () => {
+  it('tells the owner which language was skipped and keeps the approved text', () =>
+    withOwner({ withAi: true, script: [{ ok: true, translations: { hi: GOOD.hi }, usage: USAGE }] }, async ({ app, cookie, generator }) => {
+      await postTranslation(app, cookie, FORM);
+      const res = await app.request('/store/settings/translations/draft', { method: 'POST', cookie });
+      assert.equal(res.location, '/store/settings?saved=drafts&skipped=en');
+      assert.deepEqual(generator.calls[0].targets, ['hi']);
+      const page = (await app.request(res.location, { cookie })).text;
+      assert.ok(page.includes('Skipped English: you already approved your own text there'));
+      assert.equal(app.translationsRepo.rows.find((row) => row.language === 'en').story, FORM.story);
+    }));
+
+  it('says nothing was drafted when every language is protected, and calls no AI', () =>
+    withOwner({ withAi: true, script: [] }, async ({ app, cookie, generator }) => {
+      await postTranslation(app, cookie, FORM);
+      await postTranslation(app, cookie, { ...FORM, language: 'hi' });
+      const res = await app.request('/store/settings/translations/draft', { method: 'POST', cookie });
+      assert.equal(res.location, '/store/settings?saved=skipped&skipped=en,hi');
+      assert.equal(generator.calls.length, 0);
+      assert.ok((await app.request(res.location, { cookie })).text.includes('Nothing was drafted. Skipped English and Hindi'));
+    }));
+
+  it('ignores a forged skipped list in the URL beyond real language names', () =>
+    withOwner({}, async ({ app, cookie }) => {
+      const page = (await app.request('/store/settings?saved=skipped&skipped=<script>,en', { cookie })).text;
+      assert.ok(!page.includes('<script>,'));
+      assert.ok(page.includes('Skipped English'));
+    }));
 });

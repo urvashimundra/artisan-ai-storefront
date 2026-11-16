@@ -333,3 +333,54 @@ describe('drafting translations with Claude', () => {
     assert.equal(timeout.translations.rows.length, 0);
   });
 });
+
+describe('drafting never overwrites approved owner text', () => {
+  const owned = (language, overrides = {}) => ({ language, tagline: 'OWNER', story: 'OWNER STORY', source: 'owner', approved: true, ...overrides });
+  const store = { ...STORE, defaultLanguage: 'gu' };
+
+  it('skips a language with approved owner text, drafts only the others, and reports the skip', async () => {
+    const ctx = setupDraft({ script: [ok({ hi: GOOD.hi })] });
+    await ctx.translations.upsertMany(STORE_A, [owned('en')]);
+    const outcome = await ctx.draft({ store });
+    assert.deepEqual(ctx.generator.calls[0].targets, ['hi']);
+    assert.deepEqual(outcome, { languages: ['hi'], skipped: ['en'] });
+    assert.deepEqual(ctx.translations.rows.find((row) => row.language === 'en'), { storeId: STORE_A, ...owned('en') });
+    assert.equal(ctx.translations.rows.find((row) => row.language === 'hi').source, 'ai');
+  });
+
+  it('makes no AI call and spends no budget when every other language is protected', async () => {
+    const ctx = setupDraft({ script: [] });
+    await ctx.translations.upsertMany(STORE_A, [owned('en'), owned('hi')]);
+    const outcome = await ctx.draft({ store });
+    assert.deepEqual(outcome, { languages: [], skipped: ['en', 'hi'] });
+    assert.equal(ctx.generator.calls.length, 0);
+    assert.equal(ctx.repo.calls.length, 0);
+  });
+
+  it('still replaces unapproved owner text and AI drafts, approved or not', async () => {
+    const ctx = setupDraft({ script: [ok({ en: GOOD.gu, hi: GOOD.hi })] });
+    await ctx.translations.upsertMany(STORE_A, [owned('en', { approved: false }), owned('hi', { source: 'ai' })]);
+    const outcome = await ctx.draft({ store });
+    assert.deepEqual(outcome, { languages: ['en', 'hi'], skipped: [] });
+    assert.ok(ctx.translations.rows.every((row) => row.source === 'ai' && row.approved === false));
+  });
+
+  it('does not overwrite text the owner approved while the AI call was running', async () => {
+    const ctx = setupDraft({ script: [ok({ en: GOOD.gu, hi: GOOD.hi })] });
+    const translate = ctx.generator.translate.bind(ctx.generator);
+    ctx.generator.translate = async (input) => {
+      await ctx.translations.upsertMany(STORE_A, [owned('hi')]);
+      return translate(input);
+    };
+    const outcome = await ctx.draft({ store });
+    assert.deepEqual(outcome, { languages: ['en'], skipped: ['hi'] });
+    assert.equal(ctx.translations.rows.find((row) => row.language === 'hi').story, 'OWNER STORY');
+  });
+
+  it('only a different store\'s approved text is irrelevant: protection is per store', async () => {
+    const ctx = setupDraft({ script: [ok({ en: GOOD.gu, hi: GOOD.hi })] });
+    await ctx.translations.upsertMany(STORE_B, [owned('en')]);
+    const outcome = await ctx.draft({ store });
+    assert.deepEqual(outcome.skipped, []);
+  });
+});

@@ -27,6 +27,12 @@ const ERRORS = {
  *   logger?: { info: Function, warn: Function, error: Function } }} deps
  */
 export function createTranslationDraftService({ translations, budgets, generator, logger }) {
+  /** Languages holding text the owner wrote AND approved: a draft must never replace it. */
+  async function protectedLanguages(storeId) {
+    const rows = await translations.list(storeId);
+    return rows.filter((row) => row.approved && row.source === 'owner').map((row) => row.language);
+  }
+
   const budgetedCall = createBudgetedCall({ budgets, logger });
 
   async function attempt({ owner, source, targets, context }) {
@@ -67,15 +73,19 @@ export function createTranslationDraftService({ translations, budgets, generator
     /**
      * @param {{ store: { id: string, defaultLanguage: string, tagline: string, story: string },
      *   owner: { id: string, isDemo: boolean }, correlationId?: string }} request store and owner come from the session.
-     * @returns {Promise<{ languages: string[] }>}
+     * @returns {Promise<{ languages: string[], skipped: string[] }>} `skipped` lists languages with approved owner text, which is never replaced.
      * @throws {AppError} AI_BUDGET_EXHAUSTED, AI_BUDGET_UNAVAILABLE, AI_TIMEOUT, AI_PROVIDER_ERROR, AI_INVALID_OUTPUT.
      */
     async draft({ store, owner, correlationId }) {
-      const targets = targetLanguages(store.defaultLanguage);
+      const skipped = await protectedLanguages(store.id);
+      const targets = targetLanguages(store.defaultLanguage).filter((language) => !skipped.includes(language));
+      if (targets.length === 0) return { languages: [], skipped };
       const source = { tagline: store.tagline, story: store.story };
       const context = { correlationId, storeId: store.id };
       const { output, total } = await runAttempts({ owner, source, targets, context });
-      await translations.upsertMany(store.id, toRows(output, source));
+      const recheck = await protectedLanguages(store.id);
+      const rows = toRows(output, source).filter((row) => !recheck.includes(row.language));
+      if (rows.length > 0) await translations.upsertMany(store.id, rows);
       logger?.info('store translations drafted', {
         ...context,
         model: generator.model,
@@ -84,7 +94,7 @@ export function createTranslationDraftService({ translations, budgets, generator
         tokOut: total.tokOut,
         costMicroUsd: total.costMicroUsd,
       });
-      return { languages: targets };
+      return { languages: rows.map((row) => row.language), skipped: skipped.concat(recheck.filter((language) => !skipped.includes(language))) };
     },
   };
 }

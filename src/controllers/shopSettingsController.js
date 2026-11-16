@@ -1,6 +1,6 @@
 import { ZodError } from 'zod';
 import { ACCENT_KEYS, DEFAULT_ACCENT_KEY } from '../domain/palette.js';
-import { LANGUAGE_NAMES_ENGLISH } from '../domain/language.js';
+import { LANGUAGE_NAMES_ENGLISH, isSupportedLanguage } from '../domain/language.js';
 import { MAX_TRANSLATED_STORY_LENGTH, MAX_TRANSLATED_TAGLINE_LENGTH } from '../domain/storeTranslations.js';
 import { AppError } from '../lib/errors.js';
 import { echoValues, fieldErrors } from './formErrors.js';
@@ -35,7 +35,9 @@ const NOTICES = {
   1: 'Your shop settings were saved.',
   translation: 'Your translation was saved.',
   drafts: 'Claude wrote draft translations. They are not public until you read them and tick Approve.',
+  skipped: 'Nothing was drafted.',
 };
+const SKIPPED_NOTE = (names) => ` Skipped ${names}: you already approved your own text there, and a draft never replaces it.`;
 
 const toFormValues = (store) => ({
   tagline: store.tagline,
@@ -46,6 +48,15 @@ const toFormValues = (store) => ({
   instagramHandle: store.instagramHandle ?? '',
   upiId: store.upiId ?? '',
 });
+
+/** Notice text from the redirect query; the skipped list is filtered to real languages before it is shown. */
+function noticeFor(query) {
+  const base = NOTICES[query?.saved];
+  if (!base) return null;
+  const skipped = String(query.skipped ?? '').split(',').filter(isSupportedLanguage);
+  const names = [...new Set(skipped)].map((language) => LANGUAGE_NAMES_ENGLISH[language]).join(' and ');
+  return names ? `${base}${SKIPPED_NOTE(names)}` : base;
+}
 
 const withNames = (rows) => rows.map((row) => ({ ...row, name: LANGUAGE_NAMES_ENGLISH[row.language] }));
 
@@ -101,7 +112,7 @@ export function createShopSettingsController({ stores, translations, drafts }) {
 
   return {
     show(req, res) {
-      return page(req, res, HTTP_OK, { notice: NOTICES[req.query?.saved] ?? null });
+      return page(req, res, HTTP_OK, { notice: noticeFor(req.query) });
     },
 
     async save(req, res) {
@@ -123,13 +134,16 @@ export function createShopSettingsController({ stores, translations, drafts }) {
     },
 
     async draftTranslations(req, res) {
+      let outcome;
       try {
-        await drafts.draft({ store: req.store, owner: req.owner, correlationId: req.correlationId });
+        outcome = await drafts.draft({ store: req.store, owner: req.owner, correlationId: req.correlationId });
       } catch (error) {
         if (!(error instanceof AppError)) throw error;
         return page(req, res, error.httpStatus, { aiError: error.message });
       }
-      return res.redirect(SEE_OTHER, `${SETTINGS_PATH}?saved=drafts`);
+      const saved = outcome.languages.length > 0 ? 'drafts' : 'skipped';
+      const skipped = outcome.skipped.length > 0 ? `&skipped=${outcome.skipped.join(',')}` : '';
+      return res.redirect(SEE_OTHER, `${SETTINGS_PATH}?saved=${saved}${skipped}`);
     },
   };
 }
