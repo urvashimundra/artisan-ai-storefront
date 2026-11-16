@@ -195,10 +195,14 @@ p.badge { margin-left: 0; }
 
 /* Ordering (Module 4a): checkout form, private order page, UPI payment block. Colours are palette tokens only. */
 .form-stack { display: grid; gap: 1rem; max-width: 32rem; }
-.field { display: grid; gap: 0.35rem; }
+.field { display: flex; flex-direction: column; align-items: flex-start; gap: 0.35rem; }
 .field label { font-weight: 600; }
-.field input, .field textarea {
+/* One rule for every text-like control (text, email, tel, number, url, ...). Checkbox, radio, file and buttons are excluded. */
+input:not([type="checkbox"], [type="radio"], [type="file"], [type="submit"], [type="button"], [type="reset"], [type="image"], [type="hidden"], [type="range"], [type="color"]), select, textarea {
+  box-sizing: border-box;
   width: 100%;
+  max-width: 28rem;
+  min-height: 44px;
   padding: 0.65rem 0.75rem;
   border: 2px solid var(--muted);
   border-radius: 0.4rem;
@@ -207,7 +211,7 @@ p.badge { margin-left: 0; }
   font: inherit;
 }
 .field textarea { min-height: 6rem; }
-.field input:focus-visible, .field textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.field input:focus-visible, .field select:focus-visible, .field textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 .hint { color: var(--muted); margin: 0; }
 .field-error { margin: 0; font-weight: 700; color: var(--text); border-left: 0.35rem solid var(--accent); padding-left: 0.5rem; }
 .error-summary { border: 2px solid var(--accent); border-radius: 0.4rem; padding: 0.75rem 1rem; max-width: 32rem; }

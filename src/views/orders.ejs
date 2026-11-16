@@ -1,6 +1,9 @@
 <%- include('partials/header') %>
-    <h1>Orders</h1>
-    <form method="get" action="/orders" class="filter-form">
+    <div class="page-head">
+      <h1>Orders</h1>
+      <p class="page-count" id="order-count"><%= rows.length %> <%= rows.length === 1 ? 'order' : 'orders' %><%= filter ? ' with this status' : ' in total' %></p>
+    </div>
+    <form method="get" action="/orders" class="filter-form" aria-label="Filter orders">
       <div class="field">
         <label for="status">Show</label>
         <select id="status" name="status">
@@ -11,21 +14,25 @@
       <button type="submit" class="button">Filter</button>
     </form>
     <% if (rows.length === 0) { %>
-    <p>No orders to show.</p>
+    <div class="empty-state">
+      <h2>No orders to show</h2>
+      <p><%= filter ? 'No order has this status. Try another status, or show all orders.' : 'You have no orders yet. When a customer places an order from your shop, it will appear here for you to check and confirm.' %></p>
+      <p><% if (filter) { %><a class="button" href="/orders">Show all orders</a><% } else { %><a class="button" href="/dashboard">Back to dashboard</a><% } %></p>
+    </div>
     <% } else { %>
-    <table class="order-table">
+    <table class="order-table" aria-describedby="order-count">
       <caption class="visually-hidden">Orders, newest first</caption>
       <thead>
-        <tr><th scope="col">Reference</th><th scope="col">Date</th><th scope="col">Customer</th><th scope="col">Total</th><th scope="col">Status</th></tr>
+        <tr><th scope="col">Reference</th><th scope="col">Customer</th><th scope="col">Date</th><th scope="col">Total</th><th scope="col">Status</th></tr>
       </thead>
       <tbody>
         <% rows.forEach((row) => { %>
         <tr>
-          <th scope="row"><a href="/orders/<%= row.id %>"><%= row.reference %></a></th>
-          <td><%= row.createdAt %></td>
-          <td><%= row.customerName %></td>
-          <td><%= row.total %></td>
-          <td><%= row.statusLabel %></td>
+          <th scope="row" class="order-ref"><a href="/orders/<%= row.id %>"><%= row.reference %><span class="visually-hidden">, view order</span></a></th>
+          <td data-label="Customer"><%= row.customerName %></td>
+          <td data-label="Date"><%= row.createdAt %></td>
+          <td data-label="Total" class="order-total"><%= row.total %></td>
+          <td data-label="Status"><span class="status-badge status-<%= row.status %>"><%= row.statusLabel %></span></td>
         </tr>
         <% }) %>
       </tbody>
