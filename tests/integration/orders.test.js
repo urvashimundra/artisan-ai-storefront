@@ -7,7 +7,7 @@ import { startOrderApp } from '../helpers/orderFakes.js';
 
 const EN = PUBLIC_STRINGS.en;
 const GU = PUBLIC_STRINGS.gu;
-const FORM = { quantity: '2', name: 'Test Buyer', phone: '98765 43210', email: '', address: '' };
+const FORM = { quantity: '2', name: 'Test Buyer', phone: '98765 43210', email: '', address: '12 Test Lane, Ahmedabad' };
 const UTR1 = '123456789012';
 const UTR2 = '210987654321';
 const UTR3 = '111111111111';
@@ -105,7 +105,8 @@ describe('buy now and placing an order', () => {
       const tooMany = await app.buy({ ...FORM, quantity: '6' });
       assert.equal(tooMany.status, 409);
       assert.ok(tooMany.text.includes(EN.errOutOfStock));
-      assert.ok((await app.request(app.buyPath())).text.includes(EN.moreThanTwenty));
+      const checkout = (await app.request(app.buyPath())).text;
+      assert.ok(checkout.includes('Only 5 available.') && !checkout.includes('coming soon'));
       assert.equal(app.product.stock, 5);
       assert.equal((await app.buy({ ...FORM, quantity: '5' })).status, 303);
       assert.equal(app.product.stock, 0);
@@ -573,6 +574,68 @@ describe('CSRF, rate limits and privacy', () => {
       const html = (await app.status(token)).text + (await app.owner('/orders')).text + (await app.owner(`/orders/${app.orderIdOf(token)}`)).text;
       assert.equal(html.includes(hashStatusToken(token)), false);
       assert.equal(html.includes(app.store.ownerId), false);
+    } finally {
+      await app.close();
+    }
+  });
+});
+
+describe('checkout form and stock display', () => {
+  it('requires a delivery address and shows the message in every language', async () => {
+    const app = await setup();
+    try {
+      for (const [lang, strings] of [['en', EN], ['gu', GU], ['hi', PUBLIC_STRINGS.hi]]) {
+        const res = await app.request(`${app.buyPath(app.product, `?lang=${lang}`)}`, { method: 'POST', form: { ...FORM, address: '   ' } });
+        assert.equal(res.status, 400);
+        assert.ok(res.text.includes(strings.errAddress), lang);
+      }
+      const { address, ...withoutAddress } = FORM;
+      assert.equal((await app.buy(withoutAddress)).status, 400);
+      assert.equal((await app.buy({ ...FORM, address: 'x'.repeat(301) })).status, 400);
+      assert.equal(app.orderRepo.orders.length, 0);
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('uses the right input types, autocomplete and inputmode, and marks the address required', async () => {
+    const app = await setup();
+    try {
+      const { text } = await app.request(app.buyPath());
+      assert.match(text, /<input type="text" id="name"[^>]*autocomplete="name"/);
+      assert.match(text, /<input type="tel" id="phone"[^>]*inputmode="tel"[^>]*autocomplete="tel"/);
+      assert.match(text, /<input type="email" id="email"[^>]*autocomplete="email"[^>]*inputmode="email"/);
+      assert.match(text, /<textarea id="address"[^>]*maxlength="300"[^>]*autocomplete="street-address"[^>]* required/);
+      assert.ok(!text.includes(`${EN.yourAddress} ${EN.optionalField}`));
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('shows "Only N available" below the maximum and "Choose from 1 to 20" otherwise, straight after an order', async () => {
+    const app = await setup();
+    try {
+      assert.ok((await app.request(app.buyPath())).text.includes('Only 5 available.'));
+      await app.place({ ...FORM, quantity: '2' });
+      const after = await app.request(app.buyPath());
+      assert.ok(after.text.includes('Only 3 available.'));
+      assert.equal(after.headers.get('cache-control'), 'no-store');
+      app.product.stock = null;
+      assert.ok((await app.request(app.buyPath())).text.includes('Choose from 1 to 20.'));
+      app.product.stock = 20;
+      assert.ok((await app.request(app.buyPath())).text.includes('Choose from 1 to 20.'));
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('serves public product pages with revalidation, so stock changes are never hidden by a cache', async () => {
+    const app = await setup();
+    try {
+      const page = await app.request(`/s/${app.shop.slug}/p/${app.product.id}`);
+      assert.equal(page.headers.get('cache-control'), 'no-cache');
+      app.product.stock = 0;
+      assert.ok((await app.request(`/s/${app.shop.slug}/p/${app.product.id}`)).text.includes(EN.soldOut));
     } finally {
       await app.close();
     }

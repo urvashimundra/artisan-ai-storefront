@@ -186,6 +186,7 @@ export function createOrderService({ orders, shops, logger, newToken = generateS
         price: amountText(product.pricePaise),
         soldOut: product.stock === 0,
         maxQuantity: product.stock === null ? MAX_QUANTITY : Math.min(MAX_QUANTITY, product.stock),
+        stockLimited: product.stock !== null && product.stock < MAX_QUANTITY,
         productHref: withLang(path, language, shop.defaultLanguage),
         action: `${path}/buy?lang=${language}`,
         values,

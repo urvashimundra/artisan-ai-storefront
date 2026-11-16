@@ -15,12 +15,12 @@
       <div class="field">
         <label for="quantity"><%= strings.quantityLabel %></label>
         <input type="number" id="quantity" name="quantity" min="1" max="<%= checkout.maxQuantity %>" step="1" inputmode="numeric" required value="<%= checkout.values.quantity || '1' %>" aria-describedby="quantity-hint<%= checkout.errors.quantity ? ' quantity-error' : '' %>"<% if (checkout.errors.quantity) { %> aria-invalid="true"<% } %>>
-        <p id="quantity-hint" class="hint"><%= strings.quantityHint.replace('{max}', checkout.maxQuantity) %> <%= strings.moreThanTwenty %></p>
+        <p id="quantity-hint" class="hint"><%= (checkout.stockLimited ? strings.quantityOnlyAvailable : strings.quantityHint).replace('{max}', checkout.maxQuantity) %></p>
 <% if (checkout.errors.quantity) { %>        <p id="quantity-error" class="field-error"><%= checkout.errors.quantity %></p>
 <% } %>      </div>
       <div class="field">
         <label for="name"><%= strings.yourName %></label>
-        <input type="text" id="name" name="name" maxlength="80" autocomplete="name" required value="<%= checkout.values.name || '' %>"<% if (checkout.errors.name) { %> aria-invalid="true" aria-describedby="name-error"<% } %>>
+        <input type="text" id="name" name="name" maxlength="80" autocomplete="name" autocapitalize="words" required value="<%= checkout.values.name || '' %>"<% if (checkout.errors.name) { %> aria-invalid="true" aria-describedby="name-error"<% } %>>
 <% if (checkout.errors.name) { %>        <p id="name-error" class="field-error"><%= checkout.errors.name %></p>
 <% } %>      </div>
       <div class="field">
@@ -31,12 +31,12 @@
 <% } %>      </div>
       <div class="field">
         <label for="email"><%= strings.yourEmail %> <%= strings.optionalField %></label>
-        <input type="email" id="email" name="email" maxlength="254" autocomplete="email" value="<%= checkout.values.email || '' %>"<% if (checkout.errors.email) { %> aria-invalid="true" aria-describedby="email-error"<% } %>>
+        <input type="email" id="email" name="email" maxlength="254" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" value="<%= checkout.values.email || '' %>"<% if (checkout.errors.email) { %> aria-invalid="true" aria-describedby="email-error"<% } %>>
 <% if (checkout.errors.email) { %>        <p id="email-error" class="field-error"><%= checkout.errors.email %></p>
 <% } %>      </div>
       <div class="field">
-        <label for="address"><%= strings.yourAddress %> <%= strings.optionalField %></label>
-        <textarea id="address" name="address" maxlength="300" autocomplete="street-address"<% if (checkout.errors.address) { %> aria-invalid="true" aria-describedby="address-error"<% } %>><%= checkout.values.address || '' %></textarea>
+        <label for="address"><%= strings.yourAddress %></label>
+        <textarea id="address" name="address" maxlength="300" rows="4" autocomplete="street-address" inputmode="text" required<% if (checkout.errors.address) { %> aria-invalid="true" aria-describedby="address-error"<% } %>><%= checkout.values.address || '' %></textarea>
 <% if (checkout.errors.address) { %>        <p id="address-error" class="field-error"><%= checkout.errors.address %></p>
 <% } %>      </div>
       <p><button type="submit" class="button"><%= strings.continueToPayment %></button></p>

@@ -18,11 +18,10 @@ function templates(dir) {
   });
 }
 
-const SHARED_INPUT_RULE = /^(input\[[^{]*?)\{/m;
 const UNSTYLED_INPUT_TYPES = new Set(['checkbox', 'radio', 'hidden', 'submit', 'file']);
 
 function sharedInputSelector() {
-  const rule = css.split('\n').find((line) => line.startsWith('input[type="text"]'));
+  const rule = css.split('\n').find((line) => line.startsWith('input:not('));
   assert.ok(rule, 'shared input rule exists');
   return rule;
 }
@@ -39,13 +38,14 @@ describe('owner form controls share one style', () => {
     assert.ok(types.has('tel') && types.has('text'), 'the page uses text and tel inputs');
     for (const type of types) {
       if (UNSTYLED_INPUT_TYPES.has(type)) continue;
-      assert.ok(selector.includes(`input[type="${type}"]`), `input type ${type} is not in the shared selector`);
+      assert.ok(!selector.includes(`[type="${type}"]`), `input type ${type} is excluded from the shared selector`);
     }
     assert.ok(/\bselect\b/.test(selector) && /\btextarea\b/.test(selector));
+    for (const type of UNSTYLED_INPUT_TYPES) assert.ok(selector.includes(`[type="${type}"]`), `input type ${type} keeps its own styling`);
   });
 
   it('the shared rule gives a border, radius, padding, height and font', () => {
-    const start = css.indexOf('input[type="text"]');
+    const start = css.indexOf('input:not(');
     const block = css.slice(start, css.indexOf('}', start));
     for (const property of ['border: 2px solid', 'border-radius', 'padding', 'min-height', 'font: inherit']) {
       assert.ok(block.includes(property), property);

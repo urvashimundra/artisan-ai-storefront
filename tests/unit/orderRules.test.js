@@ -2,10 +2,10 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { generateStatusToken, hashStatusToken, isWellFormedToken } from '../../src/lib/statusToken.js';
 import {
-  ACTORS, MAX_QUANTITY, ORDER_STATUSES, STATUS, canTransition, checkoutSchema, customerActions, normalizeIndianMobile, ownerActions, priceOrder, utrSchema,
+  ACTORS, MAX_ADDRESS_LENGTH, MAX_QUANTITY, ORDER_STATUSES, STATUS, canTransition, checkoutSchema, customerActions, normalizeIndianMobile, ownerActions, priceOrder, utrSchema,
 } from '../../src/domain/orderRules.js';
 
-const goodForm = { quantity: '2', name: ' Test  Buyer ', phone: '98765 43210', email: '', address: '' };
+const goodForm = { quantity: '2', name: ' Test  Buyer ', phone: '98765 43210', email: '', address: '12 Test Lane' };
 const product = (overrides = {}) => ({ id: 'p1', status: 'published', pricePaise: 25000, stock: null, ...overrides });
 
 describe('phone normalisation', () => {
@@ -24,7 +24,7 @@ describe('phone normalisation', () => {
 
 describe('checkoutSchema', () => {
   it('cleans and normalises a valid form', () => {
-    assert.deepEqual(checkoutSchema.parse(goodForm), { quantity: 2, name: 'Test Buyer', phone: '919876543210', email: null, address: null });
+    assert.deepEqual(checkoutSchema.parse(goodForm), { quantity: 2, name: 'Test Buyer', phone: '919876543210', email: null, address: '12 Test Lane' });
   });
 
   it('enforces the quantity bounds 1 to 20 and whole numbers', () => {
@@ -40,6 +40,15 @@ describe('checkoutSchema', () => {
     }
   });
 
+  it('requires a delivery address (missing, empty or blank is rejected)', () => {
+    const { address, ...withoutAddress } = goodForm;
+    for (const input of [withoutAddress, { ...goodForm, address: '' }, { ...goodForm, address: '  \n ' }]) {
+      const result = checkoutSchema.safeParse(input);
+      assert.equal(result.success, false);
+      assert.equal(result.error.issues[0].path[0], 'address');
+    }
+  });
+
   it('validates name, phone, email and address', () => {
     assert.equal(checkoutSchema.safeParse({ ...goodForm, name: '   ' }).success, false);
     assert.equal(checkoutSchema.safeParse({ ...goodForm, name: 'x'.repeat(81) }).success, false);
@@ -47,6 +56,7 @@ describe('checkoutSchema', () => {
     assert.equal(checkoutSchema.safeParse({ ...goodForm, email: 'not-an-email' }).success, false);
     assert.equal(checkoutSchema.parse({ ...goodForm, email: 'a@b.co' }).email, 'a@b.co');
     assert.equal(checkoutSchema.safeParse({ ...goodForm, address: 'x'.repeat(301) }).success, false);
+    assert.equal(checkoutSchema.parse({ ...goodForm, address: 'x'.repeat(MAX_ADDRESS_LENGTH) }).address.length, MAX_ADDRESS_LENGTH);
     assert.equal(checkoutSchema.parse({ ...goodForm, address: 'Line 1\nLine 2' }).address, 'Line 1\nLine 2');
   });
 });

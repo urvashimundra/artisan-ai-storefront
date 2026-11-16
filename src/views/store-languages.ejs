@@ -20,7 +20,7 @@
     <p class="hint">Step 3 of 3. Claude can write your tagline and story in the other languages. It only reads your <%= defaultLanguageName %> tagline and story. You review everything before it is public.</p>
     <% if (aiError) { %><p class="alert" role="alert"><%= aiError %></p><% } %>
     <form method="post" action="/store/new/languages" class="stack"<%= autosubmit ? ' data-autosubmit' : '' %>>
-      <div><button type="submit" class="button"><%= aiError ? 'Try again' : 'Write my translations with Claude' %></button> <a href="/dashboard">Skip, I will do this later</a></div>
+      <div><button type="submit" class="button"><%= aiError ? 'Try again' : 'Write my translations with Claude' %></button> <a href="/dashboard"<%= autosubmit ? ' data-autosubmit-skip' : '' %>>Skip, I will do this later</a></div>
     </form>
 <% if (autosubmit) { %>    <p class="hint" role="status" aria-live="polite" data-autosubmit-status></p>
     <script src="/js/autosubmit.js" defer></script>

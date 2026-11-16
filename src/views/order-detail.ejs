@@ -2,7 +2,7 @@
     <h1>Order <%= order.reference %></h1>
     <% if (done) { %><p class="notice" role="status"><%= done %></p><% } %>
     <% if (stateError) { %><p class="error-text" role="alert">This order has changed and that action is no longer possible. The page now shows its current state.</p><% } %>
-    <p><strong>Status: <%= order.statusLabel %></strong><% if (order.cancelReasonLabel) { %> (<%= order.cancelReasonLabel %>)<% } %></p>
+    <p>Status: <span class="status-badge status-<%= order.status %>"><%= order.statusLabel %></span><% if (order.cancelReasonLabel) { %> (<%= order.cancelReasonLabel %>)<% } %></p>
     <% if (order.status === 'payment_submitted') { %>
     <p class="hint">The customer says they paid. Check your bank account for the amount and the UTR below, then choose Mark paid or Not received. Nothing is verified automatically.</p>
     <% } %>

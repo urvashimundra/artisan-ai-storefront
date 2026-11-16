@@ -28,6 +28,7 @@ const toRow = (order) => ({
   createdAt: formatIst(order.createdAt),
   customerName: order.customerName,
   total: formatInr(order.totalPaise),
+  status: order.status,
   statusLabel: OWNER_STATUS_LABELS[order.status],
 });
 

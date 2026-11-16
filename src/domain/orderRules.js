@@ -130,8 +130,7 @@ const addressField = z
   .string()
   .max(rawLimit(MAX_ADDRESS_LENGTH))
   .transform(normalizeParagraph)
-  .refine(withinCodePoints(MAX_ADDRESS_LENGTH), { message: 'invalid_address' })
-  .transform((value) => (value === '' ? null : value));
+  .refine((value) => value.length > 0 && withinCodePoints(MAX_ADDRESS_LENGTH)(value), { message: 'invalid_address' });
 
 /**
  * The checkout form. Strict: unknown keys (store_id, price, title, vpa, total, status, owner...) are rejected. Output is
@@ -143,7 +142,7 @@ export const checkoutSchema = z
     name: z.string().max(rawLimit(MAX_CUSTOMER_NAME_LENGTH)).transform(cleanLine).refine((v) => v.length > 0 && withinCodePoints(MAX_CUSTOMER_NAME_LENGTH)(v), { message: 'invalid_name' }),
     phone: phoneField,
     email: emailField.optional().transform((value) => value ?? null),
-    address: addressField.optional().transform((value) => value ?? null),
+    address: addressField,
   })
   .strict();
 

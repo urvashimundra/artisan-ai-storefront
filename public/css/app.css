@@ -77,9 +77,11 @@ form.stack { display: grid; gap: 1.25rem; }
 .field label { font-weight: 600; }
 .hint { color: var(--muted); font-size: 0.95rem; }
 
-input[type="text"], input[type="email"], input[type="password"], input[type="tel"], select, textarea {
+/* One rule for every text-like control (text, email, password, tel, number, url, search, ...). Checkbox, radio, file and buttons are excluded. */
+input:not([type="checkbox"], [type="radio"], [type="file"], [type="submit"], [type="button"], [type="reset"], [type="image"], [type="hidden"], [type="range"], [type="color"]), select, textarea {
   width: 100%;
   min-height: 2.75rem;
+  box-sizing: border-box;
   padding: 0.5rem 0.75rem;
   font: inherit;
   color: var(--ink);
@@ -135,7 +137,8 @@ fieldset.language legend { font-weight: 700; padding: 0 0.5rem; }
 .status-line { margin: 0; }
 .check { display: flex; gap: 0.5rem; align-items: center; min-height: 2.75rem; }
 .check input { width: 1.5rem; height: 1.5rem; }
-.actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.actions { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; }
+.actions > * { max-width: 100%; margin: 0; }
 .button-danger { background: var(--error); border-color: var(--error); }
 .danger-zone { margin-top: 2rem; padding: 0.75rem 1rem; border: 2px solid var(--error); border-radius: 0.25rem; }
 .danger-zone summary { cursor: pointer; font-weight: 600; min-height: 2.75rem; }
@@ -152,6 +155,34 @@ input[type="file"] { width: 100%; padding: 0.5rem 0; font: inherit; }
 /* Owner Orders pages (Module 4a). */
 .order-table { width: 100%; border-collapse: collapse; }
 .order-table th, .order-table td { text-align: left; padding: 0.5rem; border-bottom: 1px solid var(--border); vertical-align: top; }
-.filter-form { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: end; margin: 1rem 0; }
+.filter-form { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; align-items: center; margin: 1rem 0; }
 .inline-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; margin: 1rem 0; }
 .inline-actions form { margin: 0; }
+
+/* Orders dashboard. Status is always shown as text; the border and weight vary by status but never carry meaning alone. */
+.page-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 1rem; }
+.page-head h1 { margin-bottom: 0; }
+.page-count { margin: 0; color: var(--muted); font-weight: 600; }
+.filter-form { padding: 0.75rem 1rem; background: var(--band); border-radius: 0.25rem; }
+.filter-form .field { grid-auto-flow: column; align-items: center; gap: 0.75rem; }
+.filter-form select { width: auto; min-width: 12rem; max-width: 100%; }
+.empty-state { padding: 1.5rem 1rem; text-align: center; border: 2px dashed var(--border); border-radius: 0.25rem; }
+.empty-state h2 { margin-top: 0; }
+.order-table { border-collapse: separate; border-spacing: 0; }
+.order-table thead th { background: var(--band); font-size: 0.95rem; }
+.order-table th, .order-table td { padding: 0.75rem 1rem; vertical-align: middle; overflow-wrap: anywhere; }
+.order-ref { font-size: 1.1rem; font-weight: 700; }
+.order-total { font-weight: 600; white-space: nowrap; }
+.order-table a:hover { text-decoration-thickness: 3px; }
+.status-badge { display: inline-block; padding: 0.15rem 0.7rem; border: 2px solid var(--ink); border-radius: 1rem; font-size: 0.9rem; font-weight: 600; background: var(--paper); }
+.status-paid { border-color: var(--success); color: var(--success); }
+.status-payment_submitted { border-style: dashed; }
+.status-not_received, .status-cancelled { border-color: var(--error); color: var(--error); }
+@media (max-width: 47.99rem) {
+  .filter-form .field { grid-auto-flow: row; }
+  .order-table, .order-table tbody, .order-table tr, .order-table th, .order-table td { display: block; width: 100%; box-sizing: border-box; }
+  .order-table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
+  .order-table tr { margin-bottom: 1rem; padding: 0.5rem 0; border: 2px solid var(--border); border-radius: 0.25rem; }
+  .order-table th, .order-table td { padding: 0.35rem 1rem; border-bottom: 0; }
+  .order-table td::before { content: attr(data-label); display: block; font-size: 0.85rem; font-weight: 600; color: var(--muted); }
+}
