@@ -50,7 +50,7 @@ export function createBrowserRouter({ config, services, authRateLimits, productR
     translations: services.translations,
     drafts: services.translationDrafts,
   });
-  const translationForm = express.urlencoded({ extended: false, limit: PRODUCT_FORM_BODY_LIMIT });
+  const settingsForm = express.urlencoded({ extended: false, limit: PRODUCT_FORM_BODY_LIMIT });
   const storeGuard = [...ownerOnly, loadStore({ stores: services.stores })];
 
   if (signupEnabled) {
@@ -64,8 +64,8 @@ export function createBrowserRouter({ config, services, authRateLimits, productR
   router.get('/store/new', ...ownerOnly, store.showNewStore);
   router.post('/store/new', ...ownerOnly, store.postNewStore);
   router.get('/store/settings', ...storeGuard, settings.show);
-  router.post('/store/settings', ...storeGuard, settings.save);
-  router.post('/store/settings/translations', ...storeGuard, translationForm, settings.saveTranslation);
+  router.post('/store/settings', ...storeGuard, settingsForm, settings.save);
+  router.post('/store/settings/translations', ...storeGuard, settingsForm, settings.saveTranslation);
   if (services.translationDrafts) {
     router.post('/store/settings/translations/draft', ...storeGuard, productLimiters.draft, settings.draftTranslations);
   }

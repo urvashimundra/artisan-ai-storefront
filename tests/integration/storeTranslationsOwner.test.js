@@ -4,7 +4,7 @@ import { createTranslationDraftService } from '../../src/services/translationDra
 import { STORE_FORM, signupAndLogin, startAuthApp } from '../helpers/appHarness.js';
 import { buildBudgetService, createLogCollector } from '../helpers/productFakes.js';
 
-const SETTINGS = { tagline: 'Hand made', accentKey: 'teal', whatsappNumber: '', instagramHandle: '', upiId: '' };
+const SETTINGS = { tagline: 'Hand made', story: 'Hand made pots.', accentKey: 'teal', whatsappNumber: '', instagramHandle: '', upiId: '' };
 const GOOD = { en: { tagline: 'Made by hand', story: 'We make pots.' }, hi: { tagline: 'हाथ से बना', story: 'हम बर्तन बनाते हैं।' } };
 const USAGE = { inputTokens: 900, outputTokens: 700 };
 
@@ -201,4 +201,71 @@ describe('shop settings: Draft translations with Claude', () => {
         assert.equal(app.translationsRepo.rows.length, 0);
       },
     ));
+});
+
+describe('shop settings: editing the default-language story', () => {
+  const saveSettings = (app, cookie, overrides) => app.request('/store/settings', { method: 'POST', form: { ...SETTINGS, ...overrides }, cookie });
+
+  it('shows the story in an editable field with the current text', () =>
+    withOwner({}, async ({ app, cookie }) => {
+      const { text } = await app.request('/store/settings', { cookie });
+      assert.match(text, /<textarea id="story" name="story"[^>]*>Hand made pots\.<\/textarea>/);
+    }));
+
+  it('updates the story scoped to the session store, and withdraws translations first', () =>
+    withOwner({}, async ({ app, cookie, store }) => {
+      await postTranslation(app, cookie, FORM);
+      assert.equal(app.translationsRepo.rows[0].approved, true);
+      const res = await saveSettings(app, cookie, { tagline: '', story: 'A brand new story.' });
+      assert.equal(res.status, 303);
+      assert.equal(store.story, 'A brand new story.');
+      assert.equal(app.translationsRepo.rows[0].approved, false);
+    }));
+
+  it('does not unapprove when the story and tagline are unchanged', () =>
+    withOwner({}, async ({ app, cookie, store }) => {
+      await postTranslation(app, cookie, FORM);
+      await saveSettings(app, cookie, { tagline: '', story: store.story });
+      assert.equal(app.translationsRepo.rows[0].approved, true);
+    }));
+
+  it('rejects an empty or over-long story and keeps the typed text, saving nothing', () =>
+    withOwner({}, async ({ app, cookie, store }) => {
+      const long = await saveSettings(app, cookie, { story: 'y'.repeat(2001) });
+      assert.equal(long.status, 400);
+      assert.ok(long.text.includes('id="story-error"') && long.text.includes('y'.repeat(2001)));
+      assert.equal((await saveSettings(app, cookie, { story: '   ' })).status, 400);
+      assert.equal(store.story, 'Hand made pots.');
+    }));
+
+  it('escapes the story and rejects a store_id in the form', () =>
+    withOwner({}, async ({ app, cookie, store }) => {
+      const bad = await saveSettings(app, cookie, { story: '</textarea><script>alert(1)</script>', tagline: 'x'.repeat(121) });
+      assert.ok(!bad.text.includes('<script>alert'));
+      assert.equal((await saveSettings(app, cookie, { store_id: '22222222-2222-4222-8222-222222222222' })).status, 400);
+      assert.equal(store.story, 'Hand made pots.');
+    }));
+
+  it('accepts a 2000-character Gujarati story, larger than the global 10 kb form limit', () =>
+    withOwner({}, async ({ app, cookie, store }) => {
+      const story = 'અ'.repeat(2000);
+      assert.equal((await saveSettings(app, cookie, { story })).status, 303);
+      assert.equal(store.story, story);
+    }));
+
+  it('owner A editing a story never changes owner B', async () => {
+    const app = await startAuthApp();
+    try {
+      const cookieA = await signupAndLogin(app, 'a@example.com');
+      await app.request('/store/new', { method: 'POST', form: STORE_FORM, cookie: cookieA });
+      const cookieB = await signupAndLogin(app, 'b@example.com');
+      await app.request('/store/new', { method: 'POST', form: { ...STORE_FORM, slug: 'other-shop', name: 'Other' }, cookie: cookieB });
+      await saveSettings(app, cookieA, { story: 'Only A' });
+      const [storeA, storeB] = app.storesRepo.rows;
+      assert.equal(storeA.story, 'Only A');
+      assert.equal(storeB.story, STORE_FORM.story);
+    } finally {
+      await app.close();
+    }
+  });
 });

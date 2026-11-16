@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { ACCENT_KEYS } from './palette.js';
-import { cleanLine, codePointLength } from './productRules.js';
+import { cleanLine, codePointLength, normalizeParagraph } from './productRules.js';
+import { MAX_STORY_LENGTH } from './storeRules.js';
 import { normalizeWhatsappNumber } from './whatsapp.js';
 
 /** Limits and patterns. Mirrored in db/migrations/006_storefront.sql (a unit test compares them). */
@@ -10,6 +11,7 @@ export const MAX_UPI_LENGTH = 100;
 export const UPI_PATTERN = /^[A-Za-z0-9._-]{2,64}@[A-Za-z][A-Za-z0-9.]{1,63}$/;
 const MAX_RAW_FIELD_LENGTH = 200;
 const LEADING_AT = /^@+/;
+const RAW_STORY_FACTOR = 4;
 
 const rawText = z.string().max(MAX_RAW_FIELD_LENGTH);
 const emptyToNull = (value) => (value === '' ? null : value);
@@ -17,6 +19,13 @@ const emptyToNull = (value) => (value === '' ? null : value);
 const tagline = rawText
   .transform(cleanLine)
   .refine((value) => codePointLength(value) <= MAX_TAGLINE_LENGTH, { message: 'tagline_too_long' });
+
+/** Default-language shop story: 1 to 2000 code points, same limits as stores.story. Line breaks are kept. */
+const story = z
+  .string()
+  .max(MAX_STORY_LENGTH * RAW_STORY_FACTOR)
+  .transform(normalizeParagraph)
+  .refine((value) => value.length > 0 && codePointLength(value) <= MAX_STORY_LENGTH, { message: 'story_invalid' });
 
 const whatsappNumber = rawText
   .transform((value) => value.trim())
@@ -50,6 +59,7 @@ export const checkbox = z
 export const shopSettingsSchema = z
   .object({
     tagline,
+    story,
     accentKey: z.enum(ACCENT_KEYS),
     whatsappNumber,
     whatsappEnabled: checkbox,

@@ -42,7 +42,7 @@ export function createStoreService({ stores, translations }) {
     /**
      * Updates the storefront settings of the OWNER'S store. The store is resolved from the owner id (the session), never
      * from input, so one owner cannot change another's shop; a store_id in the input is rejected by the strict schema.
-     * When the default-language tagline changes, every translation is withdrawn FIRST (fail-closed): if the second step
+     * When the default-language tagline or story changes, every translation is withdrawn FIRST (fail-closed): if the second step
      * fails, a stale translation can never stay public.
      * @param {string} ownerId
      * @param {unknown} rawInput Validated here with a strict schema.
@@ -52,7 +52,7 @@ export function createStoreService({ stores, translations }) {
       const settings = shopSettingsSchema.parse(rawInput);
       const store = await stores.findByOwnerId(ownerId);
       if (!store) throw notFound('Store not found');
-      if (settings.tagline !== store.tagline) await translations.unapproveAll(store.id);
+      if (settings.tagline !== store.tagline || settings.story !== store.story) await translations.unapproveAll(store.id);
       const updated = await stores.updateSettings(store.id, settings);
       if (!updated) throw notFound('Store not found');
       return updated;

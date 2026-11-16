@@ -186,16 +186,16 @@ describe('seo helpers', () => {
 });
 
 describe('shopSettingsSchema', () => {
-  const valid = { tagline: ' Handmade  clay ', accentKey: 'teal', whatsappNumber: '98765 43210', whatsappEnabled: 'on', instagramHandle: '@mati.rang', upiId: ' asha@okhdfc ' };
+  const valid = { tagline: ' Handmade  clay ', story: ' Our story.\r\nSecond line. ', accentKey: 'teal', whatsappNumber: '98765 43210', whatsappEnabled: 'on', instagramHandle: '@mati.rang', upiId: ' asha@okhdfc ' };
   it('normalises valid input', () => {
     assert.deepEqual(shopSettingsSchema.parse(valid), {
-      tagline: 'Handmade clay', accentKey: 'teal', whatsappNumber: '919876543210', whatsappEnabled: true,
+      tagline: 'Handmade clay', story: 'Our story.\nSecond line.', accentKey: 'teal', whatsappNumber: '919876543210', whatsappEnabled: true,
       instagramHandle: 'mati.rang', upiId: 'asha@okhdfc',
     });
   });
   it('turns empty optionals into null and an absent checkbox into false', () => {
-    const out = shopSettingsSchema.parse({ tagline: '', accentKey: 'plum', whatsappNumber: '', instagramHandle: '', upiId: '' });
-    assert.deepEqual(out, { tagline: '', accentKey: 'plum', whatsappNumber: null, whatsappEnabled: false, instagramHandle: null, upiId: null });
+    const out = shopSettingsSchema.parse({ tagline: '', story: 's', accentKey: 'plum', whatsappNumber: '', instagramHandle: '', upiId: '' });
+    assert.deepEqual(out, { tagline: '', story: 's', accentKey: 'plum', whatsappNumber: null, whatsappEnabled: false, instagramHandle: null, upiId: null });
   });
   it('rejects unknown keys, including store_id', () => {
     assert.equal(shopSettingsSchema.safeParse({ ...valid, store_id: 'x' }).success, false);
@@ -203,7 +203,7 @@ describe('shopSettingsSchema', () => {
   });
   it('rejects bad values', () => {
     const bad = [
-      { tagline: 'x'.repeat(121) }, { accentKey: 'red' }, { whatsappNumber: '123' }, { instagramHandle: 'a b' },
+      { tagline: 'x'.repeat(121) }, { story: '' }, { story: '   ' }, { story: 'x'.repeat(2001) }, { story: undefined }, { accentKey: 'red' }, { whatsappNumber: '123' }, { instagramHandle: 'a b' },
       { instagramHandle: 'x'.repeat(31) }, { upiId: 'nohandle' }, { upiId: 'a b@bank' }, { whatsappEnabled: 'yes' },
       { whatsappNumber: '', whatsappEnabled: 'on' },
     ];

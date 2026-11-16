@@ -4,6 +4,7 @@ import { STORE_FORM, signupAndLogin, startAuthApp } from '../helpers/appHarness.
 
 const VALID = {
   tagline: 'Hand made in Kutch',
+  story: 'A new story of the workshop.',
   accentKey: 'teal',
   whatsappNumber: '98765 43210',
   whatsappEnabled: 'on',
@@ -55,7 +56,7 @@ describe('shop settings page', () => {
       assert.equal(res.location, '/store/settings?saved=1');
       assert.deepEqual(
         { ...storeA },
-        { ...storeA, tagline: 'Hand made in Kutch', accentKey: 'teal', whatsappNumber: '919876543210', whatsappEnabled: true, instagramHandle: 'mati.no.rang', upiId: 'asha@okhdfcbank' },
+        { ...storeA, tagline: 'Hand made in Kutch', story: 'A new story of the workshop.', accentKey: 'teal', whatsappNumber: '919876543210', whatsappEnabled: true, instagramHandle: 'mati.no.rang', upiId: 'asha@okhdfcbank' },
       );
       const page = await app.request('/store/settings?saved=1', { cookie: cookieA });
       assert.match(page.text, /Your shop settings were saved/);

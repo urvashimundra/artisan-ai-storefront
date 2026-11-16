@@ -136,7 +136,7 @@ describe('changing the default text unapproves translations first (fail-closed)'
     await translations.upsertMany(store.id, [{ language: 'gu', tagline: 'ટેગ', story: 'વાર્તા', source: 'owner', approved: true }]);
     return { stores, translations, service, store };
   }
-  const settings = (tagline) => ({ tagline, accentKey: 'teal', whatsappNumber: '', instagramHandle: '', upiId: '' });
+  const settings = (tagline, story = 'Story') => ({ tagline, story, accentKey: 'teal', whatsappNumber: '', instagramHandle: '', upiId: '' });
 
   it('unapproves every translation when the tagline changes, before the stores row is updated', async () => {
     const { stores, translations, service, store } = await build();
@@ -156,6 +156,25 @@ describe('changing the default text unapproves translations first (fail-closed)'
     };
     await assert.rejects(service.updateSettings(OWNER.id, settings('New tagline')), /db down/);
     assert.equal(store.tagline, '');
+  });
+
+  it('also unapproves, before updating stores, when only the story changes', async () => {
+    const { stores, translations, service, store } = await build();
+    const order = [];
+    const update = stores.updateSettings.bind(stores);
+    stores.updateSettings = async (...args) => (order.push(`update:${translations.rows[0].approved}`), update(...args));
+    await service.updateSettings(OWNER.id, settings('', 'A new story'));
+    assert.deepEqual(order, ['update:false']);
+    assert.equal(store.story, 'A new story');
+  });
+
+  it('a failure while withdrawing translations stops a story update too', async () => {
+    const { translations, service, store } = await build();
+    translations.unapproveAll = async () => {
+      throw new Error('db down');
+    };
+    await assert.rejects(service.updateSettings(OWNER.id, settings('', 'A new story')), /db down/);
+    assert.equal(store.story, 'Story');
   });
 
   it('leaves translations alone when the tagline is unchanged', async () => {

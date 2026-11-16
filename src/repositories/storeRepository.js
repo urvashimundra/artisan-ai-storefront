@@ -53,7 +53,7 @@ export function createStoreRepository({ client }) {
     /**
      * Single UPDATE of the storefront settings, scoped by the store id the caller resolved from the session.
      * @param {string} storeId
-     * @param {{ tagline: string, accentKey: string, whatsappNumber: string | null, whatsappEnabled: boolean,
+     * @param {{ tagline: string, story: string, accentKey: string, whatsappNumber: string | null, whatsappEnabled: boolean,
      *   instagramHandle: string | null, upiId: string | null }} settings Already validated.
      * @returns {Promise<ReturnType<typeof toStore>>} null when the store no longer exists.
      */
@@ -61,6 +61,7 @@ export function createStoreRepository({ client }) {
       requireStoreId(storeId);
       const changes = {
         tagline: settings.tagline,
+        story: settings.story,
         accent_key: settings.accentKey,
         whatsapp_number: settings.whatsappNumber,
         whatsapp_enabled: settings.whatsappEnabled,

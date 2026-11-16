@@ -10,6 +10,7 @@ const HTTP_OK = 200;
 const HTTP_BAD_REQUEST = 400;
 const SETTINGS_PATH = '/store/settings';
 const TEXT_FIELDS = ['tagline', 'accentKey', 'whatsappNumber', 'instagramHandle', 'upiId'];
+const STORY_FIELDS = ['story'];
 const TRANSLATION_FIELDS = ['language', 'tagline', 'story'];
 const MAX_ECHO_LENGTH = 200;
 const MAX_STORY_ECHO_LENGTH = MAX_TRANSLATED_STORY_LENGTH * 4;
@@ -23,6 +24,7 @@ const ACCENT_LABELS = Object.freeze({
 });
 const SETTINGS_MESSAGES = {
   tagline: 'Enter a tagline of up to 120 characters.',
+  story: `Write your story, from 1 to ${MAX_TRANSLATED_STORY_LENGTH} characters.`,
   accentKey: 'Choose one of the listed colours.',
   whatsappNumber: 'Enter a phone number such as 98765 43210 or +91 98765 43210. To use the WhatsApp button, a number is required.',
   instagramHandle: 'Enter 1 to 30 letters, numbers, dots or underscores. A leading @ is fine.',
@@ -37,6 +39,7 @@ const NOTICES = {
 
 const toFormValues = (store) => ({
   tagline: store.tagline,
+  story: store.story,
   accentKey: store.accentKey,
   whatsappNumber: store.whatsappNumber ?? '',
   whatsappEnabled: store.whatsappEnabled,
@@ -77,7 +80,11 @@ export function createShopSettingsController({ stores, translations, drafts }) {
 
   function settingsFailure(req, res, error) {
     if (!(error instanceof ZodError)) throw error;
-    const values = { ...echoValues(req.body, TEXT_FIELDS, MAX_ECHO_LENGTH), whatsappEnabled: req.body?.whatsappEnabled === 'on' };
+    const values = {
+      ...echoValues(req.body, TEXT_FIELDS, MAX_ECHO_LENGTH),
+      ...echoValues(req.body, STORY_FIELDS, MAX_STORY_ECHO_LENGTH),
+      whatsappEnabled: req.body?.whatsappEnabled === 'on',
+    };
     values.accentKey ??= DEFAULT_ACCENT_KEY;
     return page(req, res, HTTP_BAD_REQUEST, { values, errors: fieldErrors(error, SETTINGS_MESSAGES) });
   }

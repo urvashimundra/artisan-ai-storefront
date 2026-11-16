@@ -106,14 +106,14 @@ describe('store settings update', () => {
   it('is one UPDATE scoped by the resolved store id and rejects a missing id', async () => {
     const client = recordingClient({ id: STORE });
     const repo = createStoreRepository({ client });
-    const settings = { tagline: 't', accentKey: 'teal', whatsappNumber: null, whatsappEnabled: false, instagramHandle: null, upiId: null };
+    const settings = { tagline: 't', story: 's', accentKey: 'teal', whatsappNumber: null, whatsappEnabled: false, instagramHandle: null, upiId: null };
     await repo.updateSettings(STORE, settings).catch(() => {});
     assert.equal(client.log.length, 1);
     const [entry] = client.log;
     assert.equal(entry.table, 'stores');
     assert.deepEqual(filters(entry), [`id=${STORE}`]);
     const changes = entry.calls.find(([name]) => name === 'update')[1];
-    assert.deepEqual(Object.keys(changes).sort(), ['accent_key', 'instagram_handle', 'tagline', 'updated_at', 'upi_id', 'whatsapp_enabled', 'whatsapp_number']);
+    assert.deepEqual(Object.keys(changes).sort(), ['accent_key', 'instagram_handle', 'story', 'tagline', 'updated_at', 'upi_id', 'whatsapp_enabled', 'whatsapp_number']);
     await assert.rejects(repo.updateSettings('abc', settings), TypeError);
     assert.equal(client.log.length, 1);
   });
