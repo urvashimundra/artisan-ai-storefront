@@ -1,10 +1,12 @@
 import { LISTING_TOOL_NAME } from '../schemas/listing.js';
-import { MAX_ALT_TEXT_LENGTH, MAX_DESCRIPTION_LENGTH, MAX_TITLE_LENGTH } from '../../domain/productRules.js';
 
 /** Bump when the wording changes in a way that can change output. Logged with each call. */
-export const LISTING_PROMPT_VERSION = 'listing-v1';
+export const LISTING_PROMPT_VERSION = 'listing-v2';
 
 const STORY_TAG = 'artisan_story';
+const PROMPT_TITLE_LIMIT = 70;
+const PROMPT_DESCRIPTION_LIMIT = 600;
+const PROMPT_ALT_TEXT_LIMIT = 150;
 
 /** Fixed system prompt. Contains no user data; the story and photo arrive in the user message. */
 export function buildListingSystemPrompt() {
@@ -13,7 +15,7 @@ export function buildListingSystemPrompt() {
     `You are given one product photograph and a short story written by the artisan. Call the ${LISTING_TOOL_NAME} tool exactly once and do not write anything else.`,
     '',
     'Output',
-    `- Provide a title (at most ${MAX_TITLE_LENGTH} characters), a description (at most ${MAX_DESCRIPTION_LENGTH} characters, usually 2 to 4 short sentences) and image alt text (at most ${MAX_ALT_TEXT_LENGTH} characters) in English, Gujarati and Hindi.`,
+    `- Provide a title (at most ${PROMPT_TITLE_LIMIT} characters), a description (at most ${PROMPT_DESCRIPTION_LIMIT} characters, 2 to 3 short sentences) and image alt text (at most ${PROMPT_ALT_TEXT_LIMIT} characters) in English, Gujarati and Hindi.`,
     '- Write natural, fluent Gujarati (Gujarati script) and Hindi (Devanagari script), as a native speaker would write for a shop. Do not transliterate the English; write each language afresh from the same facts. Plain text only: no HTML, Markdown or emoji.',
     '- Alt text describes what is visible in the photograph (object, colours, shape, pattern, setting) for someone who cannot see it. Do not describe things you cannot see.',
     '',

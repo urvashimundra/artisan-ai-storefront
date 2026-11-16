@@ -2,7 +2,7 @@ import { estimateMaxCostMicroUsd } from '../domain/aiCost.js';
 import { codePointLength } from '../domain/productRules.js';
 
 /** Hard cap on output tokens for one listing call. Three languages with Indic scripts are token-hungry. */
-export const LISTING_MAX_OUTPUT_TOKENS = 2_500;
+export const LISTING_MAX_OUTPUT_TOKENS = 3_500;
 
 /**
  * Tokens reserved for the photo. The browser now resizes to 1200 px on the longest side, but photos uploaded earlier are

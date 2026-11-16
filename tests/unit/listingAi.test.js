@@ -141,7 +141,7 @@ describe('script checks', () => {
 
 describe('cost estimation', () => {
   it('uses named conservative constants', () => {
-    assert.equal(LISTING_MAX_OUTPUT_TOKENS, 2500);
+    assert.equal(LISTING_MAX_OUTPUT_TOKENS, 3500);
     assert.ok(IMAGE_TOKEN_ALLOWANCE >= Math.ceil((1568 * 1568) / 750));
     assert.ok(INDIC_TOKENS_PER_CHARACTER >= 1);
     assert.ok(PROMPT_TOKEN_ALLOWANCE > 0);
@@ -169,7 +169,7 @@ describe('prompt', () => {
   const system = buildListingSystemPrompt();
 
   it('is versioned and free of user data', () => {
-    assert.equal(LISTING_PROMPT_VERSION, 'listing-v1');
+    assert.equal(LISTING_PROMPT_VERSION, 'listing-v2');
     assert.equal(buildListingSystemPrompt(), system);
   });
 

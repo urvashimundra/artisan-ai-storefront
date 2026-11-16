@@ -123,7 +123,14 @@ export function createListingService({ products, images, budgets, generator, log
       total.tokOut += charged.outputTokens;
       total.costMicroUsd += charged.costMicroUsd;
       if (result.ok) return { translations: result.translations, total };
-      logger?.warn('ai output rejected', { ...context, tryNumber, reason: result.reason });
+      logger?.warn('ai output rejected', {
+        ...context,
+        tryNumber,
+        reason: result.reason,
+        stopReason: result.stopReason,
+        tokOut: charged.outputTokens,
+        issues: result.issues,
+      });
       if (result.reason === NO_RETRY_REASON) break;
     }
     throw ERRORS.invalidOutput();

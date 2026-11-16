@@ -17,14 +17,14 @@ function build(create) {
 }
 
 describe('listing generator request', () => {
-  it('forces propose_listing with thinking disabled, 2500 max tokens, no retries and a 30 s timeout', async () => {
+  it('forces propose_listing with thinking disabled, 3500 max tokens, no retries and a 30 s timeout', async () => {
     const { generator, seen } = build(async () => response([toolUse({ translations: GOOD_TRANSLATIONS })]));
     await generator.generate({ story: 'A pot', image: IMAGE });
     assert.deepEqual(seen.options, { apiKey: 'k', timeout: 30_000, maxRetries: 0 });
     assert.equal(LISTING_TIMEOUT_MS, 30_000);
     const request = seen.requests[0];
     assert.equal(request.model, 'claude-haiku-5-5');
-    assert.equal(request.max_tokens, 2500);
+    assert.equal(request.max_tokens, 3500);
     assert.deepEqual(request.thinking, { type: 'disabled' });
     assert.deepEqual(request.tool_choice, { type: 'tool', name: LISTING_TOOL_NAME, disable_parallel_tool_use: true });
     assert.equal(request.tools.length, 1);
@@ -76,7 +76,13 @@ describe('listing generator output handling', () => {
   it('treats a truncated (max_tokens) response as invalid output but still reports usage', async () => {
     const { generator } = build(async () => response([toolUse({ translations: { en: GOOD_TRANSLATIONS.en } })], { stop_reason: 'max_tokens' }));
     const result = await generator.generate({ story: 'A pot', image: IMAGE });
-    assert.deepEqual(result, { ok: false, reason: 'invalid_output', usage: { inputTokens: 4100, outputTokens: 800 } });
+    assert.deepEqual(result, {
+      ok: false,
+      reason: 'invalid_output',
+      stopReason: 'max_tokens',
+      issues: ['translations.gu:invalid_type', 'translations.hi:invalid_type'],
+      usage: { inputTokens: 4100, outputTokens: 800 },
+    });
   });
 
   it('reports a refusal separately', async () => {

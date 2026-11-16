@@ -36,14 +36,31 @@ export const listingOutputSchema = z
   .object({ translations: z.object({ en: translation, gu: translation, hi: translation }).strict() })
   .strict();
 
+const MAX_REPORTED_ISSUES = 6;
+const ROOT_PATH_LABEL = '(root)';
+
+/**
+ * Names where validation failed, as "path:code" (for example "translations.en.title:too_big"). Never includes values.
+ * @param {import('zod').ZodError} error
+ * @returns {string[]}
+ */
+function describeIssues(error) {
+  return error.issues
+    .slice(0, MAX_REPORTED_ISSUES)
+    .map(({ path, code }) => `${path.length ? path.map(String).join('.') : ROOT_PATH_LABEL}:${code}`);
+}
+
 /**
  * Validates a tool input object from the model.
  * @param {unknown} input
- * @returns {{ ok: true, translations: Record<'en'|'gu'|'hi', {title: string, description: string, alt_text: string}> } | { ok: false }}
+ * @returns {{ ok: true, translations: Record<'en'|'gu'|'hi', {title: string, description: string, alt_text: string}> }
+ *   | { ok: false, issues: string[] }}
  */
 export function parseListingOutput(input) {
   const result = listingOutputSchema.safeParse(input);
-  return result.success ? { ok: true, translations: result.data.translations } : { ok: false };
+  return result.success
+    ? { ok: true, translations: result.data.translations }
+    : { ok: false, issues: describeIssues(result.error) };
 }
 
 /** JSON Schema for the tool input, derived from the same Zod schema so the two cannot drift. */

@@ -79,7 +79,8 @@ export function createListingGenerator({ config, createClient = (options) => new
     /**
      * @param {{ story: string, image: { mediaType: string, data: string } }} input `data` is base64.
      * @returns {Promise<{ ok: true, translations: object, usage: object | null }
-     *   | { ok: false, reason: 'refused' | 'invalid_output', usage: object | null }>}
+     *   | { ok: false, reason: 'refused', stopReason: string | null, usage: object | null }
+     *   | { ok: false, reason: 'invalid_output', stopReason: string | null, issues: string[], usage: object | null }>}
      * @throws {ListingProviderError} When the provider call itself fails.
      */
     async generate({ story, image }) {
@@ -91,9 +92,12 @@ export function createListingGenerator({ config, createClient = (options) => new
         throw classifyFailure(error);
       }
       const usage = readUsage(response);
-      if (response?.stop_reason === REFUSAL_STOP_REASON) return { ok: false, reason: 'refused', usage };
+      const stopReason = response?.stop_reason ?? null;
+      if (stopReason === REFUSAL_STOP_REASON) return { ok: false, reason: 'refused', stopReason, usage };
       const parsed = parseListingOutput(findToolInput(response));
-      return parsed.ok ? { ok: true, translations: parsed.translations, usage } : { ok: false, reason: 'invalid_output', usage };
+      return parsed.ok
+        ? { ok: true, translations: parsed.translations, usage }
+        : { ok: false, reason: 'invalid_output', stopReason, issues: parsed.issues, usage };
     },
   };
 }
