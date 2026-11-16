@@ -51,3 +51,13 @@ export const STOREFRONT_CONSTRAINTS = Object.freeze({
 });
 
 export const STOREFRONT_INDEXES = Object.freeze(['products_store_id_published_created_idx']);
+
+/** Module 3 polish (migration 007) constraint names. Mirrored in db/migrations/007_store_translations.sql. */
+export const STORE_TRANSLATION_CONSTRAINTS = Object.freeze({
+  pkey: 'store_translations_pkey',
+  storeFkey: 'store_translations_store_fkey',
+  language: 'store_translations_language_check',
+  tagline: 'store_translations_tagline_length_check',
+  story: 'store_translations_story_length_check',
+  source: 'store_translations_source_check',
+});
