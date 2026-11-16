@@ -24,6 +24,6 @@
         <input type="text" id="upiId" name="upiId" maxlength="100" autocapitalize="none" spellcheck="false" autocomplete="off"
           value="<%= values.upiId || '' %>"
           aria-describedby="upiId-hint<%= errors.upiId ? ' upiId-error' : '' %>"<% if (errors.upiId) { %> aria-invalid="true"<% } %>>
-        <p id="upiId-hint" class="hint">Optional. Saved for payment requests later. It is never shown on your shop page.</p>
+        <p id="upiId-hint" class="hint">Optional. The Buy now button appears only when a valid UPI ID is saved; customers see this ID on their private payment page. It is never shown on your shop page.</p>
         <% if (errors.upiId) { %><p id="upiId-error" class="error-text"><%= errors.upiId %></p><% } %>
       </div>

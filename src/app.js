@@ -10,6 +10,7 @@ import { requestLogger } from './middleware/requestLogger.js';
 import { createBrowserRouter } from './routes/browser.js';
 import { createHealthRouter } from './routes/health.js';
 import { createInternalRouter } from './routes/internal.js';
+import { createOrderRouter } from './routes/orders.js';
 import { createPublicRouter } from './routes/public.js';
 
 export const JSON_BODY_LIMIT = '100kb';
@@ -43,8 +44,9 @@ const noDiagnostics = { run: async () => ({ ok: false, checks: [] }) };
  *   config: ReturnType<import('./config/env.js').loadEnv>,
  *   logger?: ReturnType<typeof createLogger>,
  *   diagnostics?: { run: (names: string[]) => Promise<object> },
- *   services?: { auth: object, sessions: object, stores: object, products?: object, listings?: object, publicShop?: object },
+ *   services?: { auth: object, sessions: object, stores: object, products?: object, listings?: object, publicShop?: object, orders?: object },
  *   publicRateLimits?: { pages?: object, image?: object },
+ *   orderRateLimits?: { page?: object, create?: object, utr?: object, status?: object },
  *   productRateLimits?: { upload?: object, generate?: object },
  *   authRateLimits?: { loginFailure?: object, loginIp?: object, signup?: object },
  *   version?: string,
@@ -60,6 +62,7 @@ export function createApp({
   authRateLimits,
   productRateLimits,
   publicRateLimits,
+  orderRateLimits,
   version,
   globalRateLimit,
 }) {
@@ -80,8 +83,10 @@ export function createApp({
   app.use(express.static(PUBLIC_DIR));
   // Public storefront: before the global limiter and before any session-loading route; it has its own limiters.
   if (services?.publicShop) {
-    app.use(createPublicRouter({ config, publicShop: services.publicShop, logger: log, rateLimits: publicRateLimits }));
+    app.use(createPublicRouter({ config, publicShop: services.publicShop, orders: services.orders, logger: log, rateLimits: publicRateLimits }));
   }
+  // Customer orders: its own limiters and Origin check, also before the global limiter and with no session.
+  if (services?.orders) app.use(createOrderRouter({ config, orders: services.orders, logger: log, rateLimits: orderRateLimits }));
   app.use(createRateLimiter(limits));
 
   app.use(createHealthRouter({ version: version ?? readVersion() }));

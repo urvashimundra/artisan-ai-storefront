@@ -192,3 +192,41 @@ p.badge { margin-left: 0; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* Ordering (Module 4a): checkout form, private order page, UPI payment block. Colours are palette tokens only. */
+.form-stack { display: grid; gap: 1rem; max-width: 32rem; }
+.field { display: grid; gap: 0.35rem; }
+.field label { font-weight: 600; }
+.field input, .field textarea {
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border: 2px solid var(--muted);
+  border-radius: 0.4rem;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+.field textarea { min-height: 6rem; }
+.field input:focus-visible, .field textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.hint { color: var(--muted); margin: 0; }
+.field-error { margin: 0; font-weight: 700; color: var(--text); border-left: 0.35rem solid var(--accent); padding-left: 0.5rem; }
+.error-summary { border: 2px solid var(--accent); border-radius: 0.4rem; padding: 0.75rem 1rem; max-width: 32rem; }
+.error-summary h2 { margin-top: 0; font-size: 1.1rem; }
+.status-box { border: 2px solid var(--accent); border-radius: 0.4rem; padding: 0.75rem 1rem; max-width: 42rem; background: var(--surface); }
+.status-box p { margin: 0.25rem 0 0; }
+.order-summary { display: grid; gap: 0.25rem 1rem; max-width: 42rem; }
+.order-summary dt { font-weight: 700; margin-top: 0.5rem; }
+.order-summary dd { margin: 0; overflow-wrap: anywhere; }
+.pay-block { display: grid; gap: 1rem; max-width: 42rem; margin: 1rem 0; }
+.pay-qr { order: 1; width: 100%; max-width: 15rem; }
+.pay-qr svg { width: 100%; height: auto; background: var(--surface); }
+.pay-qr path { fill: var(--text); }
+.pay-button { order: 2; }
+.pay-details { order: 3; }
+.upi-id { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+.upi-id code { overflow-wrap: anywhere; font-size: 1.05rem; }
+.upi-id button[hidden] { display: none; }
+@media (pointer: coarse) {
+  .pay-button { order: 1; }
+  .pay-qr { order: 2; }
+}

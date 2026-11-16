@@ -11,14 +11,15 @@ export const IMAGE_LIMITS = Object.freeze({ windowMs: ONE_MINUTE_MS, limit: 600 
 /**
  * Public storefront routes: GET only, no session, no owner code. Mounted BEFORE the global limiter and before any
  * session-loading route, with its own per-IP limiters (pages and the heavier image route are counted separately).
- * @param {{ config: { baseUrl: string }, publicShop: object, logger: object,
+ * @param {{ config: { baseUrl: string }, publicShop: object, orders?: { canBuy: Function }, logger: object,
  *   rateLimits?: { pages?: object, image?: object } }} deps
  * @returns {import('express').Router}
  */
-export function createPublicRouter({ config, publicShop, logger, rateLimits = {} }) {
+export function createPublicRouter({ config, publicShop, orders, logger, rateLimits = {} }) {
   const router = Router();
   const controller = createPublicController({
     publicShop,
+    orders,
     cookieSecure: deriveCookieConfig(config.baseUrl).secure,
     baseUrl: config.baseUrl,
   });

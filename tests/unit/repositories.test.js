@@ -24,7 +24,10 @@ const OWNER_KEYED_OR_INFRASTRUCTURE = new Set([
  * docs/DECISIONS.md): findShopBySlug resolves a validated slug to a store, listSitemapEntries is the single
  * cross-store query and selects public columns only. Every other method of those files must still take storeId first.
  */
-const NON_STORE_SCOPED_ENTRY_POINTS = Object.freeze({ 'publicShopRepository.js': ['findShopBySlug', 'listSitemapEntries'] });
+const NON_STORE_SCOPED_ENTRY_POINTS = Object.freeze({
+  'publicShopRepository.js': ['findShopBySlug', 'listSitemapEntries'],
+  'orderRepository.js': ['findByTokenHash'],
+});
 const STORE_ID = '3f2b8c1e-5a4d-4b7e-9c10-1d2e3f4a5b6c';
 
 describe('Postgres error mapping', () => {

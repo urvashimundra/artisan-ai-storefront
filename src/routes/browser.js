@@ -1,6 +1,7 @@
 import express, { Router } from 'express';
 import { createProductController } from '../controllers/productController.js';
 import { createAuthController } from '../controllers/authController.js';
+import { createOwnerOrderController } from '../controllers/ownerOrderController.js';
 import { createOnboardingController } from '../controllers/onboardingController.js';
 import { createShopSettingsController } from '../controllers/shopSettingsController.js';
 import { createStoreController } from '../controllers/storeController.js';
@@ -34,7 +35,8 @@ export function createBrowserRouter({ config, services, authRateLimits, productR
   const limiters = createAuthLimiters(authRateLimits);
   const productLimiters = createProductLimiters(productRateLimits);
   const pageLocals = (_req, res, next) => {
-    Object.assign(res.locals, { signupEnabled, showAuthLinks: true, productsEnabled: Boolean(services.products && services.listings) });
+    Object.assign(res.locals, { signupEnabled, showAuthLinks: true, productsEnabled: Boolean(services.products && services.listings),
+      ordersEnabled: Boolean(services.orders) });
     next();
   };
   const guard = [
@@ -50,6 +52,7 @@ export function createBrowserRouter({ config, services, authRateLimits, productR
     baseUrl: config.baseUrl,
     translations: services.translations,
     products: services.products,
+    orders: services.orders,
     canDraft: Boolean(services.translationDrafts),
   });
   const settings = createShopSettingsController({
@@ -89,7 +92,21 @@ export function createBrowserRouter({ config, services, authRateLimits, productR
   if (services.products && services.listings) {
     mountProductRoutes(router, { ownerOnly, services, limiters: productLimiters });
   }
+  if (services.orders) mountOrderRoutes(router, { storeGuard, orders: services.orders });
   return router;
+}
+
+/**
+ * Owner Orders routes. Guard order: no-store, Origin check, session, owner, store (from the session). The order id in the URL
+ * is only ever looked up inside that store; state changes are POST-only.
+ */
+function mountOrderRoutes(router, { storeGuard, orders }) {
+  const controller = createOwnerOrderController({ orders });
+  router.get('/orders', ...storeGuard, controller.list);
+  router.get('/orders/:id', ...storeGuard, controller.detail);
+  router.post('/orders/:id/paid', ...storeGuard, controller.markPaid);
+  router.post('/orders/:id/not-received', ...storeGuard, controller.markNotReceived);
+  router.post('/orders/:id/cancel', ...storeGuard, controller.cancel);
 }
 
 /**

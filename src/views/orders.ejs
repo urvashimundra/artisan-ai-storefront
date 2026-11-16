@@ -1,0 +1,35 @@
+<%- include('partials/header') %>
+    <h1>Orders</h1>
+    <form method="get" action="/orders" class="filter-form">
+      <div class="field">
+        <label for="status">Show</label>
+        <select id="status" name="status">
+          <option value="">All orders</option>
+          <% statuses.forEach((status) => { %><option value="<%= status.value %>"<%= status.selected ? ' selected' : '' %>><%= status.label %></option><% }) %>
+        </select>
+      </div>
+      <button type="submit" class="button">Filter</button>
+    </form>
+    <% if (rows.length === 0) { %>
+    <p>No orders to show.</p>
+    <% } else { %>
+    <table class="order-table">
+      <caption class="visually-hidden">Orders, newest first</caption>
+      <thead>
+        <tr><th scope="col">Reference</th><th scope="col">Date</th><th scope="col">Customer</th><th scope="col">Total</th><th scope="col">Status</th></tr>
+      </thead>
+      <tbody>
+        <% rows.forEach((row) => { %>
+        <tr>
+          <th scope="row"><a href="/orders/<%= row.id %>"><%= row.reference %></a></th>
+          <td><%= row.createdAt %></td>
+          <td><%= row.customerName %></td>
+          <td><%= row.total %></td>
+          <td><%= row.statusLabel %></td>
+        </tr>
+        <% }) %>
+      </tbody>
+    </table>
+    <% } %>
+    <p><a href="/dashboard">Back to dashboard</a></p>
+<%- include('partials/footer') %>

@@ -61,3 +61,27 @@ export const STORE_TRANSLATION_CONSTRAINTS = Object.freeze({
   story: 'store_translations_story_length_check',
   source: 'store_translations_source_check',
 });
+
+/** Module 4a (migration 008) constraint, index and function names. Mirrored in db/migrations/008_orders.sql. */
+export const ORDER_CONSTRAINTS = Object.freeze({
+  statusToken: 'orders_status_token_hash_key',
+  reference: 'orders_store_reference_key',
+  utr: 'order_payment_attempts_store_utr_key',
+  itemsPerOrder: 'order_items_order_product_key',
+});
+
+export const ORDER_INDEXES = Object.freeze([
+  'orders_status_expires_at_idx',
+  'orders_store_created_at_idx',
+  'orders_store_status_idx',
+  'order_items_product_id_idx',
+  'order_payment_attempts_order_id_idx',
+]);
+
+export const ORDER_FUNCTIONS = Object.freeze([
+  'place_order',
+  'submit_payment_reference',
+  'resolve_payment',
+  'cancel_order',
+  'expire_overdue_orders',
+]);
