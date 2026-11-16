@@ -14,8 +14,8 @@ import { createPublicRouter } from './routes/public.js';
 
 export const JSON_BODY_LIMIT = '100kb';
 export const FORM_BODY_LIMIT = '10kb';
-/** Product routes parse their own (larger) forms after authentication: Gujarati text is 9 bytes per character URL-encoded. */
-const PRODUCT_PATH_PREFIX = '/products';
+/** These routes parse their own (larger) forms after authentication: Gujarati text is 9 bytes per character URL-encoded. */
+const LARGE_FORM_PATH_PREFIXES = Object.freeze(['/products', '/store/settings/translations']);
 const VIEWS_DIR = fileURLToPath(new URL('./views', import.meta.url));
 const PUBLIC_DIR = fileURLToPath(new URL('../public', import.meta.url));
 export const GLOBAL_RATE_WINDOW_MS = 60_000;
@@ -75,7 +75,7 @@ export function createApp({
   app.set('trust proxy', config.trustProxy);
   app.use(express.json({ limit: JSON_BODY_LIMIT }));
   const globalForm = express.urlencoded({ extended: false, limit: FORM_BODY_LIMIT });
-  app.use((req, res, next) => (req.path.startsWith(PRODUCT_PATH_PREFIX) ? next() : globalForm(req, res, next)));
+  app.use((req, res, next) => (LARGE_FORM_PATH_PREFIXES.some((prefix) => req.path.startsWith(prefix)) ? next() : globalForm(req, res, next)));
   app.use(requestLogger(log));
   app.use(express.static(PUBLIC_DIR));
   // Public storefront: before the global limiter and before any session-loading route; it has its own limiters.

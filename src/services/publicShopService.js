@@ -14,7 +14,7 @@ import {
   truncateText,
   withLang,
 } from '../domain/seo.js';
-import { LANGUAGES } from '../domain/storeRules.js';
+import { LANGUAGES, MAX_PUBLIC_PRODUCTS } from '../domain/storeRules.js';
 import { instagramUrl } from '../domain/shopSettings.js';
 import { buildWhatsappLink } from '../domain/whatsapp.js';
 import { formatInr } from '../lib/money.js';
@@ -60,8 +60,25 @@ function languageLinks(pathFor, current) {
 
 const priceText = (pricePaise) => (pricePaise === null ? null : formatInr(pricePaise, { omitZeroFraction: true }));
 
+/**
+ * Per-field choice of the shop tagline and story. A language other than the shop default is used only when its
+ * translation is approved and the field is non-empty; otherwise the shop default is used, and the returned `lang` says
+ * which. The default language always comes from the stores row, never from a translation row. The shop NAME is never
+ * translated and is not handled here.
+ * @param {{ defaultLanguage: string, tagline: string, story: string, translations?: object }} shop
+ * @param {string} language
+ * @returns {{ tagline: { text: string, lang: string } | null, story: { text: string, lang: string } | null }}
+ */
+export function pickShopTexts(shop, language) {
+  const texts = { ...shop.translations, [shop.defaultLanguage]: { tagline: shop.tagline, story: shop.story, approved: true } };
+  return {
+    tagline: pickField(texts, 'tagline', language, shop.defaultLanguage),
+    story: pickField(texts, 'story', language, shop.defaultLanguage),
+  };
+}
+
 /** Shared view fields: language, strings, theme and contact links. The WhatsApp number never leaves this function. */
-function baseView({ shop, language, baseUrl, pagePath, pathFor, templateKey, values }) {
+function baseView({ shop, texts, language, baseUrl, pagePath, pathFor, templateKey, values }) {
   const strings = stringsFor(language);
   const pageUrl = absoluteUrl(baseUrl, pagePath);
   const message = fillTemplate(strings[templateKey], { shop: shop.name, url: pageUrl, ...values });
@@ -70,7 +87,7 @@ function baseView({ shop, language, baseUrl, pagePath, pathFor, templateKey, val
     language,
     strings,
     themeClass: themeClass(shop.accentKey),
-    shop: { name: shop.name, tagline: shop.tagline, story: shop.story, lang: shop.defaultLanguage },
+    shop: { name: shop.name, lang: shop.defaultLanguage, tagline: texts.tagline, story: texts.story },
     shopHref: withLang(shopPath(shop.slug), language, shop.defaultLanguage),
     instagramUrl: shop.instagramHandle ? instagramUrl(shop.instagramHandle) : null,
     whatsappUrl,
@@ -103,6 +120,7 @@ function buildCard(product, { shop, language, index }) {
  * @returns {{ view: object, skippedIds: string[] }}
  */
 export function buildShopPage({ shop, products, language, baseUrl }) {
+  const texts = pickShopTexts(shop, language);
   const cards = [];
   const skippedIds = [];
   for (const product of products) {
@@ -113,6 +131,7 @@ export function buildShopPage({ shop, products, language, baseUrl }) {
   const pagePath = withLang(shopPath(shop.slug), language, shop.defaultLanguage);
   const base = baseView({
     shop,
+    texts,
     language,
     baseUrl,
     pagePath,
@@ -120,7 +139,7 @@ export function buildShopPage({ shop, products, language, baseUrl }) {
     templateKey: 'whatsappShopMessage',
     values: {},
   });
-  const summary = [shop.tagline, shop.story].filter(Boolean).join(' | ');
+  const summary = [texts.tagline?.text, texts.story?.text].filter(Boolean).join(' | ');
   const meta = buildMeta({
     title: shop.name,
     description: summary,
@@ -132,7 +151,8 @@ export function buildShopPage({ shop, products, language, baseUrl }) {
     indexable: cards.length > 0,
     siteName: shop.name,
   });
-  return { view: { ...base, kind: 'shop', products: cards, meta }, skippedIds };
+  const shown = cards.slice(0, MAX_PUBLIC_PRODUCTS);
+  return { view: { ...base, kind: 'shop', products: shown, hasMore: cards.length > MAX_PUBLIC_PRODUCTS, meta }, skippedIds };
 }
 
 /**
@@ -143,10 +163,12 @@ export function buildShopPage({ shop, products, language, baseUrl }) {
 export function buildProductPage({ shop, product, language, baseUrl }) {
   const card = buildCard(product, { shop, language, index: 0 });
   if (!card) return null;
+  const texts = pickShopTexts(shop, language);
   const description = pickField(product.translations, 'description', language, shop.defaultLanguage);
   const pagePath = withLang(productPath(shop.slug, product.id), language, shop.defaultLanguage);
   const base = baseView({
     shop,
+    texts,
     language,
     baseUrl,
     pagePath,
@@ -169,7 +191,10 @@ export function buildProductPage({ shop, product, language, baseUrl }) {
     ...base,
     kind: 'product',
     product: { ...card, description },
-    maker: { excerpt: truncateText(shop.story, MAX_MAKER_EXCERPT_LENGTH), lang: shop.defaultLanguage },
+    maker: {
+      excerpt: truncateText(texts.story?.text ?? '', MAX_MAKER_EXCERPT_LENGTH),
+      lang: texts.story?.lang ?? shop.defaultLanguage,
+    },
     meta,
   };
 }
@@ -234,6 +259,12 @@ export function buildNoticePage({ language, titleKey, bodyKey }) {
 export function createPublicShopService({ shops, images, logger, baseUrl, now = Date.now }) {
   const pick = (prefs, shopDefault) => resolveLanguage({ ...prefs, shopDefault });
 
+  /** The shop plus its approved translated text; the default language needs no translation rows, so none are read. */
+  const withTranslations = async (shop, language) => ({
+    ...shop,
+    translations: language === shop.defaultLanguage ? {} : await shops.listStoreTranslations(shop.id),
+  });
+
   return {
     /** Language for pages that have no shop (not found, errors): cookie, then Accept-Language, then English. */
     noticeLanguage: (prefs) => pick({ cookie: prefs.cookie, acceptLanguage: prefs.acceptLanguage }, 'en').language,
@@ -254,7 +285,7 @@ export function createPublicShopService({ shops, images, logger, baseUrl, now = 
       if (!shop) return null;
       const { language, fromQuery } = pick(prefs, shop.defaultLanguage);
       const products = await shops.listPublished(shop.id);
-      const { view, skippedIds } = buildShopPage({ shop, products, language, baseUrl });
+      const { view, skippedIds } = buildShopPage({ shop: await withTranslations(shop, language), products, language, baseUrl });
       for (const productId of skippedIds) {
         logger.warn('published product has no approved translation', { storeId: shop.id, productId });
       }
@@ -268,7 +299,7 @@ export function createPublicShopService({ shops, images, logger, baseUrl, now = 
       const product = await shops.findPublished(shop.id, productId);
       if (!product) return null;
       const { language, fromQuery } = pick(prefs, shop.defaultLanguage);
-      const view = buildProductPage({ shop, product, language, baseUrl });
+      const view = buildProductPage({ shop: await withTranslations(shop, language), product, language, baseUrl });
       if (!view) {
         logger.warn('published product has no approved translation', { storeId: shop.id, productId });
         return null;

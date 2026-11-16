@@ -8,6 +8,7 @@ import { createStoreRepository } from '../src/repositories/storeRepository.js';
 import { createSupabaseClient } from '../src/repositories/supabaseClient.js';
 import { createAuthService } from '../src/services/authService.js';
 import { createSessionService } from '../src/services/sessionService.js';
+import { createStoreTranslationRepository } from '../src/repositories/storeTranslationRepository.js';
 import { createStoreService } from '../src/services/storeService.js';
 
 const EXIT_FAILURE = 1;
@@ -89,7 +90,7 @@ export async function main(env = process.env, log = console.log) {
   const owners = createOwnerRepository({ client });
   const sessions = createSessionService({ sessions: createSessionRepository({ client }), owners });
   const auth = createAuthService({ owners, passwords: await createPasswordService(), sessions, inviteCode: undefined });
-  const stores = createStoreService({ stores: createStoreRepository({ client }) });
+  const stores = createStoreService({ stores: createStoreRepository({ client }), translations: createStoreTranslationRepository({ client }) });
   await runSeed({ email, password, owners, auth, stores, log });
 }
 

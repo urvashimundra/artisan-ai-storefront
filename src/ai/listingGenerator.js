@@ -27,13 +27,13 @@ export class ListingProviderError extends Error {
   }
 }
 
-function classifyFailure(error) {
+export function classifyFailure(error) {
   if (typeof error?.status === 'number') return new ListingProviderError('http', error.status);
   if (TIMEOUT_ERROR_NAMES.has(error?.name)) return new ListingProviderError('timeout');
   return new ListingProviderError('network');
 }
 
-function readUsage(response) {
+export function readUsage(response) {
   const parsed = usageSchema.safeParse(response?.usage);
   return parsed.success ? { inputTokens: parsed.data.input_tokens, outputTokens: parsed.data.output_tokens } : null;
 }

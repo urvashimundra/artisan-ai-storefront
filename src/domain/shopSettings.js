@@ -38,7 +38,7 @@ const upiId = rawText
   .pipe(z.union([z.null(), z.string().max(MAX_UPI_LENGTH).regex(UPI_PATTERN, { message: 'invalid_upi' })]));
 
 /** HTML checkbox: present as "on" when ticked, absent otherwise. */
-const checkbox = z
+export const checkbox = z
   .enum(['on'])
   .optional()
   .transform((value) => value === 'on');

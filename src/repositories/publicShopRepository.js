@@ -3,7 +3,10 @@ import { AppError } from '../lib/errors.js';
 import { throwIfError } from './pgErrors.js';
 import { requireStoreId } from './requireStoreId.js';
 
-export const PUBLIC_PRODUCT_LIMIT = 48;
+import { MAX_PUBLIC_PRODUCTS } from '../domain/storeRules.js';
+
+/** One more than is shown, so the page can say that further products exist instead of dropping them silently. */
+export const PUBLIC_PRODUCT_FETCH_LIMIT = MAX_PUBLIC_PRODUCTS + 1;
 const HTTP_INTERNAL_ERROR = 500;
 
 /*
@@ -17,6 +20,7 @@ const CARD_TRANSLATION_COLUMNS = 'language, title, alt_text, approved';
 const PAGE_TRANSLATION_COLUMNS = 'language, title, description, alt_text, approved';
 const CARD_COLUMNS = `id, price_paise, stock, created_at, product_translations(${CARD_TRANSLATION_COLUMNS})`;
 const PAGE_COLUMNS = `id, price_paise, stock, product_translations(${PAGE_TRANSLATION_COLUMNS})`;
+const STORE_TRANSLATION_COLUMNS = 'language, tagline, story, approved';
 const IMAGE_COLUMNS = 'id, image_path';
 const SITEMAP_COLUMNS = 'id, updated_at, stores!inner(slug, updated_at)';
 const APPROVED_FILTER_COLUMN = 'product_translations.approved';
@@ -48,6 +52,7 @@ const productRow = z.object({
   stock: z.number().int().nullable(),
   product_translations: z.array(translationRow).optional(),
 });
+const storeTranslationRow = z.object({ language, tagline: z.string(), story: z.string(), approved: z.boolean() });
 const imageRow = z.object({ id: z.uuid(), image_path: z.string() });
 const sitemapRow = z.object({
   id: z.uuid(),
@@ -114,13 +119,26 @@ export function createPublicShopRepository({ client }) {
       return data ? toShop(parseRow(shopRow, data, 'public.findShopBySlug')) : null;
     },
 
-    /** Newest first, at most 48, approved translations only. @returns {Promise<object[]>} */
+    /**
+     * Approved translated tagline and story of this store, keyed by language. Only approved rows are ever selected.
+     * @returns {Promise<Record<string, { tagline: string, story: string, approved: boolean }>>}
+     */
+    async listStoreTranslations(storeId) {
+      requireStoreId(storeId);
+      const query = client.from('store_translations').select(STORE_TRANSLATION_COLUMNS).eq('store_id', storeId).eq('approved', true);
+      const { data, error } = await query;
+      throwIfError(error);
+      const rows = (data ?? []).map((row) => parseRow(storeTranslationRow, row, 'public.listStoreTranslations'));
+      return Object.fromEntries(rows.map((row) => [row.language, { tagline: row.tagline, story: row.story, approved: row.approved }]));
+    },
+
+    /** Newest first, at most 49 (48 shown plus one to detect more), approved translations only. @returns {Promise<object[]>} */
     async listPublished(storeId) {
       const query = publishedProducts(storeId, CARD_COLUMNS)
         .eq(APPROVED_FILTER_COLUMN, true)
         .order('created_at', { ascending: false })
         .order('id', { ascending: false })
-        .limit(PUBLIC_PRODUCT_LIMIT);
+        .limit(PUBLIC_PRODUCT_FETCH_LIMIT);
       const { data, error } = await query;
       throwIfError(error);
       return (data ?? []).map((row) => toProduct(parseRow(productRow, row, 'public.listPublished')));

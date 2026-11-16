@@ -11,6 +11,9 @@ const QUALITY_PATTERN = /^(?:0(?:\.\d{0,3})?|1(?:\.0{0,3})?)$/;
 /** Language names written in their own script, for the switcher. */
 export const LANGUAGE_NAMES = Object.freeze({ en: 'English', gu: 'ગુજરાતી', hi: 'हिन्दी' });
 
+/** Language names in English, for owner pages and AI prompts. */
+export const LANGUAGE_NAMES_ENGLISH = Object.freeze({ en: 'English', gu: 'Gujarati', hi: 'Hindi' });
+
 /**
  * @param {unknown} value
  * @returns {boolean} True only for the exact strings en, gu, hi.

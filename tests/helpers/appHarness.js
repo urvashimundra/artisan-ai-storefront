@@ -43,10 +43,10 @@ export async function startAuthApp({
   appDeps = {},
 } = {}) {
   const fakes = await buildFakeServices({ inviteCode, ...servicesOptions });
-  const { auth, sessions, stores } = fakes;
+  const { auth, sessions, stores, translations } = fakes;
   const app = await startTestApp({
     config: { signupInviteCode: inviteCode ?? undefined, ...config },
-    services: { auth, sessions, stores, ...extraServices },
+    services: { auth, sessions, stores, translations, ...extraServices },
     authRateLimits,
     ...appDeps,
   });

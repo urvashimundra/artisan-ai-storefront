@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { AppError } from '../../src/lib/errors.js';
-import { PUBLIC_PRODUCT_LIMIT } from '../../src/repositories/publicShopRepository.js';
+import { PUBLIC_PRODUCT_FETCH_LIMIT } from '../../src/repositories/publicShopRepository.js';
 import { requireStoreId } from '../../src/repositories/requireStoreId.js';
 import { createPublicShopService, resetSitemapCache } from '../../src/services/publicShopService.js';
 import { createFakeImages } from './productFakes.js';
@@ -21,6 +21,7 @@ export const translation = (title, description, altText, approved = true) => ({ 
 export function createFakePublicRepo() {
   const shops = [];
   const products = [];
+  const storeTranslations = [];
   const calls = [];
   const failures = {};
   const enter = (name) => {
@@ -34,6 +35,7 @@ export function createFakePublicRepo() {
   return {
     shops,
     products,
+    storeTranslations,
     calls,
     failures,
     addShop(overrides = {}) {
@@ -63,10 +65,15 @@ export function createFakePublicRepo() {
       const { ownerId: _o, contactEmail: _c, upiId: _u, ...publicFields } = row;
       return { ...publicFields };
     },
+    async listStoreTranslations(storeId) {
+      enter('listStoreTranslations');
+      const rows = storeTranslations.filter((row) => row.storeId === requireStoreId(storeId) && row.approved === true);
+      return Object.fromEntries(rows.map((row) => [row.language, { tagline: row.tagline, story: row.story, approved: true }]));
+    },
     async listPublished(storeId) {
       enter('listPublished');
       const rows = [...published(storeId)].sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
-      return rows.slice(0, PUBLIC_PRODUCT_LIMIT).map(toCard);
+      return rows.slice(0, PUBLIC_PRODUCT_FETCH_LIMIT).map(toCard);
     },
     async findPublished(storeId, productId) {
       enter('findPublished');

@@ -31,6 +31,7 @@ export function createBrowserRouter({ config, services, authRateLimits, productR
   const router = Router();
   const signupEnabled = Boolean(config.signupInviteCode);
   const limiters = createAuthLimiters(authRateLimits);
+  const productLimiters = createProductLimiters(productRateLimits);
   const pageLocals = (_req, res, next) => {
     Object.assign(res.locals, { signupEnabled, showAuthLinks: true, productsEnabled: Boolean(services.products && services.listings) });
     next();
@@ -44,7 +45,12 @@ export function createBrowserRouter({ config, services, authRateLimits, productR
   const ownerOnly = [...guard, requireOwner()];
   const auth = createAuthController({ ...services, cookie: config.cookie });
   const store = createStoreController({ stores: services.stores, baseUrl: config.baseUrl });
-  const settings = createShopSettingsController({ stores: services.stores });
+  const settings = createShopSettingsController({
+    stores: services.stores,
+    translations: services.translations,
+    drafts: services.translationDrafts,
+  });
+  const translationForm = express.urlencoded({ extended: false, limit: PRODUCT_FORM_BODY_LIMIT });
   const storeGuard = [...ownerOnly, loadStore({ stores: services.stores })];
 
   if (signupEnabled) {
@@ -59,8 +65,12 @@ export function createBrowserRouter({ config, services, authRateLimits, productR
   router.post('/store/new', ...ownerOnly, store.postNewStore);
   router.get('/store/settings', ...storeGuard, settings.show);
   router.post('/store/settings', ...storeGuard, settings.save);
+  router.post('/store/settings/translations', ...storeGuard, translationForm, settings.saveTranslation);
+  if (services.translationDrafts) {
+    router.post('/store/settings/translations/draft', ...storeGuard, productLimiters.draft, settings.draftTranslations);
+  }
   if (services.products && services.listings) {
-    mountProductRoutes(router, { ownerOnly, services, limiters: createProductLimiters(productRateLimits) });
+    mountProductRoutes(router, { ownerOnly, services, limiters: productLimiters });
   }
   return router;
 }

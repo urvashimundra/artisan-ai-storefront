@@ -42,7 +42,7 @@ export function normalizeStory(text) {
 }
 
 /** Multi-line text such as a description: line breaks unified, other controls removed. NFKC is not applied. */
-function normalizeParagraph(text) {
+export function normalizeParagraph(text) {
   return text.replace(LINE_BREAKS, '\n').replace(CONTROL_EXCEPT_NEWLINE, '').trim();
 }
 

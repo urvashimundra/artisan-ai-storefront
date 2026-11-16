@@ -10,6 +10,8 @@ import { UniqueViolation } from '../../src/repositories/pgErrors.js';
 import { createAuthService } from '../../src/services/authService.js';
 import { createSessionService } from '../../src/services/sessionService.js';
 import { createStoreService } from '../../src/services/storeService.js';
+import { createStoreTranslationService } from '../../src/services/storeTranslationService.js';
+import { requireStoreId } from '../../src/repositories/requireStoreId.js';
 
 export const CHEAP_PARAMS = Object.freeze({ N: 16, r: 1, p: 1 });
 export const INVITE_CODE = 'test-invite-code-0123456789';
@@ -110,6 +112,41 @@ export function createFakeStores() {
 }
 
 /**
+ * In-memory translation repository with the real one's interface: every method needs a store id and only touches that
+ * store's rows.
+ */
+export function createFakeStoreTranslations() {
+  const rows = [];
+  const calls = [];
+  const own = (storeId) => rows.filter((row) => row.storeId === requireStoreId(storeId));
+  return {
+    rows,
+    calls,
+    async list(storeId) {
+      return own(storeId).map(({ storeId: _s, ...rest }) => ({ ...rest }));
+    },
+    async find(storeId, language) {
+      const row = own(storeId).find((candidate) => candidate.language === language);
+      return row ? { language: row.language, tagline: row.tagline, story: row.story, source: row.source, approved: row.approved } : null;
+    },
+    async upsertMany(storeId, translations) {
+      calls.push('upsertMany');
+      requireStoreId(storeId);
+      for (const translation of translations) {
+        const index = rows.findIndex((row) => row.storeId === storeId && row.language === translation.language);
+        const next = { storeId, ...translation };
+        if (index >= 0) rows[index] = next;
+        else rows.push(next);
+      }
+    },
+    async unapproveAll(storeId) {
+      calls.push('unapproveAll');
+      for (const row of own(storeId)) row.approved = false;
+    },
+  };
+}
+
+/**
  * Real services over fake repositories, with cheap scrypt parameters.
  * @param {{ inviteCode?: string | undefined, ownersOptions?: object, now?: () => number,
  *   passwordOptions?: object }} [options]
@@ -126,6 +163,8 @@ export async function buildFakeServices({
   const passwords = await createPasswordService({ params: CHEAP_PARAMS, queue: createJobQueue(), ...passwordOptions });
   const sessions = createSessionService({ sessions: sessionsRepo, owners: ownersRepo, now });
   const auth = createAuthService({ owners: ownersRepo, passwords, sessions, inviteCode });
-  const stores = createStoreService({ stores: storesRepo });
-  return { ownersRepo, sessionsRepo, storesRepo, passwords, sessions, auth, stores };
+  const translationsRepo = createFakeStoreTranslations();
+  const stores = createStoreService({ stores: storesRepo, translations: translationsRepo });
+  const translations = createStoreTranslationService({ translations: translationsRepo });
+  return { ownersRepo, sessionsRepo, storesRepo, translationsRepo, passwords, sessions, auth, stores, translations };
 }

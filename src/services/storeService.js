@@ -16,9 +16,10 @@ const CONFLICTS = {
 
 /**
  * Store rules. The owner id always comes from the authenticated session (or the seed script), never from input.
- * @param {{ stores: ReturnType<import('../repositories/storeRepository.js').createStoreRepository> }} deps
+ * @param {{ stores: ReturnType<import('../repositories/storeRepository.js').createStoreRepository>,
+ *   translations: { unapproveAll: (storeId: string) => Promise<void> } }} deps
  */
-export function createStoreService({ stores }) {
+export function createStoreService({ stores, translations }) {
   return {
     /** @param {string} ownerId @returns {ReturnType<typeof stores.findByOwnerId>} */
     findForOwner: (ownerId) => stores.findByOwnerId(ownerId),
@@ -41,6 +42,8 @@ export function createStoreService({ stores }) {
     /**
      * Updates the storefront settings of the OWNER'S store. The store is resolved from the owner id (the session), never
      * from input, so one owner cannot change another's shop; a store_id in the input is rejected by the strict schema.
+     * When the default-language tagline changes, every translation is withdrawn FIRST (fail-closed): if the second step
+     * fails, a stale translation can never stay public.
      * @param {string} ownerId
      * @param {unknown} rawInput Validated here with a strict schema.
      * @throws {import('zod').ZodError} for invalid input; {AppError} NOT_FOUND when the owner has no store.
@@ -48,7 +51,9 @@ export function createStoreService({ stores }) {
     async updateSettings(ownerId, rawInput) {
       const settings = shopSettingsSchema.parse(rawInput);
       const store = await stores.findByOwnerId(ownerId);
-      const updated = store ? await stores.updateSettings(store.id, settings) : null;
+      if (!store) throw notFound('Store not found');
+      if (settings.tagline !== store.tagline) await translations.unapproveAll(store.id);
+      const updated = await stores.updateSettings(store.id, settings);
       if (!updated) throw notFound('Store not found');
       return updated;
     },

@@ -111,7 +111,7 @@ describe('shop settings page', () => {
   it('the dashboard links to the shop, a copy-link control and the settings page', async () => {
     await withOwners(async ({ app, cookieA }) => {
       const { text } = await app.request('/dashboard', { cookie: cookieA });
-      assert.match(text, /<a class="button" href="\/s\/clay-works">View your shop<\/a>/);
+      assert.match(text, /<a class="button" href="\/s\/clay-works" target="_blank" rel="noopener noreferrer">View your shop<\/a>/);
       assert.match(text, /data-share data-share-url="http:\/\/localhost\/s\/clay-works"/);
       assert.match(text, /href="\/store\/settings">Shop settings</);
       assert.ok(text.includes('<script src="/js/share.js" defer></script>'));

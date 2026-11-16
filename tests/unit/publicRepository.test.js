@@ -43,8 +43,9 @@ describe('public repository queries', () => {
     await repo.listPublished(STORE);
     await repo.findPublished(STORE, PRODUCT);
     await repo.findPublishedImage(STORE, PRODUCT);
+    await repo.listStoreTranslations(STORE);
     await repo.listSitemapEntries(5000);
-    assert.equal(client.log.length, 5);
+    assert.equal(client.log.length, 6);
     for (const entry of client.log) {
       const select = selectOf(entry);
       assert.ok(!select.includes('*'), select);
@@ -67,13 +68,13 @@ describe('public repository queries', () => {
     assert.ok(client.log.slice(1).every((entry) => filters(entry).includes(`id=${PRODUCT}`)));
   });
 
-  it('lists newest first with a cap of 48 and rejects a missing store id before querying', async () => {
+  it('lists newest first with a fetch of 49 (48 shown plus one) and rejects a missing store id before querying', async () => {
     const client = recordingClient();
     const repo = createPublicShopRepository({ client });
     await repo.listPublished(STORE);
     const calls = client.log[0].calls;
     assert.deepEqual(calls.filter(([name]) => name === 'order').map(([, column, options]) => [column, options.ascending]), [['created_at', false], ['id', false]]);
-    assert.deepEqual(calls.find(([name]) => name === 'limit'), ['limit', 48]);
+    assert.deepEqual(calls.find(([name]) => name === 'limit'), ['limit', 49]);
     for (const bad of [undefined, '', 'abc', null]) {
       await assert.rejects(repo.listPublished(bad), TypeError);
       await assert.rejects(repo.findPublished(bad, PRODUCT), TypeError);

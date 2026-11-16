@@ -136,21 +136,26 @@ img { display: block; max-width: 100%; height: auto; }
 .share-status { min-height: 1.5rem; margin: 0.25rem 0; color: var(--muted); }
 
 .grid {
+  --card-min: 8rem;
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--card-min)), 1fr));
   gap: 0.75rem;
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.card { background: var(--surface); border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(35, 31, 28, 0.3); overflow: hidden; }
+.grid > li { min-width: 0; }
+
+.grid-note { margin: 1rem 0 0; color: var(--muted); }
+
+.card { min-width: 0; background: var(--surface); border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(35, 31, 28, 0.3); overflow: hidden; }
 
 .card-link { display: block; height: 100%; padding-bottom: 0.75rem; color: var(--text); text-decoration: none; }
 
 .card-link img { width: 100%; aspect-ratio: 1 / 1; object-fit: cover; background: var(--page); }
 
-.card-title { display: block; padding: 0.5rem 0.75rem 0; font-weight: 600; }
+.card-title { display: block; padding: 0.5rem 0.75rem 0; font-weight: 600; overflow-wrap: anywhere; }
 
 .card-link:hover .card-title { text-decoration: underline; }
 
@@ -169,19 +174,19 @@ img { display: block; max-width: 100%; height: auto; }
 
 p.badge { margin-left: 0; }
 
-.product-photo { width: 100%; max-width: 40rem; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 0.5rem; background: var(--surface); }
+.product-photo { display: block; margin-bottom: 1rem; width: 100%; max-width: 40rem; aspect-ratio: 1 / 1; object-fit: cover; border-radius: 0.5rem; background: var(--surface); }
 
 .maker, .story, .contact { margin-top: 1.5rem; }
 
 .site-footer { max-width: 60rem; margin: 2rem auto 0; padding: 1rem; color: var(--muted); border-top: 2px solid var(--muted); }
 
 @media (min-width: 40em) {
-  .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+  .grid { --card-min: 11rem; gap: 1rem; }
   h1 { font-size: 2.25rem; }
 }
 
 @media (min-width: 60em) {
-  .grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .grid { --card-min: 13rem; }
 }
 
 @media (prefers-reduced-motion: reduce) {

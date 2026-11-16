@@ -1,7 +1,9 @@
 <%- include('partials/header') %>
     <h1>Shop settings</h1>
     <% const errors = locals.errors || {}; const values = locals.values || {}; %>
-    <% if (locals.saved) { %><p class="notice" role="status">Your shop settings were saved.</p><% } %>
+    <% if (locals.notice) { %><p class="notice" role="status"><%= notice %></p><% } %>
+    <% if (locals.aiError) { %><p class="alert" role="alert"><%= aiError %></p><% } %>
+    <% const translationErrors = locals.translationErrors || {}; %>
     <% if (Object.keys(errors).length > 0) { %>
     <p class="alert" role="alert">Please check the fields marked below.</p>
     <% } %>
@@ -52,5 +54,38 @@
         <% if (errors.upiId) { %><p id="upiId-error" class="error-text"><%= errors.upiId %></p><% } %>
       </div>
       <div><button type="submit" class="button">Save settings</button> <a href="/dashboard">Back to dashboard</a></div>
+      <p><a href="/s/<%= shopSlug %>" target="_blank" rel="noopener noreferrer">View your shop (opens in a new tab)</a></p>
     </form>
+    <section class="stack" aria-labelledby="translations-heading">
+      <h2 id="translations-heading">Tagline and story in other languages</h2>
+      <p class="hint">Your shop name is never translated. Visitors see a translation only after you approve it; until then they see your <%= defaultLanguageName %> text.</p>
+      <dl class="details">
+        <dt>Tagline (<%= defaultLanguageName %>)</dt>
+        <dd lang="<%= defaultLanguage %>"><%= defaultTagline || 'None' %></dd>
+        <dt>Story (<%= defaultLanguageName %>)</dt>
+        <dd lang="<%= defaultLanguage %>"><%= defaultStory %></dd>
+      </dl>
+<% if (canDraft) { %>      <form method="post" action="/store/settings/translations/draft" class="stack">
+        <p class="hint">Claude reads only your tagline and story, and writes a draft in each other language. It replaces the text below for those languages and unapproves them. You always review before anything is public.</p>
+        <div><button type="submit" class="button">Draft translations with Claude</button></div>
+      </form>
+<% } %><% translationRows.forEach((row) => { %>      <form method="post" action="/store/settings/translations" class="stack" novalidate>
+        <h3 id="tr-<%= row.language %>-heading"><%= row.name %></h3>
+        <input type="hidden" name="language" value="<%= row.language %>">
+<% if (row.source === 'ai' && (row.tagline || row.story)) { %>        <p><strong>AI draft<%= row.approved ? ', approved by you' : ', not yet approved' %></strong></p>
+<% } %>        <div class="field">
+          <label for="tr-<%= row.language %>-tagline">Tagline (<%= row.name %>)</label>
+          <input type="text" id="tr-<%= row.language %>-tagline" name="tagline" maxlength="120" lang="<%= row.language %>" value="<%= row.tagline %>"<% if (translationErrors[row.language]) { %> aria-invalid="true" aria-describedby="tr-<%= row.language %>-error"<% } %>>
+        </div>
+        <div class="field">
+          <label for="tr-<%= row.language %>-story">Story (<%= row.name %>)</label>
+          <textarea id="tr-<%= row.language %>-story" name="story" maxlength="2000" lang="<%= row.language %>"<% if (translationErrors[row.language]) { %> aria-invalid="true" aria-describedby="tr-<%= row.language %>-error"<% } %>><%= row.story %></textarea>
+        </div>
+<% if (translationErrors[row.language]) { %>        <p id="tr-<%= row.language %>-error" class="error-text"><%= translationErrors[row.language] %></p>
+<% } %>        <div class="field">
+          <label for="tr-<%= row.language %>-approved"><input type="checkbox" id="tr-<%= row.language %>-approved" name="approved" value="on"<%= row.approved ? ' checked' : '' %>> Approve: show this <%= row.name %> text on my shop</label>
+        </div>
+        <div><button type="submit" class="button">Save <%= row.name %></button></div>
+      </form>
+<% }) %>    </section>
 <%- include('partials/footer') %>
