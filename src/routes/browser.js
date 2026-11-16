@@ -1,6 +1,7 @@
 import express, { Router } from 'express';
 import { createProductController } from '../controllers/productController.js';
 import { createAuthController } from '../controllers/authController.js';
+import { createShopSettingsController } from '../controllers/shopSettingsController.js';
 import { createStoreController } from '../controllers/storeController.js';
 import { createAuthLimiters } from '../middleware/authRateLimits.js';
 import { loadSession, requireOwner } from '../middleware/loadSession.js';
@@ -18,7 +19,7 @@ const noStore = (_req, res, next) => {
 };
 
 /**
- * Browser routes: signup (only when an invite code is configured), login, logout, dashboard and store creation.
+ * Browser routes: shop settings, signup (only when an invite code is configured), login, logout, dashboard and store creation.
  * The guard is applied per route so unmatched paths keep their plain 404. Order per route: no-store, Origin check
  * (state-changing requests), session, limiters, authentication, controller.
  * Product routes are mounted only when `services.products` and `services.listings` are provided.
@@ -42,7 +43,9 @@ export function createBrowserRouter({ config, services, authRateLimits, productR
   ];
   const ownerOnly = [...guard, requireOwner()];
   const auth = createAuthController({ ...services, cookie: config.cookie });
-  const store = createStoreController({ stores: services.stores });
+  const store = createStoreController({ stores: services.stores, baseUrl: config.baseUrl });
+  const settings = createShopSettingsController({ stores: services.stores });
+  const storeGuard = [...ownerOnly, loadStore({ stores: services.stores })];
 
   if (signupEnabled) {
     router.get('/signup', ...guard, auth.showSignup);
@@ -54,6 +57,8 @@ export function createBrowserRouter({ config, services, authRateLimits, productR
   router.get('/dashboard', ...ownerOnly, store.dashboard);
   router.get('/store/new', ...ownerOnly, store.showNewStore);
   router.post('/store/new', ...ownerOnly, store.postNewStore);
+  router.get('/store/settings', ...storeGuard, settings.show);
+  router.post('/store/settings', ...storeGuard, settings.save);
   if (services.products && services.listings) {
     mountProductRoutes(router, { ownerOnly, services, limiters: createProductLimiters(productRateLimits) });
   }

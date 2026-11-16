@@ -6,6 +6,7 @@ import { createPasswordService } from './lib/password.js';
 import { createAiBudgetRepository } from './repositories/aiBudgetRepository.js';
 import { createImageStorageRepository } from './repositories/imageStorageRepository.js';
 import { createProductRepository } from './repositories/productRepository.js';
+import { createPublicShopRepository } from './repositories/publicShopRepository.js';
 import { createOwnerRepository } from './repositories/ownerRepository.js';
 import { createSessionRepository } from './repositories/sessionRepository.js';
 import { createStoreRepository } from './repositories/storeRepository.js';
@@ -16,6 +17,7 @@ import { createAuthService } from './services/authService.js';
 import { createDiagnosticsService } from './services/diagnosticsService.js';
 import { createListingService } from './services/listingService.js';
 import { createProductService } from './services/productService.js';
+import { createPublicShopService } from './services/publicShopService.js';
 import { createSessionService } from './services/sessionService.js';
 import { createStoreService } from './services/storeService.js';
 
@@ -39,6 +41,17 @@ function buildProductServices({ config, client, logger }) {
     products: createProductService({ products, images, logger }),
     listings: createListingService({ products, images, budgets, generator, logger }),
   };
+}
+
+/** Public storefront read path: its own repository and a storage client with the storage timeout (signed URLs only). */
+function buildPublicShopService({ config, client, logger }) {
+  const storageClient = createSupabaseClient(config.supabase, undefined, SUPABASE_STORAGE_TIMEOUT_MS);
+  return createPublicShopService({
+    shops: createPublicShopRepository({ client }),
+    images: createImageStorageRepository({ client: storageClient }),
+    logger,
+    baseUrl: config.baseUrl,
+  });
 }
 
 /**
@@ -68,6 +81,7 @@ export async function buildDependencies(config) {
     auth: createAuthService({ owners, passwords, sessions, inviteCode: config.signupInviteCode }),
     sessions,
     stores,
+    publicShop: buildPublicShopService({ config, client, logger }),
     ...buildProductServices({ config, client, logger }),
   };
   return { diagnostics: createDiagnosticsService({ probes }), sendTestEmail: smtp?.sendTest, services };

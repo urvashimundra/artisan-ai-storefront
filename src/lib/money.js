@@ -4,6 +4,7 @@ const PAISE_PER_RUPEE = 100n;
 const FRACTION_DIGITS = 2;
 const RUPEE_PATTERN = /^(\d+)(?:\.(\d{1,2}))?$/;
 const INR_SYMBOL = '₹';
+const ZERO_FRACTION = '00';
 const FIRST_GROUP_SIZE = 3;
 const HTTP_BAD_REQUEST = 400;
 const INDIAN_PAIR_GROUPS = /\B(?=(\d{2})+$)/g;
@@ -43,13 +44,15 @@ function groupIndian(rupeeDigits) {
 /**
  * Formats integer paise as an INR string with Indian digit grouping, e.g. ₹1,23,456.78.
  * @param {number} paise Non-negative safe integer.
+ * @param {{ omitZeroFraction?: boolean }} [options] omitZeroFraction drops ".00" for whole rupees (₹1,25,000).
  * @returns {string}
  * @throws {AppError} INVALID_AMOUNT if not a non-negative safe integer.
  */
-export function formatInr(paise) {
+export function formatInr(paise, { omitZeroFraction = false } = {}) {
   if (!Number.isSafeInteger(paise) || paise < 0) throw invalidAmount();
   const digits = String(paise).padStart(FRACTION_DIGITS + 1, '0');
   const rupees = digits.slice(0, -FRACTION_DIGITS);
   const fraction = digits.slice(-FRACTION_DIGITS);
-  return `${INR_SYMBOL}${groupIndian(rupees)}.${fraction}`;
+  const grouped = `${INR_SYMBOL}${groupIndian(rupees)}`;
+  return omitZeroFraction && fraction === ZERO_FRACTION ? grouped : `${grouped}.${fraction}`;
 }

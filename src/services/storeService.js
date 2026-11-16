@@ -1,6 +1,7 @@
 import { STORES_OWNER_ID_KEY, STORES_SLUG_KEY } from '../domain/dbConstraints.js';
+import { shopSettingsSchema } from '../domain/shopSettings.js';
 import { storeSchema } from '../domain/storeRules.js';
-import { AppError } from '../lib/errors.js';
+import { AppError, notFound } from '../lib/errors.js';
 import { UniqueViolation } from '../repositories/pgErrors.js';
 
 const HTTP_CONFLICT = 409;
@@ -35,6 +36,21 @@ export function createStoreService({ stores }) {
         if (error instanceof UniqueViolation && CONFLICTS[error.constraint]) throw CONFLICTS[error.constraint]();
         throw error;
       }
+    },
+
+    /**
+     * Updates the storefront settings of the OWNER'S store. The store is resolved from the owner id (the session), never
+     * from input, so one owner cannot change another's shop; a store_id in the input is rejected by the strict schema.
+     * @param {string} ownerId
+     * @param {unknown} rawInput Validated here with a strict schema.
+     * @throws {import('zod').ZodError} for invalid input; {AppError} NOT_FOUND when the owner has no store.
+     */
+    async updateSettings(ownerId, rawInput) {
+      const settings = shopSettingsSchema.parse(rawInput);
+      const store = await stores.findByOwnerId(ownerId);
+      const updated = store ? await stores.updateSettings(store.id, settings) : null;
+      if (!updated) throw notFound('Store not found');
+      return updated;
     },
   };
 }

@@ -31,20 +31,24 @@ export const cookieFrom = (response) => response.setCookie.map((value) => value.
 
 /**
  * Starts the real app (routes, middleware, views) over real services with in-memory repositories.
- * @param {{ inviteCode?: string | null, config?: object, authRateLimits?: object, servicesOptions?: object }} [options]
+ * @param {{ inviteCode?: string | null, config?: object, authRateLimits?: object, servicesOptions?: object,
+ *   extraServices?: object, appDeps?: object }} [options] appDeps are extra createApp dependencies (for example publicRateLimits).
  */
 export async function startAuthApp({
   inviteCode = INVITE_CODE,
   config = {},
   authRateLimits = HIGH_LIMITS,
   servicesOptions = {},
+  extraServices = {},
+  appDeps = {},
 } = {}) {
   const fakes = await buildFakeServices({ inviteCode, ...servicesOptions });
   const { auth, sessions, stores } = fakes;
   const app = await startTestApp({
     config: { signupInviteCode: inviteCode ?? undefined, ...config },
-    services: { auth, sessions, stores },
+    services: { auth, sessions, stores, ...extraServices },
     authRateLimits,
+    ...appDeps,
   });
   const request = createClient(app.url, config.allowedOrigins?.[0] ?? ORIGIN);
   return { ...app, ...fakes, request };

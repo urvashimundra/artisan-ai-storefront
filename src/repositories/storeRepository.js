@@ -1,6 +1,8 @@
 import { throwIfError } from './pgErrors.js';
+import { requireStoreId } from './requireStoreId.js';
 
-const STORE_COLUMNS = 'id, owner_id, slug, name, default_language, story, contact_email, created_at';
+const STORE_COLUMNS =
+  'id, owner_id, slug, name, default_language, story, contact_email, tagline, accent_key, whatsapp_number, whatsapp_enabled, instagram_handle, upi_id, created_at, updated_at';
 
 const toStore = (row) =>
   row
@@ -12,7 +14,14 @@ const toStore = (row) =>
         defaultLanguage: row.default_language,
         story: row.story,
         contactEmail: row.contact_email,
+        tagline: row.tagline,
+        accentKey: row.accent_key,
+        whatsappNumber: row.whatsapp_number,
+        whatsappEnabled: row.whatsapp_enabled,
+        instagramHandle: row.instagram_handle,
+        upiId: row.upi_id,
         createdAt: row.created_at,
+        updatedAt: row.updated_at,
       }
     : null;
 
@@ -37,6 +46,30 @@ export function createStoreRepository({ client }) {
     async insert({ ownerId, slug, name, defaultLanguage, story }) {
       const row = { owner_id: ownerId, slug, name, default_language: defaultLanguage, story };
       const { data, error } = await client.from('stores').insert(row).select(STORE_COLUMNS).single();
+      throwIfError(error);
+      return toStore(data);
+    },
+
+    /**
+     * Single UPDATE of the storefront settings, scoped by the store id the caller resolved from the session.
+     * @param {string} storeId
+     * @param {{ tagline: string, accentKey: string, whatsappNumber: string | null, whatsappEnabled: boolean,
+     *   instagramHandle: string | null, upiId: string | null }} settings Already validated.
+     * @returns {Promise<ReturnType<typeof toStore>>} null when the store no longer exists.
+     */
+    async updateSettings(storeId, settings) {
+      requireStoreId(storeId);
+      const changes = {
+        tagline: settings.tagline,
+        accent_key: settings.accentKey,
+        whatsapp_number: settings.whatsappNumber,
+        whatsapp_enabled: settings.whatsappEnabled,
+        instagram_handle: settings.instagramHandle,
+        upi_id: settings.upiId,
+        updated_at: new Date().toISOString(),
+      };
+      const query = client.from('stores').update(changes).eq('id', storeId).select(STORE_COLUMNS);
+      const { data, error } = await query.maybeSingle();
       throwIfError(error);
       return toStore(data);
     },

@@ -1,4 +1,5 @@
 import { ZodError } from 'zod';
+import { absoluteUrl, shopPath } from '../domain/seo.js';
 import { MAX_STORY_LENGTH } from '../domain/storeRules.js';
 import { SLUG_TAKEN } from '../services/storeService.js';
 import { echoValues, fieldErrors } from './formErrors.js';
@@ -19,9 +20,9 @@ const STORE_MESSAGES = {
 /**
  * Store creation and dashboard handlers. The owner always comes from the session (`req.owner`); the store is
  * resolved from that owner id. A store id is never read from the request.
- * @param {{ stores: object }} deps
+ * @param {{ stores: object, baseUrl: string }} deps
  */
-export function createStoreController({ stores }) {
+export function createStoreController({ stores, baseUrl }) {
   const formPage = (res, status, errors, values) =>
     res.status(status).render('store-new', { title: 'Create your store', errors, values });
 
@@ -50,7 +51,8 @@ export function createStoreController({ stores }) {
     async dashboard(req, res) {
       const store = await stores.findForOwner(req.owner.id);
       if (!store) return res.redirect(SEE_OTHER, '/store/new');
-      return res.render('dashboard', { title: 'Dashboard', store, languageName: LANGUAGE_NAMES[store.defaultLanguage] });
+      const shopUrl = absoluteUrl(baseUrl, shopPath(store.slug));
+      return res.render('dashboard', { title: 'Dashboard', store, shopUrl, languageName: LANGUAGE_NAMES[store.defaultLanguage] });
     },
   };
 }
