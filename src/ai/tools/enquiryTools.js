@@ -15,6 +15,7 @@ const NO_MATCH_NOTE = 'No product title or description matched the query, so the
 
 const clip = (text, max) => (Array.from(text).length > max ? `${Array.from(text).slice(0, max).join('')}...` : text);
 const stockLabel = (stock) => (stock === null ? 'available' : stock === 0 ? 'sold out' : `${stock} in stock`);
+const stockPlaceholder = (stock) => (stock === null ? '{{label.available}}' : stock === 0 ? '{{label.sold_out}}' : `${stock} {{label.in_stock}}`);
 const tierView = (tier) => ({ min_quantity: tier.minQty, percent_off: tier.percentOff });
 
 /**
@@ -24,9 +25,11 @@ const tierView = (tier) => ({ min_quantity: tier.minQty, percent_off: tier.perce
  * written by this code from the database), and the server substitutes them into the final text. `trace` is built from what the tools
  * actually did, never from anything the model says.
  * @param {{ storeId: string, shop: { name: string, tagline: string, story: string, defaultLanguage: string }, language: string,
+ *   labelPlaceholders?: boolean (the stock wording becomes a server-localised label placeholder),
  *   shops: { listPublishedWithDescriptions: Function, findPublished: Function }, knowledge: { get: Function } }} deps
  */
-export function createEnquiryTools({ storeId, shop, language, shops, knowledge }) {
+export function createEnquiryTools({ storeId, shop, language, shops, knowledge, labelPlaceholders = false }) {
+  const stockText = labelPlaceholders ? stockPlaceholder : stockLabel;
   const refs = new Map();
   const trace = [];
   const productNumbers = new Map();
@@ -84,7 +87,7 @@ export function createEnquiryTools({ storeId, shop, language, shops, knowledge }
 
   function productView(product, ref, title) {
     if (product.stock !== null) seenNumbers.add(product.stock);
-    return { ref, product_id: product.id, title, stock: stockLabel(product.stock), ...(product.pricePaise === null ? {} : { price: `{{${ref}.price}}` }) };
+    return { ref, product_id: product.id, title, stock: stockText(product.stock), ...(product.pricePaise === null ? {} : { price: `{{${ref}.price}}` }) };
   }
 
   function listedView({ product, title, description }) {

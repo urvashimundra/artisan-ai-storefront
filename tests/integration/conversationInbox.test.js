@@ -96,6 +96,24 @@ describe('seller conversations inbox', () => {
     });
   });
 
+  it('shows the assistant note about an incidental conflict to the seller only, and the conversation stays open', async () => {
+    const note = 'Assistant note for you: Tea Lights fragrance differs between notes and description';
+    const chatAgent = createFakeAgent({ fallback: answered('We sell candles and tea lights.', { trace: ['Searched the products (3 found)', note] }) });
+    await run({ chatAgent }, async (t) => {
+      const token = tokenOf(await startChat(t));
+      const conversation = firstConversation(t);
+      assert.notEqual(conversation.status, 'needs_you');
+      const detail = await t.owner(`/enquiries/${conversation.id}`);
+      assert.ok(detail.text.includes('Tea Lights fragrance differs between notes and description'));
+      assert.ok(detail.text.includes('the customer does not see this'));
+      assert.ok(!detail.text.includes('Searched the products'));
+      const customer = await t.request(`/s/${t.store.slug}/c/${token}`);
+      const poll = await t.request(`/s/${t.store.slug}/c/${token}/messages?after=0`);
+      for (const page of [customer, poll]) assert.ok(!page.text.includes('fragrance differs') && !page.text.includes('Assistant note'));
+      assert.ok(customer.text.includes('We sell candles and tea lights.'));
+    });
+  });
+
   it('shows needs-you, unanswered and handled states and filters by them', async () => {
     await run({ chatAgent: createFakeAgent({ results: [failedRun('provider_error'), answered()], fallback: answered() }) }, async (t) => {
       await startChat(t, { phone: '9000000001', name: 'Needs Person' });

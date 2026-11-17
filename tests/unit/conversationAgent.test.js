@@ -159,7 +159,7 @@ describe('sources, conflicts and verification', () => {
       script: [
         turn(use('search_products', {})),
         turn(use('check_product', { productId: 'p1' })),
-        finalTurn({ outcome: 'conflict', conflict: { topic: 'Returns', claims: [
+        finalTurn({ outcome: 'conflict', conflict: { topic: 'Returns', affects_question: 'Hello?', claims: [
           { label: 'seller_notes', excerpt: 'we accept returns within 7 days' }, { label: 'product_description', excerpt: 'Returns on this item: 14 days' },
         ] } }),
       ],
@@ -175,7 +175,7 @@ describe('sources, conflicts and verification', () => {
     const doc = 'Custom orders start at ₹500.';
     const h = await harness({
       document: doc,
-      script: [finalTurn({ outcome: 'conflict', conflict: { topic: 'Custom price', claims: [
+      script: [finalTurn({ outcome: 'conflict', conflict: { topic: 'Custom price', affects_question: 'Hello?', claims: [
         { label: 'seller_notes', excerpt: 'Custom orders start at {{d1.amount}}' }, { label: 'shop_profile', excerpt: 'family workshop in Kutch' },
       ] } })],
     });
@@ -185,9 +185,9 @@ describe('sources, conflicts and verification', () => {
   });
 
   it('rejects a conflict with a fabricated quote, a quote from the wrong source, or one repeated quote, and fails safely after one retry', async () => {
-    const fake = { outcome: 'conflict', conflict: { topic: 'Returns', claims: [{ label: 'seller_notes', excerpt: 'we accept returns within 7 days' }, { label: 'seller_notes', excerpt: 'returns are never accepted' }] } };
-    const wrongSource = { outcome: 'conflict', conflict: { topic: 'Returns', claims: [{ label: 'seller_notes', excerpt: 'we accept returns within 7 days' }, { label: 'product_description', excerpt: 'Returns on this item: 14 days' }] } };
-    const repeated = { outcome: 'conflict', conflict: { topic: 'Returns', claims: [{ label: 'seller_notes', excerpt: 'within 7 days' }, { label: 'seller_notes', excerpt: 'WITHIN  7  days' }] } };
+    const fake = { outcome: 'conflict', conflict: { topic: 'Returns', affects_question: 'Hello?', claims: [{ label: 'seller_notes', excerpt: 'we accept returns within 7 days' }, { label: 'seller_notes', excerpt: 'returns are never accepted' }] } };
+    const wrongSource = { outcome: 'conflict', conflict: { topic: 'Returns', affects_question: 'Hello?', claims: [{ label: 'seller_notes', excerpt: 'we accept returns within 7 days' }, { label: 'product_description', excerpt: 'Returns on this item: 14 days' }] } };
+    const repeated = { outcome: 'conflict', conflict: { topic: 'Returns', affects_question: 'Hello?', claims: [{ label: 'seller_notes', excerpt: 'within 7 days' }, { label: 'seller_notes', excerpt: 'WITHIN  7  days' }] } };
     for (const input of [fake, wrongSource, repeated]) {
       const h = await harness({ script: [finalTurn(input), finalTurn(input)] });
       const result = await h.run();

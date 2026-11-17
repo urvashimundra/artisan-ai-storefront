@@ -7,6 +7,8 @@ export const CONVERSATION_FINAL_TOOL_NAME = 'final_answer';
 export const MAX_ANSWER_TEXT_LENGTH = 2000;
 const MAX_TOPIC_LENGTH = 120;
 const MAX_CITED_SOURCES = 4;
+const MAX_AFFECTS_LENGTH = 300;
+export const MAX_SELLER_NOTICE_LENGTH = 100;
 const MIN_CONFLICT_CLAIMS = 2;
 const MAX_CONFLICT_CLAIMS = 4;
 
@@ -28,7 +30,12 @@ export const conversationAnswerSchema = z
     text: z.string().min(1).max(MAX_ANSWER_TEXT_LENGTH).optional(),
     language: z.enum(LANGUAGES).optional(),
     sources: z.array(citedSource).max(MAX_CITED_SOURCES).optional(),
-    conflict: z.object({ topic: z.string().min(1).max(MAX_TOPIC_LENGTH), claims: z.array(conflictClaim).min(MIN_CONFLICT_CLAIMS).max(MAX_CONFLICT_CLAIMS) }).strict().optional(),
+    seller_notice: z.string().min(1).max(MAX_SELLER_NOTICE_LENGTH).optional(),
+    conflict: z.object({
+      topic: z.string().min(1).max(MAX_TOPIC_LENGTH),
+      affects_question: z.string().min(1).max(MAX_AFFECTS_LENGTH),
+      claims: z.array(conflictClaim).min(MIN_CONFLICT_CLAIMS).max(MAX_CONFLICT_CLAIMS),
+    }).strict().optional(),
   })
   .strict()
   .superRefine((value, context) => {
@@ -63,6 +70,6 @@ export const CONVERSATION_TOOL_DEFINITIONS = Object.freeze([
 export const CONVERSATION_FINAL_TOOL = Object.freeze({
   name: CONVERSATION_FINAL_TOOL_NAME,
   description:
-    'Give the final result. Always set language to the language the text is written in. outcome "answered": text plus the sources you used (quote each document excerpt exactly). outcome "needs_seller": the answer is not in any source or the live data; text says exactly what is missing (one or two sentences, no guessing). outcome "conflict": two written sources contradict each other; give the topic and a verbatim excerpt of each.',
+    'Give the final result. Always set language to the language the text is written in. outcome "answered": text plus the sources you used (quote each document excerpt exactly). outcome "needs_seller": the answer is not in any source or the live data; text says exactly what is missing (one or two sentences, no guessing). outcome "conflict": ONLY when the customer’s latest message asks about a fact that two written sources state differently; give the topic, affects_question (the words of the customer’s latest message that depend on that fact, copied exactly) and a verbatim excerpt of each source. seller_notice (optional, one short sentence): a contested fact you noticed that the customer did not ask about; the customer never sees it and you must not mention that fact in text.',
   input_schema: jsonSchema(conversationAnswerSchema),
 });

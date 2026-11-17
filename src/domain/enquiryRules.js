@@ -8,6 +8,8 @@ export const MAX_REPLY_LENGTH = 1000;
 export const MAX_ANSWER_LENGTH = 3000;
 export const MAX_TRACE_ITEMS = 12;
 export const MAX_TRACE_ITEM_LENGTH = 160;
+/** Server label of the trace entry that carries the assistant's note about an incidental source conflict. Shown in the seller inbox only. */
+export const SELLER_NOTICE_PREFIX = 'Assistant note for you: ';
 export const MAX_ENQUIRY_NAME_LENGTH = MAX_CUSTOMER_NAME_LENGTH;
 /** An answering enquiry older than this is treated as needing the seller. */
 export const STUCK_AFTER_MS = 120_000;

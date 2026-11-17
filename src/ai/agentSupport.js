@@ -11,8 +11,9 @@ export const echoBlocks = (response) =>
     return [];
   });
 
-/** @returns {string[]} The trace the tools built, clipped to the stored limits. */
-export const finishTrace = (state) => state.tools.trace.slice(0, MAX_TRACE_ITEMS).map((item) => Array.from(item).slice(0, MAX_TRACE_ITEM_LENGTH).join(''));
+/** @returns {string[]} The trace the tools built, then any server-labelled extra entries (kept even when the trace is full), clipped to the stored limits. */
+export const finishTrace = (state, extra = []) =>
+  [...state.tools.trace.slice(0, MAX_TRACE_ITEMS - extra.length), ...extra].map((item) => Array.from(item).slice(0, MAX_TRACE_ITEM_LENGTH).join(''));
 
 /** Runs the model's tool calls (not the final one) and returns the tool_result blocks. */
 export async function runTools(blocks, tools) {

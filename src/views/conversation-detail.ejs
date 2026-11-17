@@ -32,6 +32,7 @@
                   <p class="hint">Decide which is right, correct the source if needed, and reply to the customer below.</p>
                 </div>
                 <% } %>
+                <% m.notices.forEach((notice) => { %><p class="hint thread-notice">Assistant note for you (the customer does not see this): <%= notice %></p><% }) %>
                 <% if (m.sources.length > 0) { %><p class="thread-sources">Based on: <%= m.sources.join(', ') %></p><% } %>
                 <p class="thread-time"><%= m.time %></p>
               </div>

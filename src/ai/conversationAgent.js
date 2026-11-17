@@ -1,20 +1,21 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { estimateMaxCostMicroUsd } from '../domain/aiCost.js';
-import { MAX_ANSWER_LENGTH, MAX_MODEL_CALLS } from '../domain/enquiryRules.js';
+import { MAX_ANSWER_LENGTH, MAX_MODEL_CALLS, SELLER_NOTICE_PREFIX } from '../domain/enquiryRules.js';
 import { MAX_KNOWLEDGE_LENGTH } from '../domain/knowledgeRules.js';
 import { codePointLength } from '../domain/productRules.js';
+import { stringsFor } from '../domain/publicStrings.js';
 import { formatInr } from '../lib/money.js';
 import { withTimeout } from '../lib/timeout.js';
 import { echoBlocks, finishTrace, runTools, toolUseBlocks } from './agentSupport.js';
-import { buildSourceBook, descriptiveFigures, maskDocumentAmounts, substituteDocumentAmounts, verifiedClaims, verifiedConflict } from './knowledgeSources.js';
+import { buildSourceBook, descriptiveFigures, maskDocumentAmounts, normalizeForMatch, substituteDocumentAmounts, verifiedClaims, verifiedConflict } from './knowledgeSources.js';
 import { INDIC_TOKENS_PER_CHARACTER } from './listingCost.js';
 import { classifyFailure, readUsage } from './listingGenerator.js';
-import { resolveMoney } from './moneyPlaceholders.js';
+import { hasTypedAmount, resolveMoney } from './moneyPlaceholders.js';
 import { CONVERSATION_PROMPT_VERSION, buildConversationSystemPrompt, buildConversationUserText } from './prompts/conversationV1.js';
 import {
   CONVERSATION_FINAL_TOOL, CONVERSATION_FINAL_TOOL_NAME, CONVERSATION_OUTCOMES, CONVERSATION_TOOL_DEFINITIONS, conversationAnswerSchema,
 } from './schemas/conversationAnswer.js';
-import { detectIndicLanguage, textUsesScript } from './scriptCheck.js';
+import { detectIndicLanguage, hasEnglishLabelWords, textUsesScript } from './scriptCheck.js';
 
 /** Output cap per model call: tool calls are short and the final answer is a few sentences. */
 export const CONVERSATION_STEP_MAX_OUTPUT_TOKENS = 1500;
@@ -24,13 +25,38 @@ const REFUSAL_STOP_REASON = 'refusal';
 const HTTP_TOO_MANY_REQUESTS = 429;
 const HTTP_OVERLOADED = 529;
 const ALLOWED_TOOLS = new Set(CONVERSATION_TOOL_DEFINITIONS.map((tool) => tool.name));
-const FINAL_RETRY_MESSAGE = 'The final_answer was not valid. Call final_answer again. Set language to the language the text is really written in. For outcome answered give text using only money placeholders you were given and quote sources verbatim. For outcome needs_seller give text saying exactly what is missing. For outcome conflict give a topic and at least two verbatim excerpts from two different sources.';
+const FINAL_RETRY_MESSAGE = 'The final_answer was not valid. Call final_answer again. Set language to the language the text is really written in. For outcome answered give text using only money placeholders you were given and quote sources verbatim. For outcome needs_seller give text saying exactly what is missing. For outcome conflict give a topic, affects_question and at least two verbatim excerpts from two different sources.';
+const CONFLICT_NOT_ASKED_MESSAGE = 'The conflict was refused: affects_question must be copied exactly from the part of the customer’s LATEST message that depends on the contested fact. If the latest message does not ask about the contested fact, do not use conflict: answer what was asked, leave the contested fact out completely, and put one short sentence about it in seller_notice. If you cannot answer, use needs_seller.';
+const VOLUNTEERED_MESSAGE = 'The answer text repeats a fact you named in seller_notice as contested between sources. Never state a contested fact. Call final_answer again without it.';
+const MIN_AFFECTS_LENGTH = 3;
+const MIN_OVERLAP_WORDS = 3;
+const WORD = /[\p{L}\p{N}]+/gu;
 const NO_TOOL_MESSAGE = 'Call the final_answer tool now.';
 const PLACEHOLDER_ANYWHERE = /{{[^}]*}}/g;
 const withoutPlaceholders = (text) => text.replace(PLACEHOLDER_ANYWHERE, '');
 
 const failed = (state, reason, detail) => ({ ok: false, reason, detail, trace: finishTrace(state), steps: state.steps, charged: state.charged });
-const succeeded = (state, fields) => ({ ok: true, text: null, sources: [], conflict: null, ...fields, trace: finishTrace(state), steps: state.steps, charged: state.charged });
+const succeeded = (state, { sellerNotice, ...fields }) => ({
+  ok: true, text: null, sources: [], conflict: null, ...fields, trace: finishTrace(state, sellerNotice ? [`${SELLER_NOTICE_PREFIX}${sellerNotice}`] : []), steps: state.steps, charged: state.charged,
+});
+
+/** True when the text quotes part of the customer's latest message (whitespace and case ignored): the part that depends on a contested fact. */
+export const quotesLatestMessage = (quote, latest) => {
+  const needle = normalizeForMatch(quote);
+  return codePointLength(needle) >= MIN_AFFECTS_LENGTH && normalizeForMatch(latest).includes(needle);
+};
+
+const wordsOf = (text) => normalizeForMatch(text).match(WORD) ?? [];
+
+/** True when the answer repeats a run of words from the seller notice: the model named a contested fact and then stated it anyway. */
+export function repeatsNotice(answer, notice) {
+  const words = wordsOf(answer);
+  const runs = new Set(wordsOf(notice).flatMap((_word, index, all) => (index + MIN_OVERLAP_WORDS <= all.length ? [all.slice(index, index + MIN_OVERLAP_WORDS).join(' ')] : [])));
+  return words.some((_word, index) => runs.has(words.slice(index, index + MIN_OVERLAP_WORDS).join(' ')));
+}
+
+/** The seller notice as stored, or undefined when the model typed an amount or a placeholder into it (it is never shown to the customer). */
+const usableNotice = (notice) => (notice === undefined || notice.includes('{{') || hasTypedAmount(notice) ? undefined : notice);
 
 /**
  * Why a run threw: budget refusal, a timeout, the provider's 429/529 (rate limit or overload), another provider error, or the network.
@@ -95,6 +121,12 @@ export function createConversationAgent({ config, createClient = (options) => ne
     maskedDocument: state.document.masked, document: state.document.original, profileTexts: state.profileTexts, descriptions: state.tools.descriptionTexts(),
   });
 
+  /** The words the server inserts for the label placeholders, in the language the answer is written in. */
+  const labelsFor = (language) => {
+    const strings = stringsFor(language);
+    return { unit_price: strings.chatLabelUnitPrice, subtotal: strings.chatLabelSubtotal, discount: strings.chatLabelDiscount, total: strings.chatLabelTotal, in_stock: strings.chatLabelInStock, sold_out: strings.chatLabelSoldOut, available: strings.chatLabelAvailable };
+  };
+
   /** The text of a needs_seller note, or null (the fixed localised notice is used) when it states an unverifiable amount or is not in its language. */
   function sellerNote(text, money, language) {
     return text !== undefined && money.ok && textUsesScript(withoutPlaceholders(text), language) ? money.text : null;
@@ -106,23 +138,27 @@ export function createConversationAgent({ config, createClient = (options) => ne
   async function evaluateFinal(block, state, { quoteNote }) {
     const parsed = conversationAnswerSchema.safeParse(block.input);
     if (!parsed.success) return { retry: true };
-    const { outcome, text, sources = [], conflict } = parsed.data;
+    const { outcome, text, sources = [], conflict, seller_notice: rawNotice } = parsed.data;
+    const sellerNotice = usableNotice(rawNotice);
     const language = parsed.data.language ?? state.replyLanguage;
     const refs = new Map([...state.tools.refs, ...state.document.refs]);
     const [allowedPercents, allowedNumbers] = await Promise.all([state.tools.allowedPercents(), state.tools.verifiedNumbers()]);
-    const money = text === undefined ? { ok: false } : resolveMoney(text, { refs, allowedPercents, allowedNumbers, descriptive: descriptiveFigures(figureTexts(state)), maxLength: MAX_ANSWER_LENGTH - quoteNote.length - 2 });
+    const money = text === undefined ? { ok: false } : resolveMoney(text, { refs, allowedPercents, allowedNumbers, descriptive: descriptiveFigures(figureTexts(state)), labels: labelsFor(language), maxLength: MAX_ANSWER_LENGTH - quoteNote.length - 2 });
     const stockShortage = state.tools.stockShortage();
     if (stockShortage) return { result: succeeded(state, { outcome: CONVERSATION_OUTCOMES.NEEDS_SELLER, stockShortage }) };
     if (outcome === CONVERSATION_OUTCOMES.CONFLICT) {
+      if (!quotesLatestMessage(conflict.affects_question, state.latestCustomer)) return { retry: true, message: CONFLICT_NOT_ASKED_MESSAGE };
       const checked = verifiedConflict(conflict, sourceBook(state), (excerpt) => substituteDocumentAmounts(excerpt, state.document.refs, formatInr));
       return checked ? { result: succeeded(state, { outcome, conflict: checked }) } : { retry: true };
     }
-    if (outcome === CONVERSATION_OUTCOMES.NEEDS_SELLER) return { result: succeeded(state, { outcome, text: sellerNote(text, money, language) }) };
+    if (outcome === CONVERSATION_OUTCOMES.NEEDS_SELLER) return { result: succeeded(state, { outcome, text: sellerNote(text, money, language), sellerNotice }) };
     if (!money.ok && money.reason === 'unverified_amount') return { result: failed(state, 'unverified_amount', 'typed_amount') };
-    if (!money.ok || !textUsesScript(withoutPlaceholders(text), language)) return { retry: true };
+    const bare = withoutPlaceholders(text);
+    if (!money.ok || !textUsesScript(bare, language) || hasEnglishLabelWords(bare, language)) return { retry: true };
+    if (sellerNotice && repeatsNotice(money.text, sellerNotice)) return { retry: true, message: VOLUNTEERED_MESSAGE };
     const verified = verifiedClaims(sources, sourceBook(state), { usedLiveData: state.tools.usedLiveData() });
     const answer = money.usedQuote ? `${money.text}\n\n${quoteNote}` : money.text;
-    return { result: succeeded(state, { outcome, text: answer, sources: verified }) };
+    return { result: succeeded(state, { outcome, text: answer, sources: verified, sellerNotice }) };
   }
 
   async function loop(state, input) {
@@ -137,7 +173,7 @@ export function createConversationAgent({ config, createClient = (options) => ne
       if (final) {
         const verdict = await evaluateFinal(final, state, input);
         if (verdict.result) return verdict.result;
-        results.push({ type: 'tool_result', tool_use_id: final.id, content: FINAL_RETRY_MESSAGE, is_error: true });
+        results.push({ type: 'tool_result', tool_use_id: final.id, content: verdict.message ?? FINAL_RETRY_MESSAGE, is_error: true });
       }
       if (blocks.length === 0) results.push({ type: 'text', text: NO_TOOL_MESSAGE });
       if ((final || blocks.length === 0) && state.retried) return failed(state, 'invalid_output', 'invalid_output');
@@ -167,7 +203,8 @@ export function createConversationAgent({ config, createClient = (options) => ne
       state.document = { masked: masked.text, original: knowledge.content, refs: masked.refs };
       state.profileTexts = [shop.story, shop.tagline].filter((text) => typeof text === 'string' && text !== '');
       const customerTexts = messages.filter((message) => message.role === 'customer').map((message) => message.body);
-      state.replyLanguage = detectIndicLanguage(customerTexts.at(-1) ?? '') ?? language;
+      state.latestCustomer = customerTexts.at(-1) ?? '';
+      state.replyLanguage = detectIndicLanguage(state.latestCustomer) ?? language;
       state.system = buildConversationSystemPrompt({ shopName: shop.name, language: state.replyLanguage, maskedDocument: masked.text, story: shop.story, tagline: shop.tagline });
       try {
         const records = await tools.recordsFor(customerTexts, productId);

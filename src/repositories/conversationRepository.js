@@ -11,6 +11,8 @@ const MAX_MESSAGES_PER_READ = 210;
 const CONVERSATION_COLUMNS = 'id, store_id, product_id, language, customer_name, customer_phone, status, flag_reason, message_count, last_message_role, last_preview, '
   + 'escalation_count, ai_run_id, ai_run_started_at, legacy_enquiry_id, last_activity_at, created_at, updated_at';
 const MESSAGE_COLUMNS = 'id, seq, role, kind, body, flag_reason, sources, conflict, created_at';
+/** The trace column is read only for the seller's detail view; the customer's reads never select it. */
+const OWNER_MESSAGE_COLUMNS = `${MESSAGE_COLUMNS}, trace`;
 
 const conversationRow = z.object({
   id: z.uuid(), store_id: z.uuid(), product_id: z.uuid().nullable(), language: z.enum(['en', 'gu', 'hi']), customer_name: z.string(),
@@ -21,7 +23,7 @@ const conversationRow = z.object({
 });
 const messageRow = z.object({
   id: z.uuid(), seq: z.number().int(), role: z.enum(MESSAGE_ROLES), kind: z.enum(MESSAGE_KINDS), body: z.string(), flag_reason: z.enum(FLAG_REASONS).nullable(),
-  sources: z.array(z.object({ label: z.string() }).passthrough()), conflict: z.object({}).passthrough().nullable(), created_at: z.string(),
+  sources: z.array(z.object({ label: z.string() }).passthrough()), conflict: z.object({}).passthrough().nullable(), created_at: z.string(), trace: z.array(z.string()).optional(),
 });
 const startResult = z.object({
   ok: z.boolean(), reason: z.string().optional(), duplicate: z.boolean().optional(), conversation_id: z.uuid().optional(), token_enc: z.string().nullable().optional(),
@@ -47,6 +49,7 @@ const toConversation = (row) => ({
 
 const toMessage = (row) => ({
   id: row.id, seq: row.seq, role: row.role, kind: row.kind, body: row.body, flagReason: row.flag_reason, sources: row.sources, conflict: row.conflict, createdAt: row.created_at,
+  ...(row.trace ? { trace: row.trace } : {}),
 });
 
 /**
@@ -137,10 +140,10 @@ export function createConversationRepository({ client }) {
       return data ? toConversation(parse(conversationRow, data, 'conversations.findForOwner')) : null;
     },
 
-    /** @returns {Promise<object[]>} Messages in order, after a sequence number (0 = from the start). */
-    async listMessages(storeId, conversationId, { afterSeq = 0 } = {}) {
+    /** @returns {Promise<object[]>} Messages in order, after a sequence number (0 = from the start). `forOwner` also returns each message's trace (seller inbox only). */
+    async listMessages(storeId, conversationId, { afterSeq = 0, forOwner = false } = {}) {
       const scoped = requireStoreId(storeId);
-      const query = client.from('conversation_messages').select(MESSAGE_COLUMNS).eq('store_id', scoped).eq('conversation_id', conversationId)
+      const query = client.from('conversation_messages').select(forOwner ? OWNER_MESSAGE_COLUMNS : MESSAGE_COLUMNS).eq('store_id', scoped).eq('conversation_id', conversationId)
         .gt('seq', afterSeq).order('seq', { ascending: true }).limit(MAX_MESSAGES_PER_READ);
       const { data, error } = await query;
       throwIfError(error);

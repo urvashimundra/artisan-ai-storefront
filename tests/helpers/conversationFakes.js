@@ -27,7 +27,7 @@ export function createFakeConversationRepo({ now = Date.now, ownerContextOf = nu
     conversation.messageCount += 1;
     const message = {
       id: extra.id ?? randomUUID(), seq: conversation.messageCount, role, kind, body, flagReason: extra.flagReason ?? null, sources: extra.sources ?? [],
-      conflict: extra.conflict ?? null, createdAt: iso(), conversationId: conversation.id,
+      conflict: extra.conflict ?? null, trace: extra.trace ?? [], createdAt: iso(), conversationId: conversation.id,
     };
     messages.push(message);
     conversation.lastMessageRole = role;
@@ -95,13 +95,13 @@ export function createFakeConversationRepo({ now = Date.now, ownerContextOf = nu
       return { ok: true, reason: null, duplicate: false, runId, escalated: runId === null, escalationCount: conversation.escalationCount };
     },
 
-    async finishRun(storeId, conversationId, runId, { outcome, kind, body, flagReason, sources = [], conflict = null }) {
+    async finishRun(storeId, conversationId, runId, { outcome, kind, body, flagReason, sources = [], conflict = null, trace = [] }) {
       fail();
       const conversation = scoped(storeId, conversationId);
       if (!conversation || conversation.aiRunId !== runId) return { changed: false, becameNeedsYou: false, escalationCount: 0 };
       state.storeReserved -= 1;
       if (outcome === 'answered') state.storeUsed += 1;
-      append(conversation, 'assistant', kind, body, { flagReason, sources, conflict });
+      append(conversation, 'assistant', kind, body, { flagReason, sources, conflict, trace });
       const toSeller = outcome !== 'answered';
       const became = toSeller && conversation.status !== 'needs_you';
       if (toSeller) Object.assign(conversation, { status: 'needs_you', flagReason });
@@ -142,10 +142,10 @@ export function createFakeConversationRepo({ now = Date.now, ownerContextOf = nu
       return found ? view(found) : null;
     },
 
-    async listMessages(storeId, conversationId, { afterSeq = 0 } = {}) {
+    async listMessages(storeId, conversationId, { afterSeq = 0, forOwner = false } = {}) {
       requireStoreId(storeId);
       if (!scoped(storeId, conversationId)) return [];
-      return messages.filter((m) => m.conversationId === conversationId && m.seq > afterSeq).map((m) => ({ ...m }));
+      return messages.filter((m) => m.conversationId === conversationId && m.seq > afterSeq).map(({ trace, ...rest }) => ({ ...rest, ...(forOwner ? { trace } : {}) }));
     },
 
     async recentMessages(storeId, conversationId, limit = 8) {

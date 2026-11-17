@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { AppError, notFound } from '../lib/errors.js';
 import { inboxFilter, refusalError, sellerReplySchema } from '../domain/conversationRules.js';
+import { SELLER_NOTICE_PREFIX } from '../domain/enquiryRules.js';
 import { absoluteUrl } from '../domain/seo.js';
 import { buildWhatsappLink } from '../domain/whatsapp.js';
 import { formatExpiry } from './orderService.js';
@@ -56,6 +57,7 @@ function messageView(message) {
     id: message.id, seq: message.seq, role: message.role, kind: message.kind, text: message.body, time: formatExpiry(message.createdAt, 'en'),
     sources: [...new Set(message.sources.map((source) => SOURCE_LABELS[source.label]).filter(Boolean))], conflict,
     flagText: message.flagReason ? FLAG_LABELS[message.flagReason] : null,
+    notices: (message.trace ?? []).filter((entry) => entry.startsWith(SELLER_NOTICE_PREFIX)).map((entry) => entry.slice(SELLER_NOTICE_PREFIX.length)),
   };
 }
 
@@ -100,7 +102,7 @@ export function createConversationInboxService({ conversations, legacy = null, l
       if (!isProductId(id)) return null;
       const conversation = await conversations.findForOwner(store.id, id);
       if (!conversation) return null;
-      const messages = await conversations.listMessages(store.id, id);
+      const messages = await conversations.listMessages(store.id, id, { forOwner: true });
       const state = stateOf(conversation);
       return {
         id: conversation.id, state, stateLabel: STATE_LABELS[state], customerName: conversation.customerName, customerPhone: `+${conversation.customerPhone}`,

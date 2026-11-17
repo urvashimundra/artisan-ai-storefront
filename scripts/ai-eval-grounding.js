@@ -1,5 +1,5 @@
 /*
- * Small LIVE evaluation of the four Module 7 grounding scenarios. Developer tool: NOT part of `npm test`, never run in CI.
+ * Small LIVE evaluation of Module 7 grounding scenarios 1, 3 and 4 (conflict scope). Developer tool: NOT part of `npm test`, never run in CI.
  *   node --env-file=.env scripts/ai-eval-grounding.js
  * Uses ANTHROPIC_API_KEY and CLAUDE_MODEL from the environment (it prints the model id, never the key). The shop, products and notes are
  * synthetic; the database is in-memory fakes, so nothing is read from or written to Supabase and no real budget is touched. A hard cap
@@ -14,7 +14,7 @@ import { createFakeKnowledgeRepo } from '../tests/helpers/assistantFakes.js';
 import { createFakeConversationRepo } from '../tests/helpers/conversationFakes.js';
 import { createFakePublicRepo, translation } from '../tests/helpers/publicFakes.js';
 
-const MAX_PROVIDER_CALLS = 12;
+const MAX_PROVIDER_CALLS = 15;
 const MICRO_USD_PER_USD = 1_000_000;
 const SOY = 'Hand-poured in a glass jar. 100% soy wax, 200 g, burns for about 45 hours.';
 const PRODUCTS = [
@@ -76,6 +76,8 @@ async function report(name, step, { conversations }) {
   console.log(`tool calls: ${calls.toolsThisStep.join(' -> ') || '(none)'}`);
   console.log(`model calls this step: ${run?.steps ?? '?'} | status: ${conversation.status} | flag_reason: ${conversation.flagReason ?? 'none'} | message kind: ${reply?.kind}`);
   console.log(`final text: ${reply?.body}`);
+  const notices = (reply?.trace ?? []).filter((entry) => entry.startsWith('Assistant note for you: '));
+  if (notices.length > 0) console.log(`seller notice (inbox only): ${notices.join(' | ')}`);
   if (reply?.conflict) console.log(`conflict: ${JSON.stringify(reply.conflict)}`);
   console.log(`cost: ${(run?.costMicroUsd ?? 0) / MICRO_USD_PER_USD} USD (${run?.tokIn} in / ${run?.tokOut} out tokens)`);
   calls.toolsThisStep = [];
@@ -99,7 +101,6 @@ async function main() {
   if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not set');
   console.log(`model: ${process.env.CLAUDE_MODEL ?? 'claude-haiku-5-5'} | provider-call cap: ${MAX_PROVIDER_CALLS}`);
   await scenario('1 catalogue + gift recommendation', ["I'm looking for scented candles as a gift. Can you show me all the candles available in your store, with their names, prices and a short description? Also, which one would you recommend as a gift?"]);
-  await scenario('2 price, stock, orderable', ['I want to buy 5 Cashmere Jar Candles. What is the current price per candle, how many are available right now, and can I order all 5?']);
   await scenario('3 fragrance conflict', ['Tell me about the fragrance of the Little Moments Tea Lights. What are the exact fragrance notes? Are they vanilla and lavender, or amber, bergamot, orange, vanilla and coconut?']);
   await scenario('4 Gujarati bulk follow-up', [GU_FIRST, 'If I order 25 boxes instead, what would the total price be? Please explain in Gujarati.']);
   console.log(`\nprovider calls used: ${calls.used}/${MAX_PROVIDER_CALLS}`);

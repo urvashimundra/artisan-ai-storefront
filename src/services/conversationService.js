@@ -103,7 +103,7 @@ export function createConversationService({
     const context = await conversations.findOwnerContext(shop.id);
     if (!context || !agent || !budgetedCall) return { ok: false, reason: 'unavailable', detail: context ? 'no_agent' : 'no_owner', trace: [], steps: 0, charged: {} };
     const [messages, document] = await Promise.all([conversations.recentMessages(shop.id, conversation.id, MAX_CONTEXT_MESSAGES), knowledge.get(shop.id)]);
-    const tools = createEnquiryTools({ storeId: shop.id, shop, language, shops, knowledge });
+    const tools = createEnquiryTools({ storeId: shop.id, shop, language, shops, knowledge, labelPlaceholders: true });
     return agent.run({
       shop, language, messages, knowledge: document ?? { content: '', bulkRules: [] }, productId: conversation.productId ?? null, quoteNote: stringsFor(language).quoteEstimateNote, tools, budgetedCall, owner: { id: context.ownerId, isDemo: context.isDemo },
       context: { correlationId, storeId: shop.id, conversationId: conversation.id }, now, wallClockMs: agentWallClockMs,

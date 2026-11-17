@@ -163,7 +163,7 @@ describe('failure 3: contradicting written sources are shown to the model and es
 
   it('accepts the conflict with the description quote even though the model never called check_product, and keeps both values for the seller', async () => {
     const h = await shopFixture({ products: [TEA], document: NOTES });
-    const result = await h.run([finalTurn({ outcome: 'conflict', conflict: { topic: 'Fragrance notes of Little Moments Tea Lights', claims: [
+    const result = await h.run([finalTurn({ outcome: 'conflict', conflict: { topic: 'Fragrance notes of Little Moments Tea Lights', affects_question: 'exact fragrance notes', claims: [
       { label: 'seller_notes', excerpt: 'fragrance notes are amber, bergamot, orange, vanilla and coconut' },
       { label: 'product_description', excerpt: 'Scented tea lights in vanilla and lavender' },
     ] } })], { historyOverride: said('What are the exact fragrance notes of the Little Moments Tea Lights?') });
@@ -173,7 +173,7 @@ describe('failure 3: contradicting written sources are shown to the model and es
 
   it('refuses a conflict whose quote is not really in the sources', async () => {
     const h = await shopFixture({ products: [TEA], document: NOTES });
-    const bad = { outcome: 'conflict', conflict: { topic: 'Fragrance', claims: [{ label: 'seller_notes', excerpt: 'fragrance notes are amber, bergamot, orange, vanilla and coconut' }, { label: 'product_description', excerpt: 'smells of fresh rain' }] } };
+    const bad = { outcome: 'conflict', conflict: { topic: 'Fragrance', affects_question: 'What fragrance', claims: [{ label: 'seller_notes', excerpt: 'fragrance notes are amber, bergamot, orange, vanilla and coconut' }, { label: 'product_description', excerpt: 'smells of fresh rain' }] } };
     const result = await h.run([finalTurn(bad), finalTurn(bad)], { historyOverride: said('What fragrance?') });
     assert.equal(result.reason, 'invalid_output');
   });

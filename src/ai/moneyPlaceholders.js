@@ -8,6 +8,8 @@ import { formatInr } from '../lib/money.js';
  */
 
 const PLACEHOLDER = /\{\{\s*([a-z]\d+\.[a-z_]+)\s*\}\}/g;
+/** Label placeholders such as {{label.total}}: the server writes the word, in the customer's language, from its own strings. */
+const LABEL = /\{\{\s*label\.([a-z_]+)\s*\}\}/g;
 const ANY_BRACES = /\{\{|\}\}/;
 const BLANK = ' ';
 const DIGIT = '[0-9\\u0966-\\u096F\\u0AE6-\\u0AEF]';
@@ -116,17 +118,19 @@ const placeholderKeys = (text) => [...text.matchAll(PLACEHOLDER)].map((match) =>
  * @param {{ refs: Map<string, number>, allowedPercents: number[], allowedNumbers?: number[], descriptive?: { numbers: number[], percents: number[] },
  *   maxLength: number }} context refs maps a placeholder key (for example "q1.total") to integer paise that really came from a tool result;
  *   allowedPercents are the percentages that apply to the quoted quantities; allowedNumbers are the other plain numbers a tool returned
- *   (quantities, stock, tier minimums); descriptive holds the figures the shop's own texts state (see descriptiveFigures), never usable as a price or a discount.
+ *   (quantities, stock, tier minimums); descriptive holds the figures the shop's own texts state (see descriptiveFigures), never usable as a price or a discount;
+ *   labels maps a label key (for example "total") to the word in the customer's language.
  * @returns {{ ok: true, text: string, usedQuote: boolean } | { ok: false, reason: 'unverified_amount' | 'invalid_output' }}
  */
-export function resolveMoney(text, { refs, allowedPercents, allowedNumbers = [], descriptive = { numbers: [], percents: [] }, maxLength }) {
+export function resolveMoney(text, { refs, allowedPercents, allowedNumbers = [], descriptive = { numbers: [], percents: [] }, labels = {}, maxLength }) {
   const keys = placeholderKeys(text);
   if (keys.some((key) => !refs.has(key))) return { ok: false, reason: 'unverified_amount' };
-  const bare = text.replace(PLACEHOLDER, BLANK);
+  if ([...text.matchAll(LABEL)].some((match) => !Object.hasOwn(labels, match[1]))) return { ok: false, reason: 'invalid_output' };
+  const bare = text.replace(PLACEHOLDER, BLANK).replace(LABEL, BLANK);
   if (ANY_BRACES.test(bare) || hasTypedAmount(bare)) return { ok: false, reason: 'unverified_amount' };
   if (percentMentions(toAsciiDigits(bare)).some((mention) => !percentAllowed(mention, allowedPercents, descriptive.percents))) return { ok: false, reason: 'unverified_amount' };
   if (hasUnverifiedNumber(bare, [...allowedNumbers, ...allowedPercents], descriptive.numbers)) return { ok: false, reason: 'unverified_amount' };
-  const substituted = text.replace(PLACEHOLDER, (_whole, key) => formatInr(refs.get(key))).trim();
+  const substituted = text.replace(PLACEHOLDER, (_whole, key) => formatInr(refs.get(key))).replace(LABEL, (_whole, key) => labels[key]).trim();
   if (substituted === '' || codePointLength(substituted) > maxLength) return { ok: false, reason: 'invalid_output' };
   return { ok: true, text: substituted, usedQuote: keys.some((key) => QUOTE_REF.test(key)) };
 }

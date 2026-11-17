@@ -56,6 +56,15 @@ export function textUsesScript(text, language) {
   return inScript > 0 && inScript / letters >= MIN_REPLY_SCRIPT_RATIO;
 }
 
+const ENGLISH_LABEL_WORDS = /(?<![A-Za-z])(?:unit price|sub-?total|total|discount|in stock|sold out)(?![A-Za-z])/i;
+
+/**
+ * True when a Gujarati or Hindi reply carries one of the English labels the server supplies in the customer's language (unit price, subtotal,
+ * discount, total, in stock, sold out): the model must use the label placeholders instead.
+ * @param {string} text Reply text with the money and label placeholders already removed. @param {'en'|'gu'|'hi'} language @returns {boolean}
+ */
+export const hasEnglishLabelWords = (text, language) => language !== 'en' && ENGLISH_LABEL_WORDS.test(text);
+
 /**
  * The Indic script a customer's message is mostly written in, so a customer who writes Gujarati or Hindi is answered in it whatever language
  * the page happened to be in. Latin text says nothing (English, or Hindi typed in Latin letters), so it returns null and the page language stays.
