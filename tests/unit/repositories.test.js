@@ -9,7 +9,10 @@ import { createSupabaseClient } from '../../src/repositories/supabaseClient.js';
 import { createSupabaseProbe } from '../../src/repositories/supabaseProbe.js';
 
 const REPOSITORY_DIR = fileURLToPath(new URL('../../src/repositories/', import.meta.url));
+/** System-level by design (no store scope exists): the background worker claims across stores, the contact form belongs to no store. */
+const SYSTEM_LEVEL = Object.freeze(['emailOutboxRepository.js', 'contactRepository.js']);
 const OWNER_KEYED_OR_INFRASTRUCTURE = new Set([
+  ...SYSTEM_LEVEL,
   'aiBudgetRepository.js',
   'ownerRepository.js',
   'sessionRepository.js',
@@ -92,6 +95,13 @@ describe('tenancy guard for store-scoped repositories', () => {
         assert.match(params.trim(), /^storeId(,|$)/, `${file}#${name} must take storeId as first argument`);
       }
     }
+  });
+
+  it('exactly the two named system-level repositories are exempt, and the contact repository has no store concept', () => {
+    assert.deepEqual([...SYSTEM_LEVEL].sort(), ['contactRepository.js', 'emailOutboxRepository.js']);
+    const exempt = [...OWNER_KEYED_OR_INFRASTRUCTURE].filter((name) => !SYSTEM_LEVEL.includes(name));
+    assert.equal(exempt.length, 8);
+    assert.doesNotMatch(readFileSync(`${REPOSITORY_DIR}contactRepository.js`, 'utf8'), /store_id|storeId/);
   });
 
   it('owner-keyed repositories never accept a store_id from callers', () => {

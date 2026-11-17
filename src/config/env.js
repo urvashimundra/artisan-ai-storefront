@@ -34,6 +34,8 @@ const CORE_KEYS = [
   'AI_DEMO_DAILY_BUDGET_USD',
   'AI_GLOBAL_DAILY_BUDGET_USD',
   'EMAIL_RELAY_URL',
+  'CONTACT_INBOX_EMAIL',
+  'EMAIL_WORKER_ENABLED',
 ];
 
 const nonEmpty = z.string().min(1);
@@ -125,6 +127,8 @@ const coreSchema = z.object({
   AI_DEMO_DAILY_BUDGET_USD: usdBudget(DEFAULT_DEMO_BUDGET_USD),
   AI_GLOBAL_DAILY_BUDGET_USD: usdBudget(DEFAULT_GLOBAL_BUDGET_USD),
   EMAIL_RELAY_URL: z.string().refine(isLoopbackHttpOrigin).default(DEFAULT_EMAIL_RELAY_URL),
+  CONTACT_INBOX_EMAIL: z.email().optional(),
+  EMAIL_WORKER_ENABLED: z.enum(['true', 'false']).default('true').transform((value) => value === 'true'),
 });
 
 const aiSchema = z.object({
@@ -201,12 +205,13 @@ function buildAllowedOrigins(core) {
  * @param {Record<string, string | undefined>} [source] Defaults to process.env.
  * BASE_URL must be https (http only for localhost and 127.0.0.1); SUPABASE_URL must be https. An unknown NODE_ENV
  * does not fail boot: it is treated as "production" (only the logger level reads it).
+ * CONTACT_INBOX_EMAIL (optional) receives the contact form; EMAIL_WORKER_ENABLED (default true) switches the outbox worker.
  * EMAIL_RELAY_URL must be a bare http://localhost or http://127.0.0.1 origin (default http://127.0.0.1:2525).
  * @returns {{ nodeEnv: string, port: number, baseUrl: string, trustProxy: number,
  *   diagnosticsToken: string | undefined, supabase: { url: string, serviceRoleKey: string },
  *   signupInviteCode: string | undefined, allowedOrigins: string[], cookie: { name: string, secure: boolean },
  *   aiBudget: { ownerDailyMicroUsd: number, demoDailyMicroUsd: number, globalDailyMicroUsd: number },
- *   emailRelayUrl: string, ai: object | null, smtp: object | null }}
+ *   emailRelayUrl: string, contactInboxEmail: string | undefined, emailWorkerEnabled: boolean, ai: object | null, smtp: object | null }}
  * @throws {EnvValidationError} Listing variable names only.
  */
 export function loadEnv(source = process.env) {
@@ -231,6 +236,8 @@ export function loadEnv(source = process.env) {
       globalDailyMicroUsd: core.data.AI_GLOBAL_DAILY_BUDGET_USD,
     },
     emailRelayUrl: core.data.EMAIL_RELAY_URL,
+    contactInboxEmail: core.data.CONTACT_INBOX_EMAIL,
+    emailWorkerEnabled: core.data.EMAIL_WORKER_ENABLED,
     ...groups,
   };
 }

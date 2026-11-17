@@ -223,3 +223,23 @@ describe('EMAIL_RELAY_URL', () => {
     }
   });
 });
+
+describe('CONTACT_INBOX_EMAIL and EMAIL_WORKER_ENABLED', () => {
+  it('are optional: no inbox, worker on', () => {
+    const config = loadEnv(MINIMAL);
+    assert.equal(config.contactInboxEmail, undefined);
+    assert.equal(config.emailWorkerEnabled, true);
+  });
+
+  it('accept a valid address and a true or false switch', () => {
+    const config = loadEnv({ ...MINIMAL, CONTACT_INBOX_EMAIL: 'inbox@example.test', EMAIL_WORKER_ENABLED: 'false' });
+    assert.equal(config.contactInboxEmail, 'inbox@example.test');
+    assert.equal(config.emailWorkerEnabled, false);
+  });
+
+  it('reject a bad address or switch, naming the variable only', () => {
+    assert.deepEqual(failureOf({ ...MINIMAL, CONTACT_INBOX_EMAIL: 'not-an-email' }).variables, ['CONTACT_INBOX_EMAIL']);
+    assert.deepEqual(failureOf({ ...MINIMAL, EMAIL_WORKER_ENABLED: 'yes' }).variables, ['EMAIL_WORKER_ENABLED']);
+    assert.ok(!failureOf({ ...MINIMAL, CONTACT_INBOX_EMAIL: 'not-an-email' }).message.includes('not-an-email'));
+  });
+});
