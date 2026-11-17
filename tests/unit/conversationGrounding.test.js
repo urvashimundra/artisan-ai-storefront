@@ -11,7 +11,6 @@ import { createFakePublicRepo, translation } from '../helpers/publicFakes.js';
  * Regression scenarios from the Module 7 production test of the Aranya Luxe storefront. The model is scripted (no live calls); what is
  * under test is everything around it: what the tools retrieve, what reaches the model, and what the backend accepts or refuses.
  */
-const NOTE = 'This is an estimate. The seller will confirm.';
 const OWNER = { id: 'owner-1', isDemo: false };
 const TIERS = [{ minQty: 10, percentOff: 5 }, { minQty: 25, percentOff: 10 }];
 const SOY = 'Hand-poured in a glass jar. 100% soy wax, 200 g, burns for about 45 hours.';
@@ -48,7 +47,7 @@ async function shopFixture({ products = CANDLES, tiers = [], document = 'Gift wr
   const run = (script, { historyOverride } = {}) => {
     queue.push(...script);
     return agent.run({
-      shop, language, messages: historyOverride ?? history ?? said('Hello'), knowledge: { content: document, bulkRules: tiers }, tools, quoteNote: NOTE,
+      shop, language, messages: historyOverride ?? history ?? said('Hello'), knowledge: { content: document, bulkRules: tiers }, tools,
       budgetedCall: createBudgetedCall({ budgets: createFakeBudgets() }), owner: OWNER, wallClockMs: 40_000,
     });
   };

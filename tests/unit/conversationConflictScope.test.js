@@ -9,7 +9,6 @@ import { createFakePublicRepo, translation } from '../helpers/publicFakes.js';
 /*
  * A source conflict escalates only when the customer's latest message depends on the contested fact. The model is scripted (no live calls).
  */
-const NOTE = 'This is an estimate. The seller will confirm.';
 const OWNER = { id: 'owner-1', isDemo: false };
 const TIERS = [{ minQty: 10, percentOff: 5 }, { minQty: 25, percentOff: 10 }];
 const NOTES = 'Little Moments Tea Lights: fragrance notes are amber, bergamot, orange, vanilla and coconut.\nGift wrapping is available on request.';
@@ -52,7 +51,7 @@ async function fixture({ language = 'en' } = {}) {
   const run = (script, message) => {
     queue.push(...script);
     return agent.run({
-      shop, language, messages: asked(message), knowledge: { content: NOTES, bulkRules: TIERS }, tools, quoteNote: NOTE,
+      shop, language, messages: asked(message), knowledge: { content: NOTES, bulkRules: TIERS }, tools,
       budgetedCall: createBudgetedCall({ budgets: createFakeBudgets() }), owner: OWNER, wallClockMs: 40_000,
     });
   };

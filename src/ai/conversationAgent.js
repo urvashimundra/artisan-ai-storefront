@@ -16,6 +16,7 @@ import { CONVERSATION_PROMPT_VERSION, buildConversationSystemPrompt, buildConver
 import {
   CONVERSATION_FINAL_TOOL, CONVERSATION_FINAL_TOOL_NAME, CONVERSATION_OUTCOMES, CONVERSATION_TOOL_DEFINITIONS, conversationAnswerSchema,
 } from './schemas/conversationAnswer.js';
+import { mentionsInternals } from './customerTextCheck.js';
 import { hasEnglishLabelWords, requiredReplyLanguage, textUsesScript } from './scriptCheck.js';
 
 /** Output cap per model call: tool calls are short and the final answer is a few sentences. */
@@ -33,6 +34,7 @@ const MIN_AFFECTS_LENGTH = 3;
 const MIN_OVERLAP_WORDS = 3;
 const WORD = /[\p{L}\p{N}]+/gu;
 const wrongLanguageMessage = (language) => `The answer text is not written in ${LANGUAGE_NAMES_ENGLISH[language]}, which is the language this reply must be in. Call final_answer again with the whole text in ${LANGUAGE_NAMES_ENGLISH[language]}, keeping product names as they are written.`;
+const INTERNALS_MESSAGE = 'The answer text described how it was produced (placeholders, tools, templates or filling in live). Call final_answer again. Write only what the customer needs: the prices, stock and facts themselves, in the required language. Never name placeholders, tools or templates.';
 const NO_TOOL_MESSAGE = 'Call the final_answer tool now.';
 const PLACEHOLDER_ANYWHERE = /{{[^}]*}}/g;
 const withoutPlaceholders = (text) => text.replace(PLACEHOLDER_ANYWHERE, '');
@@ -137,12 +139,13 @@ export function createConversationAgent({ config, createClient = (options) => ne
   /** Every text the model was shown that may carry plain figures: product titles and descriptions, the seller notes and the shop profile. */
   const figureTexts = (state) => [...state.tools.shownTexts(), state.document.masked, ...state.profileTexts];
 
-  async function evaluateFinal(block, state, { quoteNote }) {
+  async function evaluateFinal(block, state) {
     const parsed = conversationAnswerSchema.safeParse(block.input);
     if (!parsed.success) return { retry: true };
     const { outcome, text, sources = [], conflict, seller_notice: rawNotice } = parsed.data;
     const sellerNotice = usableNotice(rawNotice);
     const language = state.replyLanguage;
+    const quoteNote = stringsFor(language).quoteEstimateNote;
     const refs = new Map([...state.tools.refs, ...state.document.refs]);
     const [allowedPercents, allowedNumbers] = await Promise.all([state.tools.allowedPercents(), state.tools.verifiedNumbers()]);
     const money = text === undefined ? { ok: false } : resolveMoney(text, { refs, percentRefs: state.tools.percentRefs, tiers: await state.tools.confirmedTiers(), allowedPercents, allowedNumbers, descriptive: descriptiveFigures(figureTexts(state)), labels: labelsFor(language), maxLength: MAX_ANSWER_LENGTH - quoteNote.length - 2 });
@@ -153,6 +156,7 @@ export function createConversationAgent({ config, createClient = (options) => ne
       const checked = verifiedConflict(conflict, sourceBook(state), (excerpt) => substituteDocumentAmounts(excerpt, state.document.refs, formatInr));
       return checked ? { result: succeeded(state, { outcome, conflict: checked }) } : { retry: true };
     }
+    if (text !== undefined && mentionsInternals(withoutPlaceholders(text), state.tools.shownTitles())) return { retry: true, message: INTERNALS_MESSAGE };
     if (outcome === CONVERSATION_OUTCOMES.NEEDS_SELLER) return { result: succeeded(state, { outcome, text: sellerNote(text, money, language), sellerNotice }) };
     if (!money.ok && money.reason === 'unverified_amount') return { result: failed(state, 'unverified_amount', 'typed_amount') };
     const bare = withoutPlaceholders(text);
@@ -175,7 +179,7 @@ export function createConversationAgent({ config, createClient = (options) => ne
       const final = blocks.find((block) => block.name === CONVERSATION_FINAL_TOOL_NAME);
       const results = await runTools(blocks.filter((block) => block !== final), guardTools(state.tools));
       if (final) {
-        const verdict = await evaluateFinal(final, state, input);
+        const verdict = await evaluateFinal(final, state);
         if (verdict.result) return verdict.result;
         results.push({ type: 'tool_result', tool_use_id: final.id, content: verdict.message ?? FINAL_RETRY_MESSAGE, is_error: true });
       }
@@ -194,13 +198,13 @@ export function createConversationAgent({ config, createClient = (options) => ne
     /**
      * @param {{ shop: { name: string, story: string, tagline: string }, language: 'en' | 'gu' | 'hi',
      *   messages: { role: string, body: string }[], knowledge: { content: string }, productId?: string | null,
-     *   tools: ReturnType<typeof import('./tools/enquiryTools.js').createEnquiryTools>, quoteNote: string, budgetedCall: Function,
+     *   tools: ReturnType<typeof import('./tools/enquiryTools.js').createEnquiryTools>, budgetedCall: Function,
      *   owner: { id: string, isDemo: boolean }, context?: object, now?: () => number, wallClockMs: number }} input
      *   messages: the latest messages (at most eight), oldest first, the last one is the customer's new message.
      * @returns {Promise<{ ok: true, outcome: 'answered' | 'needs_seller' | 'conflict', text: string | null, sources: object[], conflict: object | null,
      *   trace: string[], steps: number, charged: object } | { ok: false, reason: string, detail: string, trace: string[], steps: number, charged: object }>}
      */
-    async run({ shop, language, messages, knowledge, productId = null, tools, quoteNote, budgetedCall, owner, context = {}, now = Date.now, wallClockMs }) {
+    async run({ shop, language, messages, knowledge, productId = null, tools, budgetedCall, owner, context = {}, now = Date.now, wallClockMs }) {
       const state = { tools, steps: 0, retried: false, charged: { inputTokens: 0, outputTokens: 0, costMicroUsd: 0 } };
       if (codePointLength(knowledge.content) > MAX_KNOWLEDGE_LENGTH) return failed(state, 'knowledge_too_long', 'document_too_long');
       const masked = maskDocumentAmounts(knowledge.content);
@@ -213,7 +217,7 @@ export function createConversationAgent({ config, createClient = (options) => ne
       try {
         const records = await tools.recordsFor(customerTexts, productId);
         state.messages = [{ role: 'user', content: buildConversationUserText({ messages, productId, records }) }];
-        return await loop(state, { quoteNote, budgetedCall, owner, context, now, deadline: now() + wallClockMs });
+        return await loop(state, { budgetedCall, owner, context, now, deadline: now() + wallClockMs });
       } catch (error) {
         const { reason, detail } = failureOf(error);
         return failed(state, reason, detail);

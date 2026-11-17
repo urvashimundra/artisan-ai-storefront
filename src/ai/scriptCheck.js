@@ -61,7 +61,7 @@ const ENGLISH_LABEL_WORDS = /(?<![A-Za-z])(?:unit price|sub-?total|total|discoun
 const escapeForRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 /** The text with every product title or name the tools returned removed: a label word inside the shop's own title ("Total Glow Candle") is not a model-typed label. */
-const withoutNames = (text, names) => names.filter((name) => name.trim() !== '').reduce((rest, name) => rest.replace(new RegExp(escapeForRegExp(name.trim()), 'giu'), ' '), text);
+export const withoutNames = (text, names) => names.filter((name) => name.trim() !== '').reduce((rest, name) => rest.replace(new RegExp(escapeForRegExp(name.trim()), 'giu'), ' '), text);
 
 /**
  * True when a Gujarati or Hindi reply carries one of the English labels the server supplies in the customer's language (unit price, subtotal,

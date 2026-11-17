@@ -7,6 +7,7 @@ import { CONVERSATION_TOOL_DEFINITIONS } from '../../src/ai/schemas/conversation
 import { createEnquiryTools } from '../../src/ai/tools/enquiryTools.js';
 import { MAX_MODEL_CALLS } from '../../src/domain/enquiryRules.js';
 import { MAX_KNOWLEDGE_LENGTH } from '../../src/domain/knowledgeRules.js';
+import { stringsFor } from '../../src/domain/publicStrings.js';
 import { ListingProviderError } from '../../src/ai/listingGenerator.js';
 import { createBudgetedCall } from '../../src/services/budgetedCall.js';
 import { createFakeBudgets, createFakeKnowledgeRepo } from '../helpers/assistantFakes.js';
@@ -44,7 +45,7 @@ async function harness({ script = [], tiers = [], document = DOC, language = 'en
   const tools = createEnquiryTools({ storeId: shop.id, shop, language, shops: repo, knowledge });
   const agent = createConversationAgent({ config: { apiKey: 'k', model: 'fake-model' }, send: transport });
   const run = (extra = {}) => agent.run({
-    shop, language, messages: history, knowledge: { content: document, bulkRules: tiers }, tools, quoteNote: NOTE, budgetedCall: createBudgetedCall({ budgets }), owner: OWNER,
+    shop, language, messages: history, knowledge: { content: document, bulkRules: tiers }, tools, budgetedCall: createBudgetedCall({ budgets }), owner: OWNER,
     wallClockMs, now, ...extra,
   });
   return { run, tools, requests, budgets, shop, product, foreign };
@@ -349,6 +350,57 @@ describe('limits and failure categories', () => {
     const h = await harness({ language: 'gu', script: [finalTurn({ outcome: 'answered', text: 'We ship in five days.' }), finalTurn({ outcome: 'answered', text: 'We ship in five days.' })] });
     const result = await h.run();
     assert.deepEqual([result.ok, result.outcome, result.text, result.language, h.requests.length], [true, 'needs_seller', null, 'gu', 2]);
+  });
+
+  it('appends the estimate note in the REQUIRED reply language, not the page language', async () => {
+    const h = await harness({
+      tiers: TIERS, stock: 50, history: messages('મને 10 દીવા જોઈએ છે, કિંમત કેટલી?'),
+      script: [turn(use('search_products', {})), turn(use('calculate_quote', { productId: 'p1', quantity: 10 })), finalTurn({ outcome: 'answered', text: 'તમારો કુલ ભાવ {{q1.total}} છે.' })],
+    });
+    const result = await h.run();
+    assert.deepEqual([result.ok, result.language], [true, 'gu']);
+    assert.ok(result.text.endsWith(stringsFor('gu').quoteEstimateNote), result.text);
+  });
+
+  it('states the presentation rule in the system prompt', async () => {
+    const h = await harness({ script: [finalTurn({ outcome: 'needs_seller', text: UNKNOWN })] });
+    await h.run();
+    assert.match(h.requests[0].system, /PRESENTATION \(strict\)[\s\S]*Never mention placeholders, templates, tools/);
+  });
+
+  it('rejects a reply that describes how it was produced: one corrective retry, then the fixed fallback', async () => {
+    const leak = finalTurn({ outcome: 'answered', text: 'We ship in five days. Prices shown as placeholders filled in live.' });
+    const h = await harness({ script: [leak, leak] });
+    const result = await h.run();
+    assert.deepEqual([result.ok, result.reason], [false, 'invalid_output']);
+    assert.equal(h.requests.length, 2);
+    assert.match(JSON.stringify(h.requests[1].messages.at(-1).content), /Call final_answer again/);
+  });
+
+  it('accepts the corrected reply after one retry', async () => {
+    const h = await harness({ script: [finalTurn({ outcome: 'answered', text: 'We ship in five days, using the tool results.' }), finalTurn({ outcome: 'answered', text: 'We ship in five days.' })] });
+    const result = await h.run();
+    assert.deepEqual([result.ok, result.outcome, result.text], [true, 'answered', 'We ship in five days.']);
+  });
+
+  it('applies the same check to needs_seller replies', async () => {
+    const leak = finalTurn({ outcome: 'needs_seller', text: 'The tool did not return a delivery time.' });
+    const h = await harness({ script: [leak, leak] });
+    assert.equal((await h.run()).reason, 'invalid_output');
+  });
+
+  it('rejects the same leaks written in Gujarati and Hindi', async () => {
+    const cases = [
+      ['gu', 'મોકલવામાં કેટલા દિવસ લાગશે?', 'પ્લેસહોલ્ડર ભરીને બતાવ્યું છે. અમે પાંચ દિવસમાં મોકલીએ છીએ.', 'અમે પાંચ દિવસમાં મોકલીએ છીએ.'],
+      ['hi', 'भेजने में कितने दिन लगेंगे?', 'टेम्पलेट से जानकारी दी है। हम पाँच दिन में भेजते हैं।', 'हम पाँच दिन में भेजते हैं।'],
+    ];
+    for (const [language, question, leaking, clean] of cases) {
+      const leak = finalTurn({ outcome: 'answered', text: leaking });
+      const bad = await harness({ language, history: messages(question), script: [leak, leak] });
+      assert.equal((await bad.run()).reason, 'invalid_output', language);
+      const good = await harness({ language, history: messages(question), script: [leak, finalTurn({ outcome: 'answered', text: clean })] });
+      assert.equal((await good.run()).text, clean, language);
+    }
   });
 
   it('does not request prompt caching (unverified against this deployment)', async () => {

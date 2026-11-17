@@ -105,7 +105,7 @@ export function createConversationService({
     const [messages, document] = await Promise.all([conversations.recentMessages(shop.id, conversation.id, MAX_CONTEXT_MESSAGES), knowledge.get(shop.id)]);
     const tools = createEnquiryTools({ storeId: shop.id, shop, language, shops, knowledge, labelPlaceholders: true });
     return agent.run({
-      shop, language, messages, knowledge: document ?? { content: '', bulkRules: [] }, productId: conversation.productId ?? null, quoteNote: stringsFor(language).quoteEstimateNote, tools, budgetedCall, owner: { id: context.ownerId, isDemo: context.isDemo },
+      shop, language, messages, knowledge: document ?? { content: '', bulkRules: [] }, productId: conversation.productId ?? null, tools, budgetedCall, owner: { id: context.ownerId, isDemo: context.isDemo },
       context: { correlationId, storeId: shop.id, conversationId: conversation.id }, now, wallClockMs: agentWallClockMs,
     });
   }

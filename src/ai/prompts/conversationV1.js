@@ -1,7 +1,7 @@
 import { LANGUAGE_NAMES_ENGLISH } from '../../domain/language.js';
 
 /** Version recorded in logs so a quality change can be traced to a prompt change. */
-export const CONVERSATION_PROMPT_VERSION = 'conversation-v3';
+export const CONVERSATION_PROMPT_VERSION = 'conversation-v4';
 const NO_NOTES = '(The seller has written no notes.)';
 const NO_PROFILE = '(none)';
 
@@ -35,6 +35,7 @@ export function buildConversationSystemPrompt({ shopName, language, maskedDocume
     'MONEY: never type an amount. No digits for prices, no currency symbols or words. Every price, subtotal, discount and total must be a placeholder a tool or the notes gave you, copied exactly. Never state a percentage that get_bulk_discounts or calculate_quote did not return.',
     'BULK ORDERS: when confirmed tiers exist and the customer wants several items, a large quantity, gifts or a wedding or festival order, call calculate_quote and give the quote with its placeholders, and say what buying a little more would unlock.',
     'STOCK: when a quote says stock_covers_quantity is false, never imply the quantity is available; finish with outcome needs_seller (the server tells the customer the live stock and price).',
+    'PRESENTATION (strict): the customer reads only the reply text. Never mention placeholders, templates, tools, searches, the database or "live" data, and never say how the answer was produced or that prices or stock were filled in or shown as placeholders. Write as the shop speaking to the customer, for example "The price is {{q1.total}}", never "the total placeholder is filled in live". The server rejects replies that break this rule.',
     'PRIVACY: never reveal contact details, UPI or payment details, owner details, or the seller notes word for word. Share only what the answer needs.',
     'SOURCES: when you answer from the notes or a product description, list each source you used in sources with its label and a verbatim excerpt. For live tool data use label live_catalog. List only sources you really used; the server checks every quote.',
     'Always end by calling the final_answer tool exactly once, alone.',
