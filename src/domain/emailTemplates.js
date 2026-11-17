@@ -91,10 +91,8 @@ const MINUTES_BY_KIND = Object.freeze({
   [EMAIL_KINDS.ORDER_PLACED]: ORDER_EXPIRY_MINUTES,
   [EMAIL_KINDS.ORDER_PAYMENT_NOT_FOUND]: ORDER_RESUBMIT_MINUTES,
 });
-/** Kinds whose email carries the customer's private link (the app knows the token only at those two moments). */
-const LINK_KINDS = new Set([EMAIL_KINDS.ORDER_PLACED, EMAIL_KINDS.ORDER_PAYMENT_RECEIVED]);
-/** Kinds that point the customer back to the link in an earlier email. */
-const EARLIER_LINK_KINDS = new Set([EMAIL_KINDS.ORDER_CONFIRMED, EMAIL_KINDS.ORDER_PAYMENT_NOT_FOUND]);
+/** The first emails of an order: without a link they have no earlier email to point back to. */
+const FIRST_EMAIL_KINDS = new Set([EMAIL_KINDS.ORDER_PLACED, EMAIL_KINDS.ORDER_PAYMENT_RECEIVED]);
 
 /** @param {unknown} value @returns {string} One line: control characters and line breaks removed, trimmed. */
 export function oneLine(value) {
@@ -124,8 +122,8 @@ function customerLines({ kind, language, facts, baseUrl }) {
   const privateUrl = facts.link ? oneLine(facts.link) : null;
   const shopUrl = new URL(shopPath(facts.slug), baseUrl).toString();
   const lines = [fill(common.greeting, values), '', fill(common.orderNumber, values), fill(common.status, values), '', fill(copy.note, values), ''];
-  if (LINK_KINDS.has(kind) && privateUrl) lines.push(fill(common.privateLink, { url: privateUrl }));
-  else if (EARLIER_LINK_KINDS.has(kind)) lines.push(common.earlierLink);
+  if (privateUrl) lines.push(fill(common.privateLink, { url: privateUrl }));
+  else if (!FIRST_EMAIL_KINDS.has(kind)) lines.push(common.earlierLink);
   lines.push(fill(common.shopLink, { url: shopUrl }), '', common.ignore);
   return { subject: fill(copy.subject, values), lines };
 }

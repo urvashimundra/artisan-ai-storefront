@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { parseUsdToMicroUsd } from '../domain/aiCost.js';
 import { deriveCookieConfig } from '../lib/cookies.js';
+import { LINK_KEY_PATTERN } from '../lib/linkCipher.js';
 
 const DEFAULT_PORT = 3000;
 const MAX_PORT = 65535;
@@ -35,6 +36,7 @@ const CORE_KEYS = [
   'EMAIL_RELAY_URL',
   'CONTACT_INBOX_EMAIL',
   'OWNER_NOTIFY_EMAIL',
+  'ORDER_LINK_KEY',
   'EMAIL_WORKER_ENABLED',
 ];
 
@@ -129,6 +131,7 @@ const coreSchema = z.object({
   EMAIL_RELAY_URL: z.string().refine(isLoopbackHttpOrigin).default(DEFAULT_EMAIL_RELAY_URL),
   CONTACT_INBOX_EMAIL: z.email().optional(),
   OWNER_NOTIFY_EMAIL: z.email().optional(),
+  ORDER_LINK_KEY: z.string().regex(LINK_KEY_PATTERN).optional(),
   EMAIL_WORKER_ENABLED: z.enum(['true', 'false']).default('true').transform((value) => value === 'true'),
 });
 
@@ -192,7 +195,7 @@ function buildAllowedOrigins(core) {
  *   diagnosticsToken: string | undefined, supabase: { url: string, serviceRoleKey: string },
  *   signupInviteCode: string | undefined, allowedOrigins: string[], cookie: { name: string, secure: boolean },
  *   aiBudget: { ownerDailyMicroUsd: number, demoDailyMicroUsd: number, globalDailyMicroUsd: number },
- *   emailRelayUrl: string, contactInboxEmail: string | undefined, ownerNotifyEmail: string | undefined, emailWorkerEnabled: boolean, ai: object | null }}
+ *   emailRelayUrl: string, contactInboxEmail: string | undefined, ownerNotifyEmail: string | undefined, orderLinkKey: string | undefined, emailWorkerEnabled: boolean, ai: object | null }}
  * @throws {EnvValidationError} Listing variable names only.
  */
 export function loadEnv(source = process.env) {
@@ -219,6 +222,7 @@ export function loadEnv(source = process.env) {
     emailRelayUrl: core.data.EMAIL_RELAY_URL,
     contactInboxEmail: core.data.CONTACT_INBOX_EMAIL,
     ownerNotifyEmail: core.data.OWNER_NOTIFY_EMAIL,
+    orderLinkKey: core.data.ORDER_LINK_KEY,
     emailWorkerEnabled: core.data.EMAIL_WORKER_ENABLED,
     ...groups,
   };

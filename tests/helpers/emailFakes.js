@@ -46,12 +46,12 @@ export function createFakeOutbox({ clock }) {
     },
 
     /** What email_enqueue_order does: customer kinds to the order's address and language, seller kinds to the owner, in English. */
-    enqueueForOrder({ order, shop, ownerEmail, kind, suffix = null, link = null }) {
+    enqueueForOrder({ order, shop, ownerEmail, kind, suffix = null }) {
       const to = isSeller(kind) ? ownerEmail : order.customerEmail;
       if (!to) return 'skipped';
       return outbox.enqueueNow({
         storeId: order.storeId, kind, toEmail: to, language: isSeller(kind) ? 'en' : order.language, subject: '', body: '',
-        payload: { reference: order.reference, shop: shop.name, slug: shop.slug, link }, dedupeKey: `${kind}:${order.id}${suffix === null ? '' : `:${suffix}`}`,
+        payload: { reference: order.reference, shop: shop.name, slug: shop.slug, token_enc: isSeller(kind) ? null : order.statusTokenEnc ?? null }, dedupeKey: `${kind}:${order.id}${suffix === null ? '' : `:${suffix}`}`,
       });
     },
 

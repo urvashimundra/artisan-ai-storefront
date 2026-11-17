@@ -26,14 +26,21 @@ export function retryDelaySeconds(attempts) {
   return RETRY_DELAYS_SECONDS[Math.min(Math.max(attempts, 1), RETRY_DELAYS_SECONDS.length) - 1];
 }
 
+/** The customer's private order link, or null when there is no key or the stored value does not decrypt (older orders). */
+function privateLink(encrypted, baseUrl, linkCipher) {
+  const token = encrypted && linkCipher ? linkCipher.decrypt(encrypted) : null;
+  return token ? new URL(`/o/${token}`, baseUrl).toString() : null;
+}
+
 /** Rows queued by the order functions carry no text: it is rendered here, at send time, from the payload and the language. */
-function messageFor(row, baseUrl) {
+function messageFor(row, baseUrl, linkCipher) {
   let content = row.body === '' ? null : { subject: row.subject, text: row.body };
   if (!content) {
     const facts = orderPayloadSchema.safeParse(row.payload);
     if (!facts.success) return { failure: CODE_PAYLOAD_INVALID };
     try {
-      content = renderEmail({ kind: row.kind, language: row.language, facts: facts.data, baseUrl });
+      const { token_enc: encrypted, ...shown } = facts.data;
+      content = renderEmail({ kind: row.kind, language: row.language, facts: { ...shown, link: privateLink(encrypted, baseUrl, linkCipher) }, baseUrl });
     } catch {
       return { failure: CODE_RENDER_FAILED };
     }
@@ -46,11 +53,11 @@ function messageFor(row, baseUrl) {
  * through the relay and reports the result. Retries: 1 min, 5 min, 30 min, 2 h, dead at the 5th attempt; a relay refusal (4xx)
  * is dead at once; timeouts, network errors and 5xx retry. Also deletes finished rows and old contact messages once a day.
  * Started only by the server entry. The timer is unref'ed. Logs ids, counts and codes only, never addresses or text.
- * @param {{ outbox: object, contacts: object, relay: { send: Function }, baseUrl: string, logger: { info: Function, warn: Function },
+ * @param {{ outbox: object, contacts: object, relay: { send: Function }, baseUrl: string, linkCipher?: { decrypt: Function } | null, logger: { info: Function, warn: Function },
  *   clock?: () => number, timers?: { setInterval: Function, clearInterval: Function }, intervalMs?: number }} deps
  */
 export function createOutboxWorker({
-  outbox, contacts, relay, baseUrl, logger, clock = Date.now, timers = { setInterval, clearInterval }, intervalMs = WORKER_INTERVAL_MS,
+  outbox, contacts, relay, baseUrl, logger, linkCipher = null, clock = Date.now, timers = { setInterval, clearInterval }, intervalMs = WORKER_INTERVAL_MS,
 }) {
   let timer = null;
   let current = null;
@@ -58,7 +65,7 @@ export function createOutboxWorker({
   let lastRetentionAt = null;
 
   async function sendOne(row, tally) {
-    const { message, failure } = messageFor(row, baseUrl);
+    const { message, failure } = messageFor(row, baseUrl, linkCipher);
     if (failure) {
       await outbox.finish(row.id, { sent: false, errorCode: failure, retrySeconds: null });
       tally.dead += 1;

@@ -61,7 +61,9 @@ describe('order emails are queued by the same step as each state change', () => 
       assert.deepEqual(kindsOf(app), ['order_placed']);
       const [row] = app.outbox.rows;
       assert.deepEqual([row.toEmail, row.language, row.storeId], ['buyer@example.test', 'gu', app.store.id]);
-      assert.equal(row.payload.link, `https://shop.example.test/o/${token}`);
+      assert.equal(app.linkCipher.decrypt(row.payload.token_enc), token);
+      assert.ok(!JSON.stringify(row.payload).includes(token), 'the token itself is not in the payload');
+      assert.ok(!JSON.stringify(app.orderRepo.orders[0]).includes(token), 'nor on the order row');
       assert.equal(row.payload.reference, 'AS1001');
       assert.equal(row.dedupeKey, `order_placed:${app.orderRepo.orders[0].id}`);
     } finally {
@@ -90,6 +92,9 @@ describe('order emails are queued by the same step as each state change', () => 
       await app.ownerPost(token, 'paid');
       await app.ownerPost(token, 'paid');
       assert.equal(countOf(app, 'order_confirmed'), 1);
+      const customerRows = app.outbox.rows.filter((row) => !row.kind.startsWith('seller_'));
+      assert.equal(customerRows.length, 5);
+      for (const row of customerRows) assert.equal(app.linkCipher.decrypt(row.payload.token_enc), token, row.kind);
       assert.deepEqual(kindsOf(app), ['order_placed', 'order_payment_received', 'seller_payment_submitted', 'order_payment_not_found',
         'order_payment_received', 'seller_payment_submitted', 'order_confirmed']);
       assert.equal(new Set(app.outbox.rows.map((row) => row.dedupeKey)).size, app.outbox.rows.length);
@@ -106,7 +111,7 @@ describe('order emails are queued by the same step as each state change', () => 
       const alert = app.outbox.rows.find((row) => row.kind === 'seller_payment_submitted');
       assert.equal(alert.toEmail, OWNER_ACCOUNT_EMAIL);
       assert.equal(alert.language, 'en');
-      assert.ok(app.outbox.rows.find((row) => row.kind === 'order_payment_received').payload.link.endsWith(`/o/${token}`));
+      assert.equal(app.linkCipher.decrypt(app.outbox.rows.find((row) => row.kind === 'order_payment_received').payload.token_enc), token);
       const extraKeys = await app.postTo(token, 'utr', { utr: UTR2, email: 'attacker@example.test', to: 'attacker@example.test' });
       assert.equal(extraKeys.status, 400, 'unknown form keys are rejected');
       assert.equal(app.outbox.rows.filter((row) => row.toEmail.includes('attacker')).length, 0);

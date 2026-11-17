@@ -5,6 +5,7 @@ import { createEmailService } from './email/emailService.js';
 import { createOutboxWorker } from './email/outboxWorker.js';
 import { createRelayClient } from './email/relayClient.js';
 import { createRelayProbe } from './email/relayProbe.js';
+import { createLinkCipher } from './lib/linkCipher.js';
 import { createLogger } from './lib/logger.js';
 import { createPasswordService } from './lib/password.js';
 import { createAiBudgetRepository } from './repositories/aiBudgetRepository.js';
@@ -83,18 +84,18 @@ function buildPublicShopService({ config, client, logger }) {
 }
 
 /** Orders and manual UPI payment: database functions plus the public read repository for prices and titles. */
-function buildOrderService({ config, client, logger }) {
-  return createOrderService({ orders: createOrderRepository({ client }), shops: createPublicShopRepository({ client }), logger, baseUrl: config.baseUrl });
+function buildOrderService({ client, logger, linkCipher }) {
+  return createOrderService({ orders: createOrderRepository({ client }), shops: createPublicShopRepository({ client }), logger, linkCipher });
 }
 
 /**
  * The email outbox: the enqueue API for emails the app queues itself, and the background worker (created here, started only by
  * the server entry). Order emails are queued by the order database functions, not by this service.
  */
-function buildEmail({ config, client, logger, owners, relay }) {
+function buildEmail({ config, client, logger, owners, relay, linkCipher }) {
   const outbox = createEmailOutboxRepository({ client });
   const contacts = createContactRepository({ client });
-  const worker = createOutboxWorker({ outbox, contacts, relay, baseUrl: config.baseUrl, logger });
+  const worker = createOutboxWorker({ outbox, contacts, relay, baseUrl: config.baseUrl, logger, linkCipher });
   const emails = createEmailService({ outbox, owners, logger, baseUrl: config.baseUrl, kick: worker.kick });
   return { emails, contacts, worker };
 }
@@ -121,7 +122,8 @@ export async function buildDependencies(config) {
   const sessions = createSessionService({ sessions: createSessionRepository({ client }), owners });
   const passwords = await createPasswordService();
   const logger = createLogger({ level: config.nodeEnv === 'test' ? 'silent' : 'info' });
-  const email = buildEmail({ config, client, logger, owners, relay });
+  const linkCipher = config.orderLinkKey ? createLinkCipher(config.orderLinkKey) : null;
+  const email = buildEmail({ config, client, logger, owners, relay, linkCipher });
   const translations = createStoreTranslationRepository({ client });
   const stores = createStoreService({ stores: createStoreRepository({ client }), translations });
   const services = {
@@ -129,7 +131,7 @@ export async function buildDependencies(config) {
     sessions,
     stores,
     publicShop: buildPublicShopService({ config, client, logger }),
-    orders: buildOrderService({ config, client, logger }),
+    orders: buildOrderService({ client, logger, linkCipher }),
     emails: email.emails,
     contact: createContactService({
       contacts: email.contacts,

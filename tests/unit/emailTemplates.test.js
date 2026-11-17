@@ -42,12 +42,14 @@ describe('customer email templates', () => {
     assert.equal(render(EMAIL_KINDS.ORDER_PLACED, 'en').text.split('\n').at(-1), 'If you did not place this order, ignore this email.');
   });
 
-  it('carries the private link only where the app knows the token, and points to the earlier email otherwise', () => {
-    for (const kind of [EMAIL_KINDS.ORDER_PLACED, EMAIL_KINDS.ORDER_PAYMENT_RECEIVED]) assert.ok(render(kind, 'en').text.includes(LINK), kind);
-    for (const kind of [EMAIL_KINDS.ORDER_CONFIRMED, EMAIL_KINDS.ORDER_PAYMENT_NOT_FOUND]) {
-      assert.ok(!render(kind, 'en').text.includes(LINK), kind);
-      assert.match(render(kind, 'en').text, /private order link from your first email/);
+  it('carries the private link in all six customer emails, and without one points back to the first email (never for the first two)', () => {
+    for (const kind of CUSTOMER_KINDS) for (const language of LANGUAGES) assert.ok(render(kind, language).text.includes(LINK), `${kind}/${language}`);
+    for (const kind of [EMAIL_KINDS.ORDER_CONFIRMED, EMAIL_KINDS.ORDER_PAYMENT_NOT_FOUND, EMAIL_KINDS.ORDER_CANCELLED, EMAIL_KINDS.ORDER_EXPIRED]) {
+      const text = render(kind, 'en', { ...FACTS, link: null }).text;
+      assert.ok(!text.includes(LINK), kind);
+      assert.match(text, /private order link from your first email/);
     }
+    assert.doesNotMatch(render(EMAIL_KINDS.ORDER_PAYMENT_RECEIVED, 'en', { ...FACTS, link: null }).text, /first email/);
     assert.doesNotMatch(render(EMAIL_KINDS.ORDER_PLACED, 'en', { ...FACTS, link: null }).text, /private order link:/);
   });
 

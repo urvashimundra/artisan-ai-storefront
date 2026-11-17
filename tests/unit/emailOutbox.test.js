@@ -4,12 +4,15 @@ import { EMAIL_KINDS, EMAIL_LIMITS, MAX_ATTEMPTS, RETENTION_DAYS, RETRY_DELAYS_S
 import { createEmailService } from '../../src/email/emailService.js';
 import { createOutboxWorker, retryDelaySeconds } from '../../src/email/outboxWorker.js';
 import { RELAY_REFUSED, RelayError } from '../../src/email/relayClient.js';
+import { createLinkCipher } from '../../src/lib/linkCipher.js';
 import { createFakeContacts, createFakeOutbox, createFakeRelay } from '../helpers/emailFakes.js';
 import { createLogCollector } from '../helpers/productFakes.js';
 
 const BASE_URL = 'https://shop.example.test';
 const START = Date.UTC(2026, 10, 17, 9, 0, 0);
 const MS = { second: 1000, minute: 60_000, hour: 3_600_000, day: 86_400_000 };
+const TOKEN = 'T'.repeat(43);
+const cipher = createLinkCipher('A'.repeat(43));
 const OWNER = { id: '11111111-1111-4111-8111-111111111111', email: 'owner@example.test' };
 const STORE = { id: '22222222-2222-4222-8222-222222222222', ownerId: OWNER.id, name: 'Kala Ghar', notifyEnquiryEmail: true };
 
@@ -21,14 +24,14 @@ function setup() {
   const owners = { findById: async (id) => (id === OWNER.id ? OWNER : null) };
   const kicks = [];
   const emails = createEmailService({ outbox, owners, logger: logs, baseUrl: BASE_URL, kick: () => kicks.push(1) });
-  const makeWorker = (relay) => createOutboxWorker({ outbox, contacts, relay, baseUrl: BASE_URL, logger: logs, clock: () => clock.now });
+  const makeWorker = (relay, linkCipher = cipher) => createOutboxWorker({ outbox, contacts, relay, baseUrl: BASE_URL, logger: logs, linkCipher, clock: () => clock.now });
   return { clock, outbox, contacts, logs, emails, kicks, makeWorker };
 }
 
 const orderRow = (outbox, overrides = {}) =>
   outbox.enqueue({
     storeId: STORE.id, kind: EMAIL_KINDS.ORDER_PLACED, toEmail: 'buyer@example.test', language: 'hi', subject: '', body: '',
-    payload: { reference: 'AS1001', shop: 'Kala Ghar', slug: 'kala-ghar', link: `${BASE_URL}/o/token` }, dedupeKey: `order_placed:${outbox.rows.length}`, ...overrides,
+    payload: { reference: 'AS1001', shop: 'Kala Ghar', slug: 'kala-ghar', token_enc: cipher.encrypt(TOKEN) }, dedupeKey: `order_placed:${outbox.rows.length}`, ...overrides,
   });
 const relayError = (code, httpStatus) => new RelayError(code, httpStatus);
 
@@ -134,7 +137,7 @@ describe('worker', () => {
     const [message] = relay.sent;
     assert.deepEqual([message.fromName, message.to, message.replyTo], ['The Artisan Story', ['buyer@example.test'], SUPPORT_REPLY_TO]);
     assert.match(message.text, /[ऀ-ॿ]/);
-    assert.ok(message.text.includes('AS1001') && message.text.includes(`${BASE_URL}/o/token`));
+    assert.ok(message.text.includes('AS1001') && message.text.includes(`${BASE_URL}/o/${TOKEN}`));
     assert.equal(outbox.rows[0].status, 'sent');
     assert.equal(outbox.rows[0].body, '');
     assert.deepEqual(outbox.rows[0].payload, {}, 'the private link does not stay in the table');
@@ -183,6 +186,18 @@ describe('worker', () => {
       assert.equal(outbox.rows[0].status, 'dead', `status ${status}`);
       assert.equal(outbox.rows[0].attempts, 1);
       assert.equal(outbox.rows[0].lastErrorCode, RELAY_REFUSED);
+    }
+  });
+
+  it('falls back to the shop link (no private link) when there is no key, a wrong key, or no ciphertext', async () => {
+    for (const [linkCipher, payload] of [[null, undefined], [createLinkCipher('B'.repeat(43)), undefined], [cipher, { reference: 'AS1001', shop: 'Kala Ghar', slug: 'kala-ghar', token_enc: null }]]) {
+      const { outbox, makeWorker } = setup();
+      await orderRow(outbox, { kind: EMAIL_KINDS.ORDER_CONFIRMED, language: 'en', ...(payload ? { payload } : {}) });
+      const relay = createFakeRelay();
+      await makeWorker(relay, linkCipher).runOnce();
+      assert.equal(outbox.rows[0].status, 'sent');
+      assert.ok(!relay.sent[0].text.includes('/o/'));
+      assert.ok(relay.sent[0].text.includes(`${BASE_URL}/s/kala-ghar`));
     }
   });
 
@@ -252,7 +267,7 @@ describe('worker', () => {
     assert.equal(summaries.length, 1);
     assert.deepEqual([summaries[0].claimed, summaries[0].sent, summaries[0].retried, summaries[0].dead], [1, 1, 0, 0]);
     const serialized = JSON.stringify(logs.entries);
-    for (const secret of ['private.person', 'AS1001', 'kala-ghar', '/o/token']) assert.ok(!serialized.includes(secret), secret);
+    for (const secret of ['private.person', 'AS1001', 'kala-ghar', TOKEN, cipher.encrypt(TOKEN).slice(0, 10)]) assert.ok(!serialized.includes(secret), secret);
   });
 
   it('starts and stops cleanly: the interval is unref-ed, cleared on stop, and start twice makes one timer', async () => {

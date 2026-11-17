@@ -1,5 +1,5 @@
 -- Manual smoke test for migration 010 (email outbox). Run the WHOLE file in the Supabase SQL editor (default postgres role),
--- AFTER migrations 008, 009 and 010. Success: one row "ALL CHECKS PASSED". Failure: error "FAIL: <check name>".
+-- AFTER migrations 008, 009 and 010 (it also passes after 011; 011_email_hardening_smoke.sql adds the 011 checks). Success: one row "ALL CHECKS PASSED". Failure: error "FAIL: <check name>".
 -- Leaves no data: everything runs in a sub-transaction that is always rolled back (sentinel SQLSTATE AB001). Test rows use the
 -- prefix "smoke-010" and the reserved domain example.invalid. Claims are rolled back too and assertions only look at the test's
 -- own rows, so real queued emails do not disturb it. The global-cap check counts ALL rows of the last hour, so run this on a
@@ -72,8 +72,7 @@ $$;
 CREATE OR REPLACE FUNCTION pg_temp.place(p_store uuid, p_label text, p_product uuid, p_email text, p_lang text, p_total bigint DEFAULT 10000) RETURNS jsonb
 LANGUAGE sql AS $$
   SELECT public.place_order(p_store, pg_temp.hash_of(p_label), 'smoke.shop@okbank', 'Smoke Buyer', '919876543210', p_email, 'Smoke address', p_lang, p_total,
-    jsonb_build_array(jsonb_build_object('product_id', p_product, 'quantity', 1, 'expected_price_paise', 10000, 'title', 'Smoke item', 'title_lang', 'en')),
-    'https://example.invalid/o/' || p_label)
+    jsonb_build_array(jsonb_build_object('product_id', p_product, 'quantity', 1, 'expected_price_paise', 10000, 'title', 'Smoke item', 'title_lang', 'en')))
 $$;
 
 CREATE OR REPLACE FUNCTION pg_temp.order_id(p_label text) RETURNS uuid
@@ -138,10 +137,10 @@ BEGIN
   o := pg_temp.order_id('a');
   PERFORM pg_temp.check_that(pg_temp.emails(o, 'order_placed') = 1, 'placing queues exactly one order_placed row');
   PERFORM pg_temp.check_that((SELECT to_email = 'buyer@example.invalid' AND language = 'gu' AND subject = '' AND body = ''
-      AND payload ->> 'link' = 'https://example.invalid/o/a' AND payload ->> 'slug' LIKE 'smoke-010-%' AND payload ->> 'reference' LIKE 'AS%'
-      FROM public.email_outbox WHERE dedupe_key = 'order_placed:' || o::text), 'placed row: customer address, order language, payload with link');
+      AND payload ->> 'slug' LIKE 'smoke-010-%' AND payload ->> 'reference' LIKE 'AS%'
+      FROM public.email_outbox WHERE dedupe_key = 'order_placed:' || o::text), 'placed row: customer address, order language, payload with the order facts');
 
-  PERFORM pg_temp.check_that(public.submit_payment_reference(s, pg_temp.hash_of('a'), '111111111111', 'https://example.invalid/o/a') ->> 'ok' = 'true', 'utr accepted');
+  PERFORM pg_temp.check_that(public.submit_payment_reference(s, pg_temp.hash_of('a'), '111111111111') ->> 'ok' = 'true', 'utr accepted');
   PERFORM pg_temp.check_that(pg_temp.emails(o, 'order_payment_received') = 1 AND pg_temp.emails(o, 'seller_payment_submitted') = 1,
     'submitting queues the customer and the seller email once');
   PERFORM pg_temp.check_that((SELECT to_email = v_owner_email AND language = 'en' FROM public.email_outbox WHERE dedupe_key LIKE 'seller_payment_submitted:' || o::text || '%'),

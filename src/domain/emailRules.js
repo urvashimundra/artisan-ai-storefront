@@ -53,12 +53,12 @@ export const MAX_CONTACT_MESSAGE_LENGTH = 2000;
 export const SENDER_NAME = 'The Artisan Story';
 export const SUPPORT_REPLY_TO = 'support@theartisanstory.in';
 
-/** The email facts an order event needs. The database writes them into the outbox payload. Strict. */
+/** The email facts an order event needs. The database writes them into the outbox payload; token_enc is the encrypted status token (see linkCipher). Strict. */
 export const orderPayloadSchema = z
   .object({
     reference: z.string().min(1).max(20),
     shop: z.string().min(1).max(200),
     slug: z.string().min(1).max(40),
-    link: z.string().max(300).nullable().optional(),
+    token_enc: z.string().max(200).nullable().optional(),
   })
   .strict();

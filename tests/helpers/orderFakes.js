@@ -5,7 +5,8 @@ import { requireStoreId } from '../../src/repositories/requireStoreId.js';
 import { createOrderService } from '../../src/services/orderService.js';
 import { createLogCollector } from './productFakes.js';
 import { createFakeOutbox } from './emailFakes.js';
-import { PUBLIC_BASE_URL, createFakePublicRepo, startPublicApp } from './publicFakes.js';
+import { createLinkCipher } from '../../src/lib/linkCipher.js';
+import { createFakePublicRepo, startPublicApp } from './publicFakes.js';
 
 const MS_PER_MINUTE = 60_000;
 const fail = (reason) => ({ ok: false, reason, already: false, orderId: null, reference: null, expiresAt: null });
@@ -31,9 +32,9 @@ export function createFakeOrderRepo({ publicRepo, ownsStore, clock, outbox = nul
   const windowEnd = (minutes = ORDER_EXPIRY_MINUTES) => new Date(clock.now + minutes * MS_PER_MINUTE).toISOString();
   const isOverdue = (order) => order.expiresAt !== null && Date.parse(order.expiresAt) <= clock.now;
 
-  function queueEmail(order, kind, { suffix = null, link = null } = {}) {
+  function queueEmail(order, kind, { suffix = null } = {}) {
     const shop = publicRepo.shops.find((s) => s.id === order.storeId);
-    outbox?.enqueueForOrder({ order, shop, ownerEmail: ownerEmailOf(order.storeId), kind, suffix, link });
+    outbox?.enqueueForOrder({ order, shop, ownerEmail: ownerEmailOf(order.storeId), kind, suffix });
   }
 
   function cancelLocked(order, reason) {
@@ -84,7 +85,7 @@ export function createFakeOrderRepo({ publicRepo, ownsStore, clock, outbox = nul
       const number = (counters.get(storeId) ?? 1000) + 1;
       counters.set(storeId, number);
       const order = {
-        id: randomUUID(), storeId, reference: `AS${number}`, status: STATUS.AWAITING_PAYMENT, cancelReason: null, tokenHash: input.tokenHash,
+        id: randomUUID(), storeId, reference: `AS${number}`, status: STATUS.AWAITING_PAYMENT, cancelReason: null, tokenHash: input.tokenHash, statusTokenEnc: input.statusTokenEnc ?? null,
         payeeVpa: input.payeeVpa, totalPaise: input.totalPaise, customerName: input.customerName, customerPhone: input.customerPhone,
         customerEmail: input.customerEmail, deliveryAddress: input.deliveryAddress, language: input.language, utr: null, utrSubmissions: 0,
         expiresAt: windowEnd(), stockRestoredAt: null, paidAt: null, createdAt: new Date(clock.now).toISOString(), updatedAt: new Date(clock.now).toISOString(),
@@ -94,11 +95,11 @@ export function createFakeOrderRepo({ publicRepo, ownsStore, clock, outbox = nul
       };
       for (const item of order.items.filter((line) => line.stockReserved)) productOf(storeId, item.productId).stock -= item.quantity;
       orders.push(order);
-      queueEmail(order, EMAIL_KINDS.ORDER_PLACED, { link: input.statusLink ?? null });
+      queueEmail(order, EMAIL_KINDS.ORDER_PLACED);
       return done({ orderId: order.id, reference: order.reference, expiresAt: order.expiresAt });
     },
 
-    async submitPaymentReference(storeId, tokenHash, utr, statusLink = null) {
+    async submitPaymentReference(storeId, tokenHash, utr) {
       calls.push('submitPaymentReference');
       const order = inStore(storeId).find((o) => o.tokenHash === tokenHash);
       if (!order) return fail('not_found');
@@ -109,7 +110,7 @@ export function createFakeOrderRepo({ publicRepo, ownsStore, clock, outbox = nul
       if (attemptsInStore(storeId, utr)) return fail('utr_in_use');
       order.attempts.push({ utr, createdAt: new Date(clock.now).toISOString() });
       Object.assign(order, { status: STATUS.PAYMENT_SUBMITTED, utr, utrSubmissions: order.utrSubmissions + 1, expiresAt: null });
-      queueEmail(order, EMAIL_KINDS.ORDER_PAYMENT_RECEIVED, { suffix: order.utrSubmissions, link: statusLink });
+      queueEmail(order, EMAIL_KINDS.ORDER_PAYMENT_RECEIVED, { suffix: order.utrSubmissions });
       queueEmail(order, EMAIL_KINDS.SELLER_PAYMENT_SUBMITTED, { suffix: order.utrSubmissions });
       return done();
     },
@@ -164,11 +165,15 @@ export function createFakeOrderRepo({ publicRepo, ownsStore, clock, outbox = nul
   };
 }
 
+/** A fixed test key for the order link cipher (32 zero-ish bytes as base64url). */
+export const TEST_LINK_KEY = 'A'.repeat(43);
+
 /**
  * Starts the real app (public and order routes over the real order service) with in-memory repositories. Returns the app
  * helpers plus the fake order repository, the public fake repository and a mutable clock.
  */
 export async function startOrderApp({ config = {}, appOptions = {}, tokens = null } = {}) {
+  const linkCipher = createLinkCipher(TEST_LINK_KEY);
   const outbox = createFakeOutbox({ clock: { get now() { return clock.now; } } });
   const repo = createFakePublicRepo();
   const clock = { now: Date.parse('2026-11-16T10:00:00Z') };
@@ -180,7 +185,7 @@ export async function startOrderApp({ config = {}, appOptions = {}, tokens = nul
     return app.ownersRepo.rows.find((row) => row.id === ownerId)?.email ?? null;
   };
   const orderRepo = createFakeOrderRepo({ publicRepo: repo, ownsStore, clock, outbox, ownerEmailOf });
-  const orders = createOrderService({ orders: orderRepo, shops: repo, logger: logs, now: () => clock.now, baseUrl: PUBLIC_BASE_URL, ...(tokens ? { newToken: tokens } : {}) });
+  const orders = createOrderService({ orders: orderRepo, shops: repo, logger: logs, now: () => clock.now, linkCipher, ...(tokens ? { newToken: tokens } : {}) });
   app = await startPublicApp({ config, appOptions, repo, extraServices: { orders } });
-  return { ...app, orderRepo, orders, orderClock: clock, orderLogs: logs, outbox };
+  return { ...app, orderRepo, orders, orderClock: clock, orderLogs: logs, outbox, linkCipher };
 }
