@@ -23,7 +23,7 @@
 <body class="<%= themeClass %><%= ['chat', 'chat-start'].includes(locals.kind) ? ' body-chat' : '' %>">
   <a class="skip-link" href="#main"><%= strings.skipToContent %></a>
 <% if (locals.kind !== 'chat') { %>  <header class="site-header">
-<% if (['product', 'checkout', 'order', 'enquiry', 'ask', 'chat-start'].includes(locals.kind)) { %>    <p class="brand"><a href="<%= shopHref %>" lang="<%= shop.lang %>"><%= shop.name %></a></p>
+<% if (['shop', 'product', 'checkout', 'order', 'enquiry', 'chat-start'].includes(locals.kind)) { %>    <p class="brand"><span class="brand-mark" aria-hidden="true"><%= Array.from(shop.name)[0] %></span><% if (locals.kind === 'shop') { %><span lang="<%= shop.lang %>"><%= shop.name %></span><% } else { %><a href="<%= shopHref %>" lang="<%= shop.lang %>"><%= shop.name %></a><% } %></p>
 <% } %><% if (locals.languageLinks) { %><%- include('partials/lang-switcher') %>
 <% } %>  </header>
-<% } %>  <main id="main" tabindex="-1"<% if (['checkout', 'order'].includes(locals.kind)) { %> class="main-wide"<% } else if (locals.kind === 'chat') { %> class="main-chat"<% } %>>
+<% } %>  <main id="main" tabindex="-1"<% if (['checkout', 'order'].includes(locals.kind)) { %> class="main-wide"<% } else if (locals.kind === 'chat') { %> class="main-chat"<% } else if (['shop', 'product'].includes(locals.kind)) { %> class="main-store"<% } %>>

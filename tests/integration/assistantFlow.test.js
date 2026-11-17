@@ -1,6 +1,5 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { STORE_AI_DAILY_CAP } from '../../src/domain/enquiryRules.js';
 import { hashStatusToken } from '../../src/lib/statusToken.js';
 import { ASK, call, finalAnswer, startAssistantApp, turn } from '../helpers/assistantApp.js';
 import { SECRET_EMAIL, SECRET_UPI } from '../helpers/publicFakes.js';
@@ -279,7 +278,7 @@ describe('ask the seller: tokens, privacy and output safety', () => {
 
   it('the new strings exist in English, Gujarati and Hindi', async () => {
     const { PUBLIC_STRINGS } = await import('../../src/domain/publicStrings.js');
-    for (const key of ['askHeading', 'enquiryAiLabel', 'enquiryNeedsSeller', 'quoteEstimateNote', 'enquiryStatusNeedsYou', 'errAskLimit']) {
+    for (const key of ['enquiryAiLabel', 'enquiryNeedsSeller', 'quoteEstimateNote', 'enquiryStatusNeedsYou']) {
       for (const language of ['en', 'gu', 'hi']) assert.ok(PUBLIC_STRINGS[language][key]?.length > 0, `${language}.${key}`);
     }
     assert.notEqual(PUBLIC_STRINGS.gu.enquiryAiLabel, PUBLIC_STRINGS.en.enquiryAiLabel);

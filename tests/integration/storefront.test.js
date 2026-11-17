@@ -328,14 +328,14 @@ describe('public storefront: previews, links and structure', () => {
     const { text } = await app.request('/s/mati-no-rang');
     assert.equal(text.match(/<h1[ >]/g).length, 1);
     assert.match(text, /<a class="skip-link" href="#main">/);
-    assert.match(text, /<main id="main" tabindex="-1">/);
+    assert.match(text, /<main id="main" tabindex="-1" class="main-store">/);
     assert.match(text, /<header /);
     assert.match(text, /<footer /);
     const images = text.match(/<img [^>]*>/g);
     assert.equal(images.length, 4);
     assert.ok(images.every((tag) => /alt="[^"]+"/.test(tag) && /lang="\w+"/.test(tag)));
     assert.deepEqual(images.map((tag) => /loading="(\w+)"/.exec(tag)[1]), ['eager', 'eager', 'lazy', 'lazy']);
-    assert.match(text, /<button type="button" class="button button-secondary" data-share[^>]* hidden>/);
+    assert.match(text, /<button type="button" class="button button-secondary" data-contact="share" data-share[^>]* hidden>/);
     assert.ok(text.includes('<script src="/js/share.js" defer></script>'));
     const product = (await app.request(productUrl(world.gu, world.diya))).text;
     assert.match(product, /<img class="product-photo"[^>]*fetchpriority="high"/);

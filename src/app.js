@@ -90,7 +90,7 @@ export function createApp({
   app.use(express.static(PUBLIC_DIR));
   // Public storefront: before the global limiter and before any session-loading route; it has its own limiters.
   if (services?.publicShop) {
-    app.use(createPublicRouter({ config, publicShop: services.publicShop, orders: services.orders, assistant: services.assistant, logger: log, rateLimits: publicRateLimits }));
+    app.use(createPublicRouter({ config, publicShop: services.publicShop, orders: services.orders, chat: Boolean(services.conversations), logger: log, rateLimits: publicRateLimits }));
   }
   // Customer orders: its own limiters and Origin check, also before the global limiter and with no session.
   if (services?.orders) app.use(createOrderRouter({ config, orders: services.orders, logger: log, rateLimits: orderRateLimits }));

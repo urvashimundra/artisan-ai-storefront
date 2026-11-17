@@ -65,6 +65,7 @@ const server = createServer(async (req, res) => {
   delete headers['content-encoding'];
   delete headers['content-length'];
   headers['set-cookie'] = upstream.headers.getSetCookie();
+  if (headers['content-security-policy']) headers['content-security-policy'] = headers['content-security-policy'].replace(';upgrade-insecure-requests', '');
   res.writeHead(upstream.status, headers);
   return res.end(Buffer.from(await upstream.arrayBuffer()));
 });

@@ -139,7 +139,7 @@ describe('public shop: product cap', () => {
       throw error;
     }
   };
-  const cards = (html) => (html.match(/<li class="card">/g) ?? []).length;
+  const cards = (html) => (html.match(/<li class="product-card">/g) ?? []).length;
 
   it('renders 48 with no note at 48 or fewer products', async () => {
     for (const count of [10, 20, 48]) {

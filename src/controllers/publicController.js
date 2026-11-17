@@ -20,9 +20,9 @@ const SHOP_PATH_PREFIX = /^\/s\/[^/?#]+/i;
  * products, invalid ids and reserved slugs all produce the same generic 404.
  * @param {{ publicShop: ReturnType<import('../services/publicShopService.js').createPublicShopService>,
  *   orders?: { canBuy: (slug: string, productId: string, prefs: object) => Promise<boolean> },
- *   assistant?: { askForm: (input: object) => object }, cookieSecure: boolean, baseUrl: string }} deps
+ *   chat?: boolean, cookieSecure: boolean, baseUrl: string }} deps `chat` is true when the customer chat is mounted (the Ask AI link is shown).
  */
-export function createPublicController({ publicShop, orders, assistant, cookieSecure, baseUrl }) {
+export function createPublicController({ publicShop, orders, chat = false, cookieSecure, baseUrl }) {
   const preferences = (req) => ({
     query: req.query?.lang,
     cookie: parseCookies(req.get('cookie'))[LANGUAGE_COOKIE_NAME],
@@ -63,7 +63,7 @@ export function createPublicController({ publicShop, orders, assistant, cookieSe
       if (!slug) return undefined;
       const page = await publicShop.getShopPage(slug, preferences(req));
       if (!page) return notFound(req, res);
-      if (assistant) page.view.ask = assistant.askForm({ slug, language: page.language });
+      if (!chat) page.view.chatHref = null;
       return sendPage(req, res, 'public/shop', page);
     },
 
@@ -75,7 +75,7 @@ export function createPublicController({ publicShop, orders, assistant, cookieSe
       if (!page) return notFound(req, res);
       const canBuy = orders ? await orders.canBuy(slug, req.params.productId, preferences(req)) : false;
       if (canBuy) page.view.buyHref = checkoutPath(slug, req.params.productId, page.language);
-      if (assistant) page.view.ask = assistant.askForm({ slug, language: page.language, productId: req.params.productId });
+      if (!chat) page.view.chatHref = null;
       return sendPage(req, res, 'public/product', page);
     },
 
