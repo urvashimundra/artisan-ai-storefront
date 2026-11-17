@@ -22,7 +22,7 @@ function isPermanentRefusal(error) {
   return error instanceof RelayError && error.code === RELAY_REFUSED && (error.httpStatus ?? 0) < HTTP_SERVER_ERROR;
 }
 
-/** Seconds to wait after the given (already counted) attempt: 1 min, 5 min, 30 min, 2 h. The database kills the row at the 5th. */
+/** Seconds to wait after the given (already counted) attempt: 10 s, 30 s, 2 min, 15 min. The database kills the row at the 5th. */
 export function retryDelaySeconds(attempts) {
   return RETRY_DELAYS_SECONDS[Math.min(Math.max(attempts, 1), RETRY_DELAYS_SECONDS.length) - 1];
 }
@@ -51,7 +51,7 @@ function messageFor(row, baseUrl, linkCipher) {
 
 /**
  * Background sender for the email outbox. Claims due rows (atomic, leased, so two workers never send the same row), sends each
- * through the relay and reports the result. Retries: 1 min, 5 min, 30 min, 2 h, dead at the 5th attempt; a relay refusal (4xx)
+ * through the relay and reports the result. Retries: 10 s, 30 s, 2 min, 15 min, dead at the 5th attempt; a relay refusal (4xx)
  * is dead at once; timeouts, network errors and 5xx retry. Also deletes finished rows and old contact messages once a day.
  * Started only by the server entry. The timer is unref'ed. Logs ids, counts and codes only, never addresses or text.
  * @param {{ outbox: object, contacts: object, relay: { send: Function }, baseUrl: string, linkCipher?: { decrypt: Function } | null, logger: { info: Function, warn: Function },

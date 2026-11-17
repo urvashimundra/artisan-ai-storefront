@@ -35,7 +35,7 @@ export const EMAIL_LIMITS = Object.freeze({
 
 /** Delivery. MAX_ATTEMPTS is mirrored in claim_due_emails() and finish_email() (a unit test compares them). */
 export const MAX_ATTEMPTS = 5;
-export const RETRY_DELAYS_SECONDS = Object.freeze([60, 300, 1800, 7200]);
+export const RETRY_DELAYS_SECONDS = Object.freeze([10, 30, 120, 900]);
 export const WORKER_INTERVAL_MS = 15_000;
 export const WORKER_BATCH_SIZE = 10;
 export const WORKER_LEASE_SECONDS = 300;

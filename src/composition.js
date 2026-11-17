@@ -84,8 +84,8 @@ function buildPublicShopService({ config, client, logger }) {
 }
 
 /** Orders and manual UPI payment: database functions plus the public read repository for prices and titles. */
-function buildOrderService({ client, logger, linkCipher }) {
-  return createOrderService({ orders: createOrderRepository({ client }), shops: createPublicShopRepository({ client }), logger, linkCipher });
+function buildOrderService({ client, logger, linkCipher, kick }) {
+  return createOrderService({ orders: createOrderRepository({ client }), shops: createPublicShopRepository({ client }), logger, linkCipher, kick });
 }
 
 /**
@@ -131,7 +131,7 @@ export async function buildDependencies(config) {
     sessions,
     stores,
     publicShop: buildPublicShopService({ config, client, logger }),
-    orders: buildOrderService({ client, logger, linkCipher }),
+    orders: buildOrderService({ client, logger, linkCipher, kick: email.worker.kick }),
     emails: email.emails,
     contact: createContactService({
       contacts: email.contacts,

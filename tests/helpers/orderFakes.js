@@ -172,7 +172,8 @@ export const TEST_LINK_KEY = 'A'.repeat(43);
  * Starts the real app (public and order routes over the real order service) with in-memory repositories. Returns the app
  * helpers plus the fake order repository, the public fake repository and a mutable clock.
  */
-export async function startOrderApp({ config = {}, appOptions = {}, tokens = null } = {}) {
+export async function startOrderApp({ config = {}, appOptions = {}, tokens = null, kick = null } = {}) {
+  const kicks = [];
   const linkCipher = createLinkCipher(TEST_LINK_KEY);
   const outbox = createFakeOutbox({ clock: { get now() { return clock.now; } } });
   const repo = createFakePublicRepo();
@@ -185,7 +186,8 @@ export async function startOrderApp({ config = {}, appOptions = {}, tokens = nul
     return app.ownersRepo.rows.find((row) => row.id === ownerId)?.email ?? null;
   };
   const orderRepo = createFakeOrderRepo({ publicRepo: repo, ownsStore, clock, outbox, ownerEmailOf });
-  const orders = createOrderService({ orders: orderRepo, shops: repo, logger: logs, now: () => clock.now, linkCipher, ...(tokens ? { newToken: tokens } : {}) });
+  const wake = kick ?? (() => kicks.push(1));
+  const orders = createOrderService({ orders: orderRepo, shops: repo, logger: logs, now: () => clock.now, linkCipher, kick: wake, ...(tokens ? { newToken: tokens } : {}) });
   app = await startPublicApp({ config, appOptions, repo, extraServices: { orders } });
-  return { ...app, orderRepo, orders, orderClock: clock, orderLogs: logs, outbox, linkCipher };
+  return { ...app, orderRepo, orders, orderClock: clock, orderLogs: logs, outbox, linkCipher, kicks };
 }

@@ -179,12 +179,29 @@ export function buildOwnerWhatsappLink(order, shopName) {
  *   newToken?: () => string, now?: () => number,
  *   linkCipher?: { encrypt: (token: string) => string } | null }} deps. `now` is the server clock (epoch ms), injectable for tests.
  *   `linkCipher` encrypts the status token so the order emails can carry the private link (without it they fall back to the shop link).
+ *   `kick` wakes the email worker after a change that queued mail. A failing kick is logged and never reaches the caller.
  */
-export function createOrderService({ orders, shops, logger, newToken = generateStatusToken, now = Date.now, linkCipher = null }) {
+export function createOrderService({ orders, shops, logger, newToken = generateStatusToken, now = Date.now, linkCipher = null, kick = () => {} }) {
+  /** Wakes the email worker so a queued email goes out now, not at the next poll. Never throws: the order is already committed. */
+  function wakeEmailWorker() {
+    try {
+      kick();
+    } catch (error) {
+      logger.warn('email worker kick failed', { code: error?.code });
+    }
+  }
+
+  /** Expires overdue orders. Each expiry queues an order_expired email, so the worker is woken when any order expired. */
+  async function expireOrders(storeId, productIds = null) {
+    const expired = await orders.expireOverdue(storeId, productIds);
+    if (expired > 0) wakeEmailWorker();
+    return expired;
+  }
+
   /** A product at stock 0 may only be held by overdue orders: release those first so it is not shown as sold out. */
   async function findFreshProduct(storeId, productId) {
     const product = await shops.findPublished(storeId, productId);
-    if (!product || product.stock !== 0 || (await orders.expireOverdue(storeId, [productId])) === 0) return product;
+    if (!product || product.stock !== 0 || (await expireOrders(storeId, [productId])) === 0) return product;
     return shops.findPublished(storeId, productId);
   }
 
@@ -230,7 +247,7 @@ export function createOrderService({ orders, shops, logger, newToken = generateS
     };
   }
 
-  const sweep = (storeId) => orders.expireOverdue(storeId);
+  const sweep = (storeId) => expireOrders(storeId);
 
   /** Loads the customer's order, sweeping overdue orders first so an expired order is never shown as payable. */
   async function loadOrder(token) {
@@ -292,7 +309,8 @@ export function createOrderService({ orders, shops, logger, newToken = generateS
           lines: lines.map((line) => ({ ...line, title: title.text, titleLang: title.lang })),
         }),
       );
-      logger.info('order placed', { storeId: shop.id, orderId: result.orderId, reference: result.reference });
+      wakeEmailWorker();
+      logger.info('order placed',{ storeId: shop.id, orderId: result.orderId, reference: result.reference });
       return { token, reference: result.reference };
     },
 
@@ -310,6 +328,7 @@ export function createOrderService({ orders, shops, logger, newToken = generateS
       const { utr } = utrSchema.parse(body ?? {});
       if (order.status === STATUS.CANCELLED && order.cancelReason === 'expired') throw REASON_ERRORS.expired();
       ensureOk(await orders.submitPaymentReference(order.storeId, tokenHash, utr));
+      wakeEmailWorker();
       logger.info('payment reference submitted', { storeId: order.storeId, orderId: order.id });
     },
 
@@ -317,6 +336,7 @@ export function createOrderService({ orders, shops, logger, newToken = generateS
     async cancelByCustomer(token) {
       const { order, tokenHash } = await requireOrder(token);
       ensureOk(await orders.cancelOrder(order.storeId, { orderId: order.id, actor: ACTORS.CUSTOMER, tokenHash }));
+      wakeEmailWorker();
       logger.info('order cancelled', { storeId: order.storeId, orderId: order.id, actor: ACTORS.CUSTOMER });
     },
 
@@ -340,12 +360,14 @@ export function createOrderService({ orders, shops, logger, newToken = generateS
     async resolvePayment(store, orderId, outcome) {
       if (!isProductId(orderId)) throw notFound('Order not found');
       ensureOk(await orders.resolvePayment(store.id, store.ownerId, orderId, outcome));
+      wakeEmailWorker();
       logger.info('payment resolved', { storeId: store.id, orderId, outcome });
     },
 
     async cancelByOwner(store, orderId) {
       if (!isProductId(orderId)) throw notFound('Order not found');
       ensureOk(await orders.cancelOrder(store.id, { orderId, actor: ACTORS.OWNER, ownerId: store.ownerId }));
+      wakeEmailWorker();
       logger.info('order cancelled', { storeId: store.id, orderId, actor: ACTORS.OWNER });
     },
 

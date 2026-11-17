@@ -173,8 +173,8 @@ describe('worker', () => {
     assert.equal(row.status, 'dead');
     assert.equal(row.body, '');
     assert.equal(relay.sent.length, MAX_ATTEMPTS);
-    assert.deepEqual([60, 300, 1800, 7200], RETRY_DELAYS_SECONDS);
-    assert.equal(retryDelaySeconds(99), 7200);
+    assert.deepEqual([10, 30, 120, 900], RETRY_DELAYS_SECONDS);
+    assert.equal(retryDelaySeconds(99), 900);
   });
 
   it('a relay refusal (4xx, or success false) is dead immediately', async () => {
