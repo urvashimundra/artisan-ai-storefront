@@ -18,7 +18,7 @@ const code = (sql) => sql.replace(/--.*$/gm, '').replace(/'(?:[^']|'')*'/g, "''"
 describe('migration 012 text', () => {
   it('declares, verifies and smoke-tests every named constraint and index', () => {
     for (const name of Object.values(ASSISTANT_CONSTRAINTS)) {
-      assert.match(migration, new RegExp(`CONSTRAINT ${name}\s`), `migration ${name}`);
+      assert.match(migration, new RegExp(`CONSTRAINT ${name}[ \\n]`), `migration ${name}`);
       assert.ok(verify.includes(`'${name}'`), `verify ${name}`);
       assert.ok(smoke.includes(name) || name === ASSISTANT_CONSTRAINTS.enquiryPkey, `smoke ${name}`);
     }
