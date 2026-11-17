@@ -43,12 +43,12 @@ describe('ask the seller: saving first, then the private page', () => {
     assert.equal(row(t).status, 'pending');
   }));
 
-  it('sends the private-page headers: no-store, noindex, and a referrer policy that keeps the form post working', () => run({}, async (t) => {
+  it('sends the private-page headers: no-store, noindex and Referrer-Policy no-referrer', () => run({}, async (t) => {
     const token = t.tokenOf(await t.ask());
     for (const res of [await t.page(token), await t.page(`${token.slice(0, -1)}!`)]) {
       assert.equal(res.headers.get('cache-control'), 'no-store');
       assert.match(res.headers.get('x-robots-tag'), /noindex/);
-      assert.equal(res.headers.get('referrer-policy'), 'same-origin');
+      assert.equal(res.headers.get('referrer-policy'), 'no-referrer');
     }
   }));
 
@@ -259,6 +259,17 @@ describe('ask the seller: limits, trap, validation', () => {
     }
     assert.equal(t.enquiryRepo.rows.length, 0);
     assert.equal((await t.ask({ ...ASK, productId: t.product.id })).status, 303);
+  }));
+
+  it('accepts a same-origin answer POST with realistic headers (Origin, no Referer) and still refuses a bad Origin', () => run({ script: [finalAnswer('answered', 'We ship in 5 days.')] }, async (t) => {
+    const token = t.tokenOf(await t.ask());
+    const forged = await t.answer(token, { origin: 'https://evil.test', headers: { referer: 'https://evil.test/' } });
+    assert.equal(forged.status, 403);
+    assert.equal(row(t).status, 'pending');
+    const ok = await t.answer(token, { origin: 'http://localhost', headers: { 'sec-fetch-site': 'same-origin' } });
+    assert.equal(ok.status, 303);
+    assert.equal(row(t).status, 'answered');
+    assert.equal((await t.page(token)).headers.get('referrer-policy'), 'no-referrer');
   }));
 
   it('applies the Origin check to both POSTs', () => run({}, async (t) => {

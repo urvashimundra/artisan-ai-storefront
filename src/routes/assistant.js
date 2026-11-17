@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { createAssistantController } from '../controllers/assistantController.js';
-import { privacyHeaders } from '../controllers/orderController.js';
 import { originCheck } from '../middleware/originCheck.js';
 import { createRateLimiter } from '../middleware/rateLimit.js';
 
@@ -14,10 +13,20 @@ export const ASSISTANT_LIMITS = Object.freeze({
 });
 
 /**
+ * Privacy headers for every private enquiry response: nothing may cache or index the link, and no Referer is ever sent from it.
+ * @type {import('express').RequestHandler}
+ */
+export function privacyHeaders(_req, res, next) {
+  res.set({ 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow', 'Referrer-Policy': 'no-referrer' });
+  res.vary('Cookie').vary('Accept-Language');
+  next();
+}
+
+/**
  * Customer "ask the seller" routes. No session and no owner code. Mounted BEFORE the global limiter with their own per-IP limiters
  * (asking, answering and viewing are counted separately). Every POST passes the Origin check BEFORE the limiter and the handler.
- * Every response carries the privacy headers (no-store, noindex, Referrer-Policy same-origin: `no-referrer` would make browsers send
- * `Origin: null` on the page's own form post, which the Origin check rightly rejects).
+ * Every response carries the privacy headers: no-store, noindex and `Referrer-Policy: no-referrer`, so the private link never leaks in a
+ * Referer header. The Origin check is unchanged and is not weakened to suit the referrer policy.
  * @param {{ config: { allowedOrigins: string[] }, assistant: object, logger: object,
  *   rateLimits?: { page?: object, ask?: object, answer?: object } }} deps
  * @returns {import('express').Router}
