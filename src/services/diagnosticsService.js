@@ -1,5 +1,5 @@
-export const CHECK_NAMES = ['supabase', 'smtp-verify', 'claude', 'relay-send'];
-export const DEFAULT_CHECKS = ['supabase', 'smtp-verify'];
+export const CHECK_NAMES = ['supabase', 'claude', 'relay-send'];
+export const DEFAULT_CHECKS = ['supabase'];
 
 const SAFE_REASON = /^[A-Za-z0-9_]{1,40}$/;
 const GENERIC_REASON = 'Error';

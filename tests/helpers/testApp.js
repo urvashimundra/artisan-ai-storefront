@@ -16,7 +16,6 @@ export const baseConfig = {
   diagnosticsToken: undefined,
   supabase: { url: 'https://project.supabase.test', serviceRoleKey: 'test-key' },
   ai: null,
-  smtp: null,
 };
 
 /** A diagnostics fake that records calls and never touches a network. */

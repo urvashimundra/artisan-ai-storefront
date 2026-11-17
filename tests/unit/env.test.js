@@ -32,7 +32,8 @@ describe('loadEnv', () => {
     assert.deepEqual(config.supabase, { url: 'https://project.supabase.test', serviceRoleKey: 'service-key' });
     assert.equal(config.signupInviteCode, undefined);
     assert.equal(config.ai, null);
-    assert.equal(config.smtp, null);
+    assert.equal(config.smtp, undefined, 'the SMTP group no longer exists');
+    assert.equal(config.ownerNotifyEmail, undefined);
   });
 
   it('rejects an http SUPABASE_URL and other non-https schemes', () => {
@@ -73,15 +74,10 @@ describe('loadEnv', () => {
     assert.doesNotMatch(JSON.stringify(error.variables), new RegExp(secret));
   });
 
-  it('requires the whole group once any member is present', () => {
-    const error = failureOf({ ...MINIMAL, SMTP_HOST: 'smtp.example.test' });
-    assert.deepEqual(error.variables.sort(), [
-      'MAIL_FROM',
-      'OWNER_NOTIFY_EMAIL',
-      'SMTP_PASS',
-      'SMTP_PORT',
-      'SMTP_USER',
-    ]);
+  it('ignores the retired SMTP variables, and validates OWNER_NOTIFY_EMAIL on its own', () => {
+    const config = loadEnv({ ...MINIMAL, SMTP_HOST: 'smtp.example.test', SMTP_PORT: 'x', MAIL_FROM: 'a@b.test', OWNER_NOTIFY_EMAIL: 'owner@example.test' });
+    assert.equal(config.ownerNotifyEmail, 'owner@example.test');
+    assert.deepEqual(failureOf({ ...MINIMAL, OWNER_NOTIFY_EMAIL: 'nope' }).variables, ['OWNER_NOTIFY_EMAIL']);
   });
 
   it('a lone CLAUDE_MODEL starts the ai group', () => {

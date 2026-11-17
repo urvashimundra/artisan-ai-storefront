@@ -18,7 +18,6 @@ const DEFAULT_EMAIL_RELAY_URL = 'http://127.0.0.1:2525';
 
 const GROUP_KEYS = {
   ai: ['ANTHROPIC_API_KEY', 'CLAUDE_MODEL'],
-  smtp: ['SMTP_HOST', 'SMTP_PORT', 'SMTP_USER', 'SMTP_PASS', 'MAIL_FROM', 'OWNER_NOTIFY_EMAIL'],
 };
 const CORE_KEYS = [
   'NODE_ENV',
@@ -35,6 +34,7 @@ const CORE_KEYS = [
   'AI_GLOBAL_DAILY_BUDGET_USD',
   'EMAIL_RELAY_URL',
   'CONTACT_INBOX_EMAIL',
+  'OWNER_NOTIFY_EMAIL',
   'EMAIL_WORKER_ENABLED',
 ];
 
@@ -128,21 +128,13 @@ const coreSchema = z.object({
   AI_GLOBAL_DAILY_BUDGET_USD: usdBudget(DEFAULT_GLOBAL_BUDGET_USD),
   EMAIL_RELAY_URL: z.string().refine(isLoopbackHttpOrigin).default(DEFAULT_EMAIL_RELAY_URL),
   CONTACT_INBOX_EMAIL: z.email().optional(),
+  OWNER_NOTIFY_EMAIL: z.email().optional(),
   EMAIL_WORKER_ENABLED: z.enum(['true', 'false']).default('true').transform((value) => value === 'true'),
 });
 
 const aiSchema = z.object({
   ANTHROPIC_API_KEY: nonEmpty,
   CLAUDE_MODEL: nonEmpty.default(DEFAULT_CLAUDE_MODEL),
-});
-
-const smtpSchema = z.object({
-  SMTP_HOST: nonEmpty,
-  SMTP_PORT: port,
-  SMTP_USER: nonEmpty,
-  SMTP_PASS: nonEmpty,
-  MAIL_FROM: nonEmpty,
-  OWNER_NOTIFY_EMAIL: z.email(),
 });
 
 /** Thrown when environment validation fails. Carries variable NAMES only, never values. */
@@ -179,18 +171,7 @@ function parseGroup(schema, source, keys, failures) {
 
 function buildGroups(source, failures) {
   const ai = parseGroup(aiSchema, source, GROUP_KEYS.ai, failures);
-  const smtp = parseGroup(smtpSchema, source, GROUP_KEYS.smtp, failures);
-  return {
-    ai: ai && { apiKey: ai.ANTHROPIC_API_KEY, model: ai.CLAUDE_MODEL },
-    smtp: smtp && {
-      host: smtp.SMTP_HOST,
-      port: smtp.SMTP_PORT,
-      user: smtp.SMTP_USER,
-      pass: smtp.SMTP_PASS,
-      from: smtp.MAIL_FROM,
-      ownerNotifyEmail: smtp.OWNER_NOTIFY_EMAIL,
-    },
-  };
+  return { ai: ai && { apiKey: ai.ANTHROPIC_API_KEY, model: ai.CLAUDE_MODEL } };
 }
 
 function buildAllowedOrigins(core) {
@@ -199,19 +180,19 @@ function buildAllowedOrigins(core) {
 }
 
 /**
- * Validates environment variables. Supabase is required. Optional groups (ai, smtp) are validated only if any
+ * Validates environment variables. Supabase is required. The optional ai group is validated only if any
  * member is set, and are then fully required. The three AI budget variables are optional with defaults (1.00 / 0.50
  * / 5.00 USD) and independent of the ai group. Cookie settings derive from BASE_URL, never NODE_ENV.
  * @param {Record<string, string | undefined>} [source] Defaults to process.env.
  * BASE_URL must be https (http only for localhost and 127.0.0.1); SUPABASE_URL must be https. An unknown NODE_ENV
  * does not fail boot: it is treated as "production" (only the logger level reads it).
- * CONTACT_INBOX_EMAIL (optional) receives the contact form; EMAIL_WORKER_ENABLED (default true) switches the outbox worker.
+ * CONTACT_INBOX_EMAIL (optional) receives the contact form (OWNER_NOTIFY_EMAIL, also optional, is the fallback and the relay test address); EMAIL_WORKER_ENABLED (default true) switches the outbox worker.
  * EMAIL_RELAY_URL must be a bare http://localhost or http://127.0.0.1 origin (default http://127.0.0.1:2525).
  * @returns {{ nodeEnv: string, port: number, baseUrl: string, trustProxy: number,
  *   diagnosticsToken: string | undefined, supabase: { url: string, serviceRoleKey: string },
  *   signupInviteCode: string | undefined, allowedOrigins: string[], cookie: { name: string, secure: boolean },
  *   aiBudget: { ownerDailyMicroUsd: number, demoDailyMicroUsd: number, globalDailyMicroUsd: number },
- *   emailRelayUrl: string, contactInboxEmail: string | undefined, emailWorkerEnabled: boolean, ai: object | null, smtp: object | null }}
+ *   emailRelayUrl: string, contactInboxEmail: string | undefined, ownerNotifyEmail: string | undefined, emailWorkerEnabled: boolean, ai: object | null }}
  * @throws {EnvValidationError} Listing variable names only.
  */
 export function loadEnv(source = process.env) {
@@ -237,6 +218,7 @@ export function loadEnv(source = process.env) {
     },
     emailRelayUrl: core.data.EMAIL_RELAY_URL,
     contactInboxEmail: core.data.CONTACT_INBOX_EMAIL,
+    ownerNotifyEmail: core.data.OWNER_NOTIFY_EMAIL,
     emailWorkerEnabled: core.data.EMAIL_WORKER_ENABLED,
     ...groups,
   };

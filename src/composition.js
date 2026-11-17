@@ -5,7 +5,6 @@ import { createEmailService } from './email/emailService.js';
 import { createOutboxWorker } from './email/outboxWorker.js';
 import { createRelayClient } from './email/relayClient.js';
 import { createRelayProbe } from './email/relayProbe.js';
-import { createSmtpProbe } from './email/smtpProbe.js';
 import { createLogger } from './lib/logger.js';
 import { createPasswordService } from './lib/password.js';
 import { createAiBudgetRepository } from './repositories/aiBudgetRepository.js';
@@ -106,18 +105,16 @@ function buildEmail({ config, client, logger, owners, relay }) {
  * before it accepts requests.
  * @param {ReturnType<import('./config/env.js').loadEnv>} config
  * @returns {Promise<{ diagnostics: ReturnType<typeof createDiagnosticsService>,
- *   sendTestEmail: (() => Promise<void>) | undefined, emailWorker: { start: Function, stop: Function } | null,
+ *   emailWorker: { start: Function, stop: Function } | null,
  *   services: { auth: ReturnType<typeof createAuthService>, sessions: ReturnType<typeof createSessionService>,
  *     stores: ReturnType<typeof createStoreService> } }>}
  */
 export async function buildDependencies(config) {
-  const smtp = config.smtp && createSmtpProbe({ config: config.smtp });
   const relay = createRelayClient({ relayUrl: config.emailRelayUrl });
   const probes = {
     supabase: createSupabaseProbe({ config: config.supabase }),
     claude: config.ai && createClaudeProbe({ config: config.ai }),
-    'smtp-verify': smtp?.verify,
-    'relay-send': createRelayProbe({ send: relay.send, ownerNotifyEmail: config.smtp?.ownerNotifyEmail }),
+    'relay-send': createRelayProbe({ send: relay.send, ownerNotifyEmail: config.ownerNotifyEmail }),
   };
   const client = createSupabaseClient(config.supabase);
   const owners = createOwnerRepository({ client });
@@ -137,12 +134,12 @@ export async function buildDependencies(config) {
     contact: createContactService({
       contacts: email.contacts,
       emails: email.emails,
-      inboxEmail: config.contactInboxEmail ?? config.smtp?.ownerNotifyEmail ?? null,
+      inboxEmail: config.contactInboxEmail ?? config.ownerNotifyEmail ?? null,
       logger,
     }),
     ...buildTranslationServices({ config, client, logger, translations }),
     ...buildProductServices({ config, client, logger }),
   };
   const emailWorker = config.emailWorkerEnabled ? email.worker : null;
-  return { diagnostics: createDiagnosticsService({ probes }), sendTestEmail: smtp?.sendTest, services, emailWorker };
+  return { diagnostics: createDiagnosticsService({ probes }), services, emailWorker };
 }

@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { createClaudeProbe } from '../../src/ai/claudeProbe.js';
-import { createSmtpProbe } from '../../src/email/smtpProbe.js';
 import { createSupabaseProbe } from '../../src/repositories/supabaseProbe.js';
 import { CHECK_NAMES, DEFAULT_CHECKS, createDiagnosticsService } from '../../src/services/diagnosticsService.js';
 import { TEST_TOKEN, createFakeDiagnostics, startTestApp } from '../helpers/testApp.js';
@@ -37,7 +36,7 @@ describe('GET /internal/diagnostics access', () => {
     }
   });
 
-  it('runs supabase and smtp-verify by default, claude only when requested', async () => {
+  it('runs supabase by default, claude only when requested', async () => {
     const diagnostics = createFakeDiagnostics();
     const app = await startTestApp({ config: { diagnosticsToken: TEST_TOKEN }, diagnostics });
     try {
@@ -45,7 +44,7 @@ describe('GET /internal/diagnostics access', () => {
       const claude = await fetch(`${app.url}${URL_PATH}?checks=claude`, withToken(TEST_TOKEN));
       assert.equal(byDefault.status, 200);
       assert.equal(claude.status, 200);
-      assert.deepEqual(diagnostics.calls, [['supabase', 'smtp-verify'], ['claude']]);
+      assert.deepEqual(diagnostics.calls, [['supabase'], ['claude']]);
     } finally {
       await app.close();
     }
@@ -119,38 +118,6 @@ describe('diagnostics service and probes (fakes only)', () => {
     assert.equal(seen[0].params.max_tokens, 16);
     assert.equal(seen[0].options.maxRetries, 0);
     assert.ok(seen[0].options.timeout > 0);
-  });
-
-  it('smtp verify never sends mail; sendTest sends exactly one', async () => {
-    const events = [];
-    const createTransport = (options) => {
-      assert.ok(options.connectionTimeout > 0);
-      return {
-        verify: async () => events.push('verify'),
-        sendMail: async (message) => events.push(`send:${message.to}`),
-        close: () => events.push('close'),
-      };
-    };
-    const config = { host: 'h', port: 587, user: 'u', pass: 'p', from: 'f@x.test', ownerNotifyEmail: 'o@x.test' };
-    const probe = createSmtpProbe({ config, createTransport });
-    await probe.verify();
-    assert.deepEqual(events, ['verify', 'close']);
-    events.length = 0;
-    await probe.sendTest();
-    assert.deepEqual(events, ['send:o@x.test', 'close']);
-  });
-
-  it('smtp failure returns only the safe reason, with no detail field and no credentials', async () => {
-    const config = { host: 'h', port: 465, user: 'me@x.test', pass: 'hunter2', from: 'f@x.test', ownerNotifyEmail: 'o@x.test' };
-    const failure = Object.assign(new Error('connect failed for me@x.test pass hunter2'), { code: 'ESOCKET', address: '10.0.0.1' });
-    const createTransport = () => ({ verify: async () => { throw failure; }, close: () => {} });
-    const probe = createSmtpProbe({ config, createTransport });
-    const service = createDiagnosticsService({ probes: { 'smtp-verify': probe.verify } });
-    const { checks } = await service.run(['smtp-verify']);
-    assert.equal(checks[0].reason, 'ESOCKET');
-    assert.ok(!('detail' in checks[0]));
-    assert.deepEqual(Object.keys(checks[0]).sort(), ['durationMs', 'name', 'ok', 'reason']);
-    assert.doesNotMatch(JSON.stringify(checks), /hunter2|me@x.test|10.0.0.1/);
   });
 });
 
