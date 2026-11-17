@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { LANGUAGES } from '../../domain/storeRules.js';
 import { MAX_EXCERPT_LENGTH, SOURCE_LABELS } from '../knowledgeSources.js';
 import { calculateQuoteSchema, checkProductSchema, searchProductsSchema } from './enquiryAnswer.js';
 
@@ -18,18 +19,20 @@ const conflictClaim = z.object({ label: z.enum(SOURCE_LABELS.filter((name) => na
 
 /**
  * The model's final answer. Strict. `answered` needs text; `conflict` needs a conflict with at least two quoted claims and no answer text;
- * `needs_seller` may carry one short honest sentence. Nothing here is trusted: the agent verifies every quote against the real sources.
+ * `needs_seller` needs one or two honest sentences saying exactly what is missing. `language` is the language the text is written in (the
+ * agent checks the text really is in that script). Nothing here is trusted: the agent verifies every quote against the real sources.
  */
 export const conversationAnswerSchema = z
   .object({
     outcome: z.enum(Object.values(CONVERSATION_OUTCOMES)),
     text: z.string().min(1).max(MAX_ANSWER_TEXT_LENGTH).optional(),
+    language: z.enum(LANGUAGES).optional(),
     sources: z.array(citedSource).max(MAX_CITED_SOURCES).optional(),
     conflict: z.object({ topic: z.string().min(1).max(MAX_TOPIC_LENGTH), claims: z.array(conflictClaim).min(MIN_CONFLICT_CLAIMS).max(MAX_CONFLICT_CLAIMS) }).strict().optional(),
   })
   .strict()
   .superRefine((value, context) => {
-    const needsText = value.outcome === CONVERSATION_OUTCOMES.ANSWERED && value.text === undefined;
+    const needsText = value.outcome !== CONVERSATION_OUTCOMES.CONFLICT && value.text === undefined;
     const needsConflict = value.outcome === CONVERSATION_OUTCOMES.CONFLICT && value.conflict === undefined;
     const strayConflict = value.outcome !== CONVERSATION_OUTCOMES.CONFLICT && value.conflict !== undefined;
     if (needsText || needsConflict || strayConflict) context.addIssue({ code: 'custom', message: 'outcome does not match the fields given' });
@@ -43,7 +46,11 @@ const jsonSchema = (schema) => {
 
 /** The read-only tools of the conversation agent. Documents are preloaded, so there is no read_knowledge; confirmed discounts come from the database. */
 export const CONVERSATION_TOOL_DEFINITIONS = Object.freeze([
-  { name: 'search_products', description: 'LIVE database: list the published products of this shop, optionally filtered by a word in the title. Prices are placeholders.', input_schema: jsonSchema(searchProductsSchema) },
+  {
+    name: 'search_products',
+    description: 'LIVE database: the published products of this shop, each with title, description, stock and a price placeholder. Call it with NO query to list the whole catalogue (to show products, compare them or recommend one). With a query, the closest matches come first; if nothing matches, the whole catalogue is returned.',
+    input_schema: jsonSchema(searchProductsSchema),
+  },
   { name: 'check_product', description: 'LIVE database: one published product: title, description, stock and a price placeholder.', input_schema: jsonSchema(checkProductSchema) },
   {
     name: 'calculate_quote',
@@ -56,6 +63,6 @@ export const CONVERSATION_TOOL_DEFINITIONS = Object.freeze([
 export const CONVERSATION_FINAL_TOOL = Object.freeze({
   name: CONVERSATION_FINAL_TOOL_NAME,
   description:
-    'Give the final result. outcome "answered": text plus the sources you used (quote each document excerpt exactly). outcome "needs_seller": the answer is not in any source. outcome "conflict": two written sources contradict each other; give the topic and a verbatim excerpt of each.',
+    'Give the final result. Always set language to the language the text is written in. outcome "answered": text plus the sources you used (quote each document excerpt exactly). outcome "needs_seller": the answer is not in any source or the live data; text says exactly what is missing (one or two sentences, no guessing). outcome "conflict": two written sources contradict each other; give the topic and a verbatim excerpt of each.',
   input_schema: jsonSchema(conversationAnswerSchema),
 });

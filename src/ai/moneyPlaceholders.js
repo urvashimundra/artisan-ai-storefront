@@ -36,6 +36,11 @@ const MONEY_CONTEXT_WINDOW = 40;
 const MONEY_WORDS = '(?:total|subtotal|sub-total|prices?|priced|costs?|amount|pay|payable|payment|charges?|charged|fees?|worth|bill|rate|mrp|discount|કુલ|કિંમત|ભાવ|રકમ|મૂલ્ય|ચાર્જ|ખર્ચ|कुल|कीमत|दाम|भाव|मूल्य|रकम|राशि|भुगतान|शुल्क)';
 const MONEY_WORD_BEFORE = new RegExp(`${MONEY_WORDS}[^0-9.!?;\\n]*$`, 'iu');
 const MONEY_WORD_AFTER = new RegExp(`^\\s*${MONEY_WORDS}`, 'iu');
+/** A percentage is a discount claim when one of these words sits right beside it: "100% soy wax" is not one, "100% off" is. */
+const DISCOUNT_WORDS = /(?<![A-Za-z])(?:discounts?|off|save[sd]?|savings?|sale|deals?|offers?|concession)(?![A-Za-z])|છૂટ|ડિસ્કાઉન્ટ|ઓફ|બચત|छूट|डिस्काउंट|ऑफ|बचत|रियायत/iu;
+const DISCOUNT_WINDOW = 12;
+/** The context of a percentage stops at the end of its clause, so "5% off, 100% soy wax" does not make the second figure a discount. */
+const CLAUSE_BREAK = /[,;.!?:\n]/;
 
 /** @param {string} text @returns {string} The text with Devanagari and Gujarati digits turned into ASCII digits. */
 export function toAsciiDigits(text) {
@@ -50,51 +55,77 @@ export function hasTypedAmount(text) {
   return AMOUNT_PATTERNS.some((pattern) => pattern.test(text));
 }
 
-/** @returns {number[]} Every percentage figure in the text, as numbers. */
-function percentFigures(text) {
-  const ascii = toAsciiDigits(text);
-  return [...ascii.matchAll(PERCENT_AFTER_NUMBER), ...ascii.matchAll(PERCENT_BEFORE_NUMBER)].map((match) => Number(match[1]));
+/**
+ * Every percentage figure in the text with the few characters around it.
+ * @param {string} ascii Text already passed through toAsciiDigits.
+ * @returns {{ value: number, context: string }[]}
+ */
+export function percentMentions(ascii) {
+  return [...ascii.matchAll(PERCENT_AFTER_NUMBER), ...ascii.matchAll(PERCENT_BEFORE_NUMBER)].map((match) => {
+    const before = ascii.slice(Math.max(0, match.index - DISCOUNT_WINDOW), match.index).split(CLAUSE_BREAK).at(-1);
+    const after = ascii.slice(match.index + match[0].length, match.index + match[0].length + DISCOUNT_WINDOW).split(CLAUSE_BREAK)[0];
+    return { value: Number(match[1]), context: `${before}${match[0]}${after}` };
+  });
+}
+
+/** @param {string} context @returns {boolean} True when a discount word sits in this stretch of text. */
+export const isDiscountContext = (context) => DISCOUNT_WORDS.test(context);
+
+/** @param {string} ascii Text already passed through toAsciiDigits. @returns {number[]} Every bare number in it. */
+export const plainNumbers = (ascii) => [...ascii.matchAll(BARE_NUMBER)].map((match) => Number(match[0].replaceAll(',', '')));
+
+/** @returns {boolean} True when a money word sits right beside the digits at [start, end). */
+function besideMoneyWord(ascii, start, end) {
+  const before = ascii.slice(Math.max(0, start - MONEY_CONTEXT_WINDOW), start);
+  return MONEY_WORD_BEFORE.test(before) || MONEY_WORD_AFTER.test(ascii.slice(end, end + MONEY_CONTEXT_WINDOW));
 }
 
 /** @returns {boolean} True when the digits at [start, end) look like an amount: three or more integer digits, or a money word right beside them. */
 function looksLikeAmount(ascii, start, end) {
   const integerDigits = ascii.slice(start, end).split('.')[0].replaceAll(',', '').length;
-  if (integerDigits >= MIN_AMOUNT_DIGITS) return true;
-  const before = ascii.slice(Math.max(0, start - MONEY_CONTEXT_WINDOW), start);
-  return MONEY_WORD_BEFORE.test(before) || MONEY_WORD_AFTER.test(ascii.slice(end, end + MONEY_CONTEXT_WINDOW));
+  return integerDigits >= MIN_AMOUNT_DIGITS || besideMoneyWord(ascii, start, end);
 }
 
 /**
- * Bare numbers (no currency marker) that no tool result vouches for, such as "12 pieces, total 1200". Quantities, stock figures, tier
- * minimums and percentages that a tool returned are allowed; a bare number is refused only when it looks like an amount.
- * @param {string} text @param {number[]} allowedNumbers @returns {boolean}
+ * Bare numbers (no currency marker) that nothing vouches for, such as "12 pieces, total 1200". Quantities, stock figures, tier minimums and
+ * percentages that a tool returned are allowed anywhere. Figures the shop's own texts state ("200 g", "45 hours") are allowed too, but not
+ * right beside a money word. Anything else is refused only when it looks like an amount.
+ * @param {string} text @param {number[]} allowedNumbers @param {number[]} [descriptiveNumbers] @returns {boolean}
  */
-export function hasUnverifiedNumber(text, allowedNumbers) {
+export function hasUnverifiedNumber(text, allowedNumbers, descriptiveNumbers = []) {
   const ascii = toAsciiDigits(text);
   const allowed = new Set(allowedNumbers);
+  const descriptive = new Set(descriptiveNumbers);
   return [...ascii.matchAll(BARE_NUMBER)].some((match) => {
     const value = Number(match[0].replaceAll(',', ''));
-    return !allowed.has(value) && looksLikeAmount(ascii, match.index, match.index + match[0].length);
+    const end = match.index + match[0].length;
+    if (allowed.has(value) || (descriptive.has(value) && !besideMoneyWord(ascii, match.index, end))) return false;
+    return looksLikeAmount(ascii, match.index, end);
   });
 }
 
-const placeholderKeys =(text) => [...text.matchAll(PLACEHOLDER)].map((match) => match[1]);
+/** A percentage may be stated when it is a confirmed one, or one the shop's texts state about a product ("100% soy wax") and it is not used as a discount here. */
+const percentAllowed = ({ value, context }, allowedPercents, descriptivePercents) =>
+  allowedPercents.includes(value) || (descriptivePercents.includes(value) && !isDiscountContext(context));
+
+const placeholderKeys = (text) => [...text.matchAll(PLACEHOLDER)].map((match) => match[1]);
 
 /**
  * Validates the model's text and substitutes the money placeholders.
  * @param {string} text
- * @param {{ refs: Map<string, number>, allowedPercents: number[], allowedNumbers?: number[], maxLength: number }} context refs maps a
- *   placeholder key (for example "q1.total") to integer paise that really came from a tool result; allowedPercents are the percentages
- *   that apply to the quoted quantities; allowedNumbers are the other plain numbers a tool returned (quantities, stock, tier minimums).
+ * @param {{ refs: Map<string, number>, allowedPercents: number[], allowedNumbers?: number[], descriptive?: { numbers: number[], percents: number[] },
+ *   maxLength: number }} context refs maps a placeholder key (for example "q1.total") to integer paise that really came from a tool result;
+ *   allowedPercents are the percentages that apply to the quoted quantities; allowedNumbers are the other plain numbers a tool returned
+ *   (quantities, stock, tier minimums); descriptive holds the figures the shop's own texts state (see descriptiveFigures), never usable as a price or a discount.
  * @returns {{ ok: true, text: string, usedQuote: boolean } | { ok: false, reason: 'unverified_amount' | 'invalid_output' }}
  */
-export function resolveMoney(text, { refs, allowedPercents, allowedNumbers = [], maxLength }) {
+export function resolveMoney(text, { refs, allowedPercents, allowedNumbers = [], descriptive = { numbers: [], percents: [] }, maxLength }) {
   const keys = placeholderKeys(text);
   if (keys.some((key) => !refs.has(key))) return { ok: false, reason: 'unverified_amount' };
   const bare = text.replace(PLACEHOLDER, BLANK);
   if (ANY_BRACES.test(bare) || hasTypedAmount(bare)) return { ok: false, reason: 'unverified_amount' };
-  if (percentFigures(bare).some((percent) => !allowedPercents.includes(percent))) return { ok: false, reason: 'unverified_amount' };
-  if (hasUnverifiedNumber(bare, [...allowedNumbers, ...allowedPercents])) return { ok: false, reason: 'unverified_amount' };
+  if (percentMentions(toAsciiDigits(bare)).some((mention) => !percentAllowed(mention, allowedPercents, descriptive.percents))) return { ok: false, reason: 'unverified_amount' };
+  if (hasUnverifiedNumber(bare, [...allowedNumbers, ...allowedPercents], descriptive.numbers)) return { ok: false, reason: 'unverified_amount' };
   const substituted = text.replace(PLACEHOLDER, (_whole, key) => formatInr(refs.get(key))).trim();
   if (substituted === '' || codePointLength(substituted) > maxLength) return { ok: false, reason: 'invalid_output' };
   return { ok: true, text: substituted, usedQuote: keys.some((key) => QUOTE_REF.test(key)) };

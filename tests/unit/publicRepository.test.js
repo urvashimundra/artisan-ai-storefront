@@ -41,11 +41,12 @@ describe('public repository queries', () => {
     const repo = createPublicShopRepository({ client });
     await repo.findShopBySlug('mati-no-rang');
     await repo.listPublished(STORE);
+    await repo.listPublishedWithDescriptions(STORE);
     await repo.findPublished(STORE, PRODUCT);
     await repo.findPublishedImage(STORE, PRODUCT);
     await repo.listStoreTranslations(STORE);
     await repo.listSitemapEntries(5000);
-    assert.equal(client.log.length, 6);
+    assert.equal(client.log.length, 7);
     for (const entry of client.log) {
       const select = selectOf(entry);
       assert.ok(!select.includes('*'), select);
@@ -59,13 +60,14 @@ describe('public repository queries', () => {
     const client = recordingClient();
     const repo = createPublicShopRepository({ client });
     await repo.listPublished(STORE);
+    await repo.listPublishedWithDescriptions(STORE);
     await repo.findPublished(STORE, PRODUCT);
     await repo.findPublishedImage(STORE, PRODUCT);
     for (const entry of client.log) {
       assert.ok(filters(entry).includes(`store_id=${STORE}`));
       assert.ok(filters(entry).includes('status=published'));
     }
-    assert.ok(client.log.slice(1).every((entry) => filters(entry).includes(`id=${PRODUCT}`)));
+    assert.ok(client.log.slice(2).every((entry) => filters(entry).includes(`id=${PRODUCT}`)));
   });
 
   it('lists newest first with a fetch of 49 (48 shown plus one) and rejects a missing store id before querying', async () => {
@@ -77,10 +79,21 @@ describe('public repository queries', () => {
     assert.deepEqual(calls.find(([name]) => name === 'limit'), ['limit', 49]);
     for (const bad of [undefined, '', 'abc', null]) {
       await assert.rejects(repo.listPublished(bad), TypeError);
+      await assert.rejects(repo.listPublishedWithDescriptions(bad), TypeError);
       await assert.rejects(repo.findPublished(bad, PRODUCT), TypeError);
       await assert.rejects(repo.findPublishedImage(bad, PRODUCT), TypeError);
     }
     assert.equal(client.log.length, 1);
+  });
+
+  it('the assistant catalogue read selects descriptions, newest first, and fetches at most 49 approved rows', async () => {
+    const client = recordingClient();
+    await createPublicShopRepository({ client }).listPublishedWithDescriptions(STORE);
+    const [entry] = client.log;
+    assert.ok(selectOf(entry).includes('product_translations(language, title, description, alt_text, approved)'));
+    assert.doesNotMatch(selectOf(entry), PRIVATE_COLUMNS);
+    assert.ok(filters(entry).includes('product_translations.approved=true'));
+    assert.deepEqual(entry.calls.find(([name]) => name === 'limit'), ['limit', 49]);
   });
 
   it('the sitemap query is one fixed allowlist of public columns', async () => {

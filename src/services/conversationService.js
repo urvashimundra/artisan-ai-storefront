@@ -6,8 +6,9 @@ import {
 import { AGENT_WALL_CLOCK_MS } from '../domain/enquiryRules.js';
 import { NOTICE_KEYS } from '../domain/conversationStrings.js';
 import { resolveLanguage } from '../domain/language.js';
-import { stringsFor } from '../domain/publicStrings.js';
+import { fillTemplate, stringsFor } from '../domain/publicStrings.js';
 import { AppError, notFound } from '../lib/errors.js';
+import { formatInr } from '../lib/money.js';
 import { generateStatusToken, hashStatusToken, isWellFormedToken } from '../lib/statusToken.js';
 import { createBudgetedCall } from './budgetedCall.js';
 import { buildChatView, buildPollView, buildStartView } from './conversationView.js';
@@ -22,6 +23,12 @@ const REASON_TO_OUTCOME = Object.freeze({
   provider_error: 'ai_unavailable', invalid_output: 'ai_unavailable', unavailable: 'ai_unavailable',
 });
 const iso = (ms) => new Date(ms).toISOString();
+
+/** The customer's note when the live stock cannot cover the quantity asked: the database's own figures, in fixed localised words. */
+function stockShortBody({ title, requested, available, unitPricePaise }, strings) {
+  if (available === 0) return fillTemplate(strings.chatNoticeSoldOut, { product: title });
+  return fillTemplate(strings.chatNoticeStockShort, { product: title, price: formatInr(unitPricePaise), available: String(available), requested: String(requested) });
+}
 
 /**
  * The customer side of the persistent chat. The shop comes from the URL slug (resolved here); the conversation comes from the private
@@ -82,6 +89,9 @@ export function createConversationService({
     }
     if (result.outcome === 'conflict') {
       return { outcome: 'escalated', kind: 'conflict', body: strings.chatNoticeConflict, flagReason: 'source_conflict', conflict: result.conflict, outcomeKey: 'seller' };
+    }
+    if (result.stockShortage) {
+      return { outcome: 'escalated', kind: 'escalation', body: stockShortBody(result.stockShortage, strings), flagReason: 'not_in_document', outcomeKey: 'seller' };
     }
     if (result.outcome === 'needs_seller') {
       return { outcome: 'escalated', kind: 'escalation', body: result.text ?? strings.chatNoticeNotInDocument, flagReason: 'not_in_document', outcomeKey: 'seller' };

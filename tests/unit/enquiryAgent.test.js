@@ -124,7 +124,7 @@ describe('enquiry agent: tool scoping', () => {
   it('tools are read-only: a whole run touches only read methods of the repositories', async () => {
     const h = await harness({ script: [turn(use('read_knowledge'), use('search_products', {})), final('answered', 'We ship in 5 days.')] });
     await h.run();
-    assert.deepEqual([...new Set(h.repo.calls)].sort(), ['findPublished', 'listPublished'].filter((name) => h.repo.calls.includes(name)).sort());
+    assert.deepEqual([...new Set(h.repo.calls)].sort(), ['findPublished', 'listPublished', 'listPublishedWithDescriptions'].filter((name) => h.repo.calls.includes(name)).sort());
     assert.deepEqual([...new Set(h.knowledge.calls)].filter((name) => name !== 'get' && name !== 'replaceContent' && name !== 'saveRules'), []);
   });
 });

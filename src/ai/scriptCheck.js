@@ -55,3 +55,17 @@ export function textUsesScript(text, language) {
   const inScript = countMatching(text, pattern);
   return inScript > 0 && inScript / letters >= MIN_REPLY_SCRIPT_RATIO;
 }
+
+/**
+ * The Indic script a customer's message is mostly written in, so a customer who writes Gujarati or Hindi is answered in it whatever language
+ * the page happened to be in. Latin text says nothing (English, or Hindi typed in Latin letters), so it returns null and the page language stays.
+ * @param {string} text
+ * @returns {'gu' | 'hi' | null}
+ */
+export function detectIndicLanguage(text) {
+  const letters = countMatching(text, LETTER_OR_MARK);
+  const gujarati = countMatching(text, GUJARATI);
+  const devanagari = countMatching(text, DEVANAGARI);
+  if (letters === 0 || Math.max(gujarati, devanagari) / letters < MIN_REPLY_SCRIPT_RATIO) return null;
+  return gujarati >= devanagari ? 'gu' : 'hi';
+}

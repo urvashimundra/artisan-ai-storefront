@@ -20,6 +20,7 @@ const CARD_TRANSLATION_COLUMNS = 'language, title, alt_text, approved';
 const PAGE_TRANSLATION_COLUMNS = 'language, title, description, alt_text, approved';
 const CARD_COLUMNS = `id, price_paise, stock, created_at, product_translations(${CARD_TRANSLATION_COLUMNS})`;
 const PAGE_COLUMNS = `id, price_paise, stock, product_translations(${PAGE_TRANSLATION_COLUMNS})`;
+const PAGE_COLUMNS_WITH_DATE = `id, price_paise, stock, created_at, product_translations(${PAGE_TRANSLATION_COLUMNS})`;
 const STORE_TRANSLATION_COLUMNS = 'language, tagline, story, approved';
 const IMAGE_COLUMNS = 'id, image_path';
 const SITEMAP_COLUMNS = 'id, updated_at, stores!inner(slug, updated_at)';
@@ -142,6 +143,22 @@ export function createPublicShopRepository({ client }) {
       const { data, error } = await query;
       throwIfError(error);
       return (data ?? []).map((row) => toProduct(parseRow(productRow, row, 'public.listPublished')));
+    },
+
+    /**
+     * Same products and order as listPublished, WITH the approved descriptions: the assistant's catalogue view (it must read what the shop
+     * says about a product, not only its title). Public columns only, still capped at the 49 rows listPublished fetches.
+     * @returns {Promise<object[]>}
+     */
+    async listPublishedWithDescriptions(storeId) {
+      const query = publishedProducts(storeId, PAGE_COLUMNS_WITH_DATE)
+        .eq(APPROVED_FILTER_COLUMN, true)
+        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
+        .limit(PUBLIC_PRODUCT_FETCH_LIMIT);
+      const { data, error } = await query;
+      throwIfError(error);
+      return (data ?? []).map((row) => toProduct(parseRow(productRow, row, 'public.listPublishedWithDescriptions')));
     },
 
     /** @returns {Promise<object | null>} null unless the product is published in THIS store. */

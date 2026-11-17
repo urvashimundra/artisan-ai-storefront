@@ -6,7 +6,7 @@ import { codePointLength } from '../domain/productRules.js';
 import { formatInr } from '../lib/money.js';
 import { withTimeout } from '../lib/timeout.js';
 import { echoBlocks, finishTrace, runTools, toolUseBlocks } from './agentSupport.js';
-import { buildSourceBook, maskDocumentAmounts, substituteDocumentAmounts, verifiedClaims, verifiedConflict } from './knowledgeSources.js';
+import { buildSourceBook, descriptiveFigures, maskDocumentAmounts, substituteDocumentAmounts, verifiedClaims, verifiedConflict } from './knowledgeSources.js';
 import { INDIC_TOKENS_PER_CHARACTER } from './listingCost.js';
 import { classifyFailure, readUsage } from './listingGenerator.js';
 import { resolveMoney } from './moneyPlaceholders.js';
@@ -14,7 +14,7 @@ import { CONVERSATION_PROMPT_VERSION, buildConversationSystemPrompt, buildConver
 import {
   CONVERSATION_FINAL_TOOL, CONVERSATION_FINAL_TOOL_NAME, CONVERSATION_OUTCOMES, CONVERSATION_TOOL_DEFINITIONS, conversationAnswerSchema,
 } from './schemas/conversationAnswer.js';
-import { textUsesScript } from './scriptCheck.js';
+import { detectIndicLanguage, textUsesScript } from './scriptCheck.js';
 
 /** Output cap per model call: tool calls are short and the final answer is a few sentences. */
 export const CONVERSATION_STEP_MAX_OUTPUT_TOKENS = 1500;
@@ -24,8 +24,10 @@ const REFUSAL_STOP_REASON = 'refusal';
 const HTTP_TOO_MANY_REQUESTS = 429;
 const HTTP_OVERLOADED = 529;
 const ALLOWED_TOOLS = new Set(CONVERSATION_TOOL_DEFINITIONS.map((tool) => tool.name));
-const FINAL_RETRY_MESSAGE = 'The final_answer was not valid. Call final_answer again. For outcome answered give text in the customer\'s language using only money placeholders you were given and quote sources verbatim. For outcome conflict give a topic and at least two verbatim excerpts from two different sources.';
+const FINAL_RETRY_MESSAGE = 'The final_answer was not valid. Call final_answer again. Set language to the language the text is really written in. For outcome answered give text using only money placeholders you were given and quote sources verbatim. For outcome needs_seller give text saying exactly what is missing. For outcome conflict give a topic and at least two verbatim excerpts from two different sources.';
 const NO_TOOL_MESSAGE = 'Call the final_answer tool now.';
+const PLACEHOLDER_ANYWHERE = /{{[^}]*}}/g;
+const withoutPlaceholders = (text) => text.replace(PLACEHOLDER_ANYWHERE, '');
 
 const failed = (state, reason, detail) => ({ ok: false, reason, detail, trace: finishTrace(state), steps: state.steps, charged: state.charged });
 const succeeded = (state, fields) => ({ ok: true, text: null, sources: [], conflict: null, ...fields, trace: finishTrace(state), steps: state.steps, charged: state.charged });
@@ -93,26 +95,31 @@ export function createConversationAgent({ config, createClient = (options) => ne
     maskedDocument: state.document.masked, document: state.document.original, profileTexts: state.profileTexts, descriptions: state.tools.descriptionTexts(),
   });
 
-  /** The text of a needs_seller note, or null when it is missing or states an unverifiable amount. */
-  function sellerNote(text, money) {
-    return text !== undefined && money.ok ? money.text : null;
+  /** The text of a needs_seller note, or null (the fixed localised notice is used) when it states an unverifiable amount or is not in its language. */
+  function sellerNote(text, money, language) {
+    return text !== undefined && money.ok && textUsesScript(withoutPlaceholders(text), language) ? money.text : null;
   }
 
-  async function evaluateFinal(block, state, { language, quoteNote }) {
+  /** Every text the model was shown that may carry plain figures: product titles and descriptions, the seller notes and the shop profile. */
+  const figureTexts = (state) => [...state.tools.shownTexts(), state.document.masked, ...state.profileTexts];
+
+  async function evaluateFinal(block, state, { quoteNote }) {
     const parsed = conversationAnswerSchema.safeParse(block.input);
     if (!parsed.success) return { retry: true };
     const { outcome, text, sources = [], conflict } = parsed.data;
+    const language = parsed.data.language ?? state.replyLanguage;
     const refs = new Map([...state.tools.refs, ...state.document.refs]);
     const [allowedPercents, allowedNumbers] = await Promise.all([state.tools.allowedPercents(), state.tools.verifiedNumbers()]);
-    const money = text === undefined ? { ok: false } : resolveMoney(text, { refs, allowedPercents, allowedNumbers, maxLength: MAX_ANSWER_LENGTH - quoteNote.length - 2 });
-    if (state.tools.hasStockShortage()) return { result: succeeded(state, { outcome: CONVERSATION_OUTCOMES.NEEDS_SELLER }) };
+    const money = text === undefined ? { ok: false } : resolveMoney(text, { refs, allowedPercents, allowedNumbers, descriptive: descriptiveFigures(figureTexts(state)), maxLength: MAX_ANSWER_LENGTH - quoteNote.length - 2 });
+    const stockShortage = state.tools.stockShortage();
+    if (stockShortage) return { result: succeeded(state, { outcome: CONVERSATION_OUTCOMES.NEEDS_SELLER, stockShortage }) };
     if (outcome === CONVERSATION_OUTCOMES.CONFLICT) {
       const checked = verifiedConflict(conflict, sourceBook(state), (excerpt) => substituteDocumentAmounts(excerpt, state.document.refs, formatInr));
       return checked ? { result: succeeded(state, { outcome, conflict: checked }) } : { retry: true };
     }
-    if (outcome === CONVERSATION_OUTCOMES.NEEDS_SELLER) return { result: succeeded(state, { outcome, text: sellerNote(text, money) }) };
+    if (outcome === CONVERSATION_OUTCOMES.NEEDS_SELLER) return { result: succeeded(state, { outcome, text: sellerNote(text, money, language) }) };
     if (!money.ok && money.reason === 'unverified_amount') return { result: failed(state, 'unverified_amount', 'typed_amount') };
-    if (!money.ok || !textUsesScript(text.replace(/\{\{[^}]*\}\}/g, ''), language)) return { retry: true };
+    if (!money.ok || !textUsesScript(withoutPlaceholders(text), language)) return { retry: true };
     const verified = verifiedClaims(sources, sourceBook(state), { usedLiveData: state.tools.usedLiveData() });
     const answer = money.usedQuote ? `${money.text}\n\n${quoteNote}` : money.text;
     return { result: succeeded(state, { outcome, text: answer, sources: verified }) };
@@ -159,10 +166,13 @@ export function createConversationAgent({ config, createClient = (options) => ne
       const masked = maskDocumentAmounts(knowledge.content);
       state.document = { masked: masked.text, original: knowledge.content, refs: masked.refs };
       state.profileTexts = [shop.story, shop.tagline].filter((text) => typeof text === 'string' && text !== '');
-      state.system = buildConversationSystemPrompt({ shopName: shop.name, language, maskedDocument: masked.text, story: shop.story, tagline: shop.tagline });
-      state.messages = [{ role: 'user', content: buildConversationUserText({ messages, productId }) }];
+      const customerTexts = messages.filter((message) => message.role === 'customer').map((message) => message.body);
+      state.replyLanguage = detectIndicLanguage(customerTexts.at(-1) ?? '') ?? language;
+      state.system = buildConversationSystemPrompt({ shopName: shop.name, language: state.replyLanguage, maskedDocument: masked.text, story: shop.story, tagline: shop.tagline });
       try {
-        return await loop(state, { language, quoteNote, budgetedCall, owner, context, now, deadline: now() + wallClockMs });
+        const records = await tools.recordsFor(customerTexts, productId);
+        state.messages = [{ role: 'user', content: buildConversationUserText({ messages, productId, records }) }];
+        return await loop(state, { quoteNote, budgetedCall, owner, context, now, deadline: now() + wallClockMs });
       } catch (error) {
         const { reason, detail } = failureOf(error);
         return failed(state, reason, detail);

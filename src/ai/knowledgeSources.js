@@ -1,6 +1,6 @@
 import { codePointLength } from '../domain/productRules.js';
 import { toPaise } from '../lib/money.js';
-import { toAsciiDigits } from './moneyPlaceholders.js';
+import { isDiscountContext, percentMentions, plainNumbers, toAsciiDigits } from './moneyPlaceholders.js';
 
 /** The written sources an answer may cite. `live_catalog` is the database (prices, stock, discounts), not a document. */
 export const SOURCE_LABELS = Object.freeze(['seller_notes', 'product_description', 'shop_profile', 'live_catalog']);
@@ -101,4 +101,24 @@ export function verifiedConflict(conflict, book, substitute) {
 /** @param {string} text @param {Map<string, number>} refs @returns {string} The text with every known document placeholder replaced by its original amount. */
 export function substituteDocumentAmounts(text, refs, format) {
   return text.replace(PLACEHOLDER, (whole, key) => (refs.has(key) ? format(refs.get(key)) : whole));
+}
+
+const ANY_PLACEHOLDER = /\{\{[^}]*\}\}/g;
+
+/**
+ * The plain figures the shop's own texts state, for the answer check: "200 g", "45 hours", "100% soy wax". Currency amounts are removed first
+ * (they are masked or come from tools), and a percentage that sits beside a discount word in the source ("save 20%") is NOT listed, so a
+ * seller's written offer can never be repeated as if it were a confirmed one. These figures never count as a price or a discount.
+ * @param {string[]} texts Product titles and descriptions the run read, the seller notes and the shop profile.
+ * @returns {{ numbers: number[], percents: number[] }}
+ */
+export function descriptiveFigures(texts) {
+  const numbers = new Set();
+  const percents = new Set();
+  for (const text of texts) {
+    const ascii = toAsciiDigits(text.replace(ANY_PLACEHOLDER, ' ')).replace(AMOUNT_PATTERN, ' ');
+    plainNumbers(ascii).forEach((value) => numbers.add(value));
+    percentMentions(ascii).filter(({ context }) => !isDiscountContext(context)).forEach(({ value }) => percents.add(value));
+  }
+  return { numbers: [...numbers], percents: [...percents] };
 }

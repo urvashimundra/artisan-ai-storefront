@@ -75,6 +75,11 @@ export function createFakePublicRepo() {
       const rows = [...published(storeId)].sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
       return rows.slice(0, PUBLIC_PRODUCT_FETCH_LIMIT).map(toCard);
     },
+    async listPublishedWithDescriptions(storeId) {
+      enter('listPublishedWithDescriptions');
+      const rows = [...published(storeId)].sort((a, b) => b.createdAt.localeCompare(a.createdAt) || b.id.localeCompare(a.id));
+      return rows.slice(0, PUBLIC_PRODUCT_FETCH_LIMIT).map(toCard);
+    },
     async findPublished(storeId, productId) {
       enter('findPublished');
       const row = published(storeId).find((product) => product.id === productId);

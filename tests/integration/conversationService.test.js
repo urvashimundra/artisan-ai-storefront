@@ -98,6 +98,25 @@ describe('conversation service: persistence and multi-turn', () => {
     assert.equal(conversations.messages.find((m) => m.role === 'assistant').body, EN.chatNoticeNotInDocument);
   });
 
+  it('when the live stock cannot cover the quantity, tells the customer the real stock and price in fixed words and escalates', async () => {
+    const shortage = { title: 'Cashmere Jar Candle', requested: 5, available: 3, unitPricePaise: 89900 };
+    const { conversations, alerts, start } = await setup({ agent: createFakeAgent({ results: [{ ok: true, outcome: 'needs_seller', text: null, stockShortage: shortage, trace: [], steps: 2, charged: {} }] }) });
+    const result = await start();
+    assert.equal(result.outcome, 'seller');
+    const message = conversations.messages.find((m) => m.role === 'assistant');
+    assert.equal(message.body, 'Cashmere Jar Candle is ₹899.00 each, but only 3 are in stock right now, fewer than the 5 you asked for. Your message is saved and the seller will confirm what can be arranged and reply here.');
+    assert.equal([...conversations.conversations.values()][0].status, 'needs_you');
+    assert.equal(alerts.length, 1);
+  });
+
+  it('says plainly that a product is sold out, and does so in Gujarati when the chat is in Gujarati', async () => {
+    const soldOut = { title: 'Cashmere Jar Candle', requested: 2, available: 0, unitPricePaise: 89900 };
+    const agent = createFakeAgent({ results: [{ ok: true, outcome: 'needs_seller', text: null, stockShortage: soldOut, trace: [], steps: 2, charged: {} }] });
+    const { service, conversations } = await setup({ agent });
+    await service.start('test-shop', { query: 'gu' }, input(), { correlationId: 'c1' });
+    assert.equal(conversations.messages.find((m) => m.role === 'assistant').body, CONVERSATION_STRINGS.gu.chatNoticeSoldOut.replace('{product}', 'Cashmere Jar Candle'));
+  });
+
   it('survives a crashing agent and a missing agent: the message is saved and goes to the seller', async () => {
     const crash = await setup({ agent: createFakeAgent({ results: [new Error('boom')] }) });
     assert.equal((await crash.start()).outcome, 'ai_unavailable');

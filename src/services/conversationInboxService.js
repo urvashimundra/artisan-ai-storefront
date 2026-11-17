@@ -14,7 +14,7 @@ const PREVIEW_LENGTH = 110;
 export const STATE_LABELS = Object.freeze({ needs_you: 'Needs you', unanswered: 'Unanswered', open: 'Answered by assistant', handled: 'Handled' });
 const SOURCE_LABELS = Object.freeze({ seller_notes: 'Your shop notes', product_description: 'Product description', shop_profile: 'Shop profile', live_catalog: 'Live shop data' });
 const FLAG_LABELS = Object.freeze({
-  not_in_document: 'The answer was not in your notes, so the assistant passed it to you.',
+  not_in_document: 'The assistant could not finish this from your notes and live shop data, so it passed it to you. Its message says what was missing.',
   source_conflict: 'Two of your written sources disagree. The assistant did not choose one: please decide and reply.',
   budget: 'The daily AI limit was reached, so the message came straight to you.',
   store_limit: "Your shop's daily limit for assistant answers was reached.",
