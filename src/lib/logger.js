@@ -11,7 +11,8 @@ const SENSITIVE_KEY =
 const PHONE_IN_TEXT = /\+?\d[\d\s().-]{8,}\d/g;
 const BEARER_IN_TEXT = /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi;
 const WA_LINK_IN_TEXT = /https?:\/\/(?:wa\.me|api\.whatsapp\.com)\/\S*/gi;
-const STATUS_TOKEN_IN_PATH = /\/o\/[A-Za-z0-9_-]{43}/g;
+/** Private links: /o/<token> (orders) and /q/<token> (enquiry answers). */
+const STATUS_TOKEN_IN_PATH = /\/(o|q)\/[A-Za-z0-9_-]{43}/g;
 const REDACTED_LINK = '[REDACTED_LINK]';
 
 const WHOLE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -20,7 +21,7 @@ function scrubString(text) {
   if (WHOLE_UUID.test(text) || isIP(text) !== 0) return text;
   return text
     .replace(WA_LINK_IN_TEXT, REDACTED_LINK)
-    .replace(STATUS_TOKEN_IN_PATH, `/o/${REDACTED}`)
+    .replace(STATUS_TOKEN_IN_PATH, (_whole, kind) => `/${kind}/${REDACTED}`)
     .replace(BEARER_IN_TEXT, `Bearer ${REDACTED}`)
     .replace(PHONE_IN_TEXT, REDACTED_PHONE);
 }

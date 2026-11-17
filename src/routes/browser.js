@@ -2,6 +2,8 @@ import express, { Router } from 'express';
 import { createProductController } from '../controllers/productController.js';
 import { createAuthController } from '../controllers/authController.js';
 import { createOwnerOrderController } from '../controllers/ownerOrderController.js';
+import { createEnquiryController } from '../controllers/enquiryController.js';
+import { createKnowledgeController } from '../controllers/knowledgeController.js';
 import { createOnboardingController } from '../controllers/onboardingController.js';
 import { createShopSettingsController } from '../controllers/shopSettingsController.js';
 import { createStoreController } from '../controllers/storeController.js';
@@ -13,6 +15,8 @@ import { createProductLimiters } from '../middleware/productRateLimits.js';
 import { MAX_IMAGE_BYTES } from '../domain/imageUpload.js';
 
 export const PRODUCT_FORM_BODY_LIMIT = '128kb';
+/** 20,000 Gujarati characters are 9 bytes each URL-encoded, so the notes form needs a larger limit. */
+export const KNOWLEDGE_FORM_BODY_LIMIT = '256kb';
 const IMAGE_BODY_TYPES = ['image/*', 'application/octet-stream'];
 
 const noStore = (_req, res, next) => {
@@ -36,7 +40,8 @@ export function createBrowserRouter({ config, services, authRateLimits, productR
   const productLimiters = createProductLimiters(productRateLimits);
   const pageLocals = (_req, res, next) => {
     Object.assign(res.locals, { signupEnabled, showAuthLinks: true, productsEnabled: Boolean(services.products && services.listings),
-      ordersEnabled: Boolean(services.orders) });
+      ordersEnabled: Boolean(services.orders), knowledgeEnabled: Boolean(services.knowledge),
+      enquiriesEnabled: Boolean(services.enquiries) });
     next();
   };
   const guard = [
@@ -53,6 +58,7 @@ export function createBrowserRouter({ config, services, authRateLimits, productR
     translations: services.translations,
     products: services.products,
     orders: services.orders,
+    enquiries: services.enquiries,
     canDraft: Boolean(services.translationDrafts),
   });
   const settings = createShopSettingsController({
@@ -64,6 +70,7 @@ export function createBrowserRouter({ config, services, authRateLimits, productR
     stores: services.stores,
     translations: services.translations,
     drafts: services.translationDrafts,
+    knowledgeEnabled: Boolean(services.knowledge),
   });
   const settingsForm = express.urlencoded({ extended: false, limit: PRODUCT_FORM_BODY_LIMIT });
   const storeGuard = [...ownerOnly, loadStore({ stores: services.stores })];
@@ -93,6 +100,8 @@ export function createBrowserRouter({ config, services, authRateLimits, productR
     mountProductRoutes(router, { ownerOnly, services, limiters: productLimiters });
   }
   if (services.orders) mountOrderRoutes(router, { storeGuard, orders: services.orders });
+  if (services.knowledge) mountKnowledgeRoutes(router, { storeGuard, knowledge: services.knowledge, limiters: productLimiters });
+  if (services.enquiries) mountEnquiryRoutes(router, { storeGuard, enquiries: services.enquiries });
   return router;
 }
 
@@ -126,4 +135,27 @@ function mountProductRoutes(router, { ownerOnly, services, limiters }) {
   router.post('/products/:id/generate', ...guard, limiters.generate, form, controller.postGenerate);
   router.post('/products/:id/save', ...guard, form, controller.postSave);
   router.post('/products/:id/delete', ...guard, controller.postDelete);
+}
+
+/**
+ * Owner shop-notes routes. Guard order: no-store, Origin check, session, owner, store (from the session). The Claude search has its own
+ * limiter (the same one as translation drafts) and runs before the body is parsed.
+ */
+function mountKnowledgeRoutes(router, { storeGuard, knowledge, limiters }) {
+  const controller = createKnowledgeController({ knowledge });
+  const form = express.urlencoded({ extended: false, limit: KNOWLEDGE_FORM_BODY_LIMIT });
+  router.get('/store/knowledge', ...storeGuard, controller.show);
+  router.post('/store/knowledge', ...storeGuard, form, controller.saveDocument);
+  router.post('/store/knowledge/rules', ...storeGuard, form, controller.saveRules);
+  router.post('/store/knowledge/rules/find', ...storeGuard, limiters.draft, controller.findRules);
+}
+
+/** Owner enquiries inbox. Same guard order as the orders routes; the enquiry id in the URL is only ever looked up inside the session's store. */
+function mountEnquiryRoutes(router, { storeGuard, enquiries }) {
+  const controller = createEnquiryController({ enquiries });
+  const form = express.urlencoded({ extended: false, limit: PRODUCT_FORM_BODY_LIMIT });
+  router.get('/enquiries', ...storeGuard, controller.list);
+  router.get('/enquiries/:id', ...storeGuard, controller.detail);
+  router.post('/enquiries/:id/reply', ...storeGuard, form, controller.reply);
+  router.post('/enquiries/:id/handled', ...storeGuard, controller.markHandled);
 }

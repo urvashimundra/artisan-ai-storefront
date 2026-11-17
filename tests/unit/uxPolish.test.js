@@ -109,7 +109,7 @@ describe('autosubmit.js', () => {
     const view = read('src/views/store-languages.ejs');
     assert.match(view, /<form method="post" action="\/store\/new\/languages" class="stack"<%= autosubmit \? ' data-autosubmit' : '' %>>/);
     assert.match(view, /<button type="submit" class="button"><%= aiError \? 'Try again' : 'Write my translations with Claude' %><\/button>/);
-    assert.ok(view.includes(`<a href="/dashboard"<%= autosubmit ? ' data-autosubmit-skip' : '' %>>Skip, I will do this later</a>`));
+    assert.ok(view.includes(`<a href="<%= nextPath %>"<%= autosubmit ? ' data-autosubmit-skip' : '' %>>Skip, I will do this later</a>`));
     assert.ok(!view.includes('hidden'));
     assert.ok(!view.includes('<noscript>'));
   });

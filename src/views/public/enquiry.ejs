@@ -1,0 +1,48 @@
+<%- include('layout') %>
+    <header class="order-head">
+      <h1><%= strings.enquiryHeading %></h1>
+      <p class="order-ref-line"><span class="summary-label"><%= strings.enquiryStatusLabel %>:</span> <strong class="enquiry-chip enquiry-chip-<%= enquiry.status %>"><%= enquiry.statusLabel %></strong></p>
+    </header>
+    <div class="conversation">
+      <section class="card" aria-labelledby="question-heading">
+        <p class="bubble-label" id="question-heading"><%= strings.enquiryYourQuestion %></p>
+        <p class="bubble-text"><%= enquiry.question %></p>
+      </section>
+<% if (enquiry.canRequestAnswer) { %>      <section class="card" aria-labelledby="finding-heading">
+        <h2 id="finding-heading"><%= strings.enquiryAnswerHeading %></h2>
+        <form method="post" action="<%= paths.answer %>" data-autosubmit data-autosubmit-message="<%= strings.enquiryFinding %>">
+          <p class="hint"><%= strings.enquiryFindHint %></p>
+          <p><button type="submit" class="button"><%= strings.enquiryFindButton %></button></p>
+        </form>
+        <p class="hint" role="status" aria-live="polite" data-autosubmit-status></p>
+      </section>
+<% } else if (enquiry.status === 'answering') { %>      <section class="card" aria-labelledby="answering-heading">
+        <h2 id="answering-heading"><%= strings.enquiryAnswerHeading %></h2>
+        <p role="status"><%= strings.enquiryAnswering %></p>
+        <p><a class="button button-secondary" href="<%= paths.self %>"><%= strings.enquiryRefresh %></a></p>
+      </section>
+<% } %><% if (enquiry.answerText) { %>      <section class="card bubble-ai" aria-labelledby="answer-heading">
+        <h2 id="answer-heading"><%= strings.enquiryAnswerHeading %></h2>
+        <p class="bubble-text"><%= enquiry.answerText %></p>
+        <p class="ai-label"><%= strings.enquiryAiLabel %></p>
+      </section>
+<% } %><% if (enquiry.needsSeller) { %>      <section class="card" aria-labelledby="needs-heading">
+        <h2 id="needs-heading"><%= strings.enquiryStatusNeedsYou %></h2>
+        <p><%= strings.enquiryNeedsSeller %></p>
+<% if (whatsappUrl) { %>        <p><a class="button" href="<%= whatsappUrl %>" target="_blank" rel="noopener noreferrer"><%= strings.enquiryWhatsappSeller %></a></p>
+<% } else { %>        <p><strong><%= strings.enquiryContactSeller %></strong></p>
+<% } %>      </section>
+<% } %><% if (enquiry.sellerReply) { %>      <section class="card bubble-seller" aria-labelledby="reply-heading">
+        <h2 id="reply-heading"><%= strings.enquirySellerHeading %></h2>
+        <p class="bubble-text"><%= enquiry.sellerReply %></p>
+      </section>
+<% } %>      <section class="card save-link-box" aria-labelledby="save-heading">
+        <h2 id="save-heading"><%= strings.enquirySaveLinkHeading %></h2>
+        <p class="hint"><%= strings.enquirySaveLinkNote %></p>
+        <label class="visually-hidden" for="enquiry-link"><%= strings.enquirySaveLinkHeading %></label>
+        <input type="text" id="enquiry-link" readonly value="<%= enquiry.link %>">
+        <button type="button" class="button button-secondary" data-share data-share-url="<%= enquiry.link %>" data-share-title="<%= shop.name %>" data-copied="<%= strings.linkCopied %>" hidden><%= strings.enquiryCopyLink %></button>
+        <p class="share-status" role="status" aria-live="polite" data-share-status></p>
+      </section>
+    </div>
+<%- include('layout-end') %>

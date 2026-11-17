@@ -4,7 +4,8 @@
 <% if (shop.tagline) { %>      <p class="tagline" lang="<%= shop.tagline.lang %>"><%= shop.tagline.text %></p>
 <% } %>    </section>
 <%- include('partials/contact-block') %>
-<% if (products.length === 0) { %>
+<% if (locals.ask) { %><%- include('partials/ask-form') %>
+<% } %><% if (products.length === 0) { %>
     <section aria-labelledby="soon-heading">
       <h2 id="soon-heading"><%= strings.comingSoonTitle %></h2>
       <p><%= strings.comingSoonBody %></p>

@@ -305,3 +305,22 @@ input:not([type="checkbox"], [type="radio"], [type="file"], [type="submit"], [ty
   .order-layout { grid-template-columns: minmax(0, 1fr) 22rem; gap: 1.5rem; }
   .order-side { position: sticky; top: 1rem; }
 }
+
+/* Ask the seller (Module 6): a stacked form, a calm conversation card, and a status chip that always carries text. */
+.ask-form { display: grid; gap: 1rem; margin-top: 0.75rem; }
+.ask-form .field input, .ask-form .field textarea { max-width: 32rem; font-size: 1rem; }
+.ask-form .button { justify-self: start; }
+.ask-count { text-align: right; max-width: 32rem; }
+.trap-field { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+.enquiry-chip { display: inline-block; padding: 0.15rem 0.75rem; border: 2px solid var(--accent); border-radius: 1rem; font-weight: 700; color: var(--text); background: var(--surface); }
+.enquiry-chip-needs_you, .enquiry-chip-pending, .enquiry-chip-answering { border-style: dashed; }
+.conversation { display: grid; gap: 1rem; max-width: 40rem; margin-top: 0.75rem; }
+.conversation .card { min-width: 0; }
+.bubble-label { margin: 0 0 0.35rem; color: var(--muted); font-size: 0.95rem; font-weight: 600; }
+.bubble-text { margin: 0; white-space: pre-line; overflow-wrap: anywhere; }
+.bubble-ai { border-left: 0.35rem solid var(--accent); }
+.bubble-seller { border-left: 0.35rem double var(--accent); }
+.ai-label { margin: 0.75rem 0 0; font-size: 0.95rem; font-weight: 600; }
+.save-link-box { display: grid; gap: 0.5rem; }
+.save-link-box input { max-width: none; font-size: 1rem; }
+.save-link-box .button { justify-self: start; }

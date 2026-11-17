@@ -1,0 +1,38 @@
+<% const askErrors = Object.keys(ask.errors || {}); %>    <section class="card ask" aria-labelledby="ask-heading">
+      <h2 id="ask-heading"><%= strings.askHeading %></h2>
+      <p><%= strings.askIntro %></p>
+<% if (ask.formError || askErrors.length > 0) { %>      <div class="error-summary" role="alert" id="ask-errors">
+        <h2><%= strings.askErrorsHeading %></h2>
+<% if (ask.formError) { %>        <p><%= ask.formError %></p>
+<% } %><% if (askErrors.length > 0) { %>        <ul>
+<% askErrors.forEach((field) => { %>          <li><a href="#ask-<%= field %>"><%= ask.errors[field] %></a></li>
+<% }) %>        </ul>
+<% } %>      </div>
+<% } %>      <form method="post" action="<%= ask.action %>" class="ask-form" id="ask-form">
+<% if (ask.productId) { %>        <input type="hidden" name="productId" value="<%= ask.productId %>">
+<% } %>        <div class="field">
+          <label for="ask-name"><%= strings.askNameLabel %></label>
+          <input type="text" id="ask-name" name="name" maxlength="80" autocomplete="name" autocapitalize="words" required value="<%= ask.values.name || '' %>"<% if (ask.errors.name) { %> aria-invalid="true" aria-describedby="ask-name-error"<% } %>>
+<% if (ask.errors.name) { %>          <p id="ask-name-error" class="field-error"><%= ask.errors.name %></p>
+<% } %>        </div>
+        <div class="field">
+          <label for="ask-phone"><%= strings.askPhoneLabel %></label>
+          <input type="tel" id="ask-phone" name="phone" maxlength="30" inputmode="tel" autocomplete="tel" required value="<%= ask.values.phone || '' %>" aria-describedby="ask-phone-hint<%= ask.errors.phone ? ' ask-phone-error' : '' %>"<% if (ask.errors.phone) { %> aria-invalid="true"<% } %>>
+          <p id="ask-phone-hint" class="hint"><%= strings.askPhoneHint %></p>
+<% if (ask.errors.phone) { %>          <p id="ask-phone-error" class="field-error"><%= ask.errors.phone %></p>
+<% } %>        </div>
+        <div class="field">
+          <label for="ask-question"><%= strings.askQuestionLabel %></label>
+          <textarea id="ask-question" name="question" rows="4" maxlength="<%= ask.maxQuestion %>" required data-counter="ask-count" aria-describedby="ask-question-hint ask-count<%= ask.errors.question ? ' ask-question-error' : '' %>"<% if (ask.errors.question) { %> aria-invalid="true"<% } %>><%= ask.values.question || '' %></textarea>
+          <p id="ask-question-hint" class="hint"><%= strings.askQuestionHint %></p>
+          <p id="ask-count" class="hint ask-count" aria-live="polite"></p>
+<% if (ask.errors.question) { %>          <p id="ask-question-error" class="field-error"><%= ask.errors.question %></p>
+<% } %>        </div>
+        <div class="trap-field" aria-hidden="true">
+          <label for="ask-website">Leave this field empty</label>
+          <input type="text" id="ask-website" name="website" tabindex="-1" autocomplete="off">
+        </div>
+        <p class="hint"><%= strings.askPrivacyNote %></p>
+        <p><button type="submit" class="button"><%= strings.askSubmit %></button></p>
+      </form>
+    </section>

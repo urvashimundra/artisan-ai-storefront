@@ -38,3 +38,20 @@ export function checkListingScripts(translations) {
   }
   return { ...flags, needsReview: !(flags.en && flags.gu && flags.hi) };
 }
+
+/** Share of a reply's letters that must be in the page language's script (names and product titles may stay in Latin letters). */
+export const MIN_REPLY_SCRIPT_RATIO = 0.3;
+
+/**
+ * Checks that a free-text reply is written in the page language's script: Gujarati, Devanagari or Latin letters.
+ * @param {string} text
+ * @param {'en'|'gu'|'hi'} language
+ * @returns {boolean} False when the text has no letters in that script, or too small a share of its letters.
+ */
+export function textUsesScript(text, language) {
+  const pattern = SCRIPT_PATTERNS[language];
+  if (!pattern) return true;
+  const letters = countMatching(text, LETTER_OR_MARK);
+  const inScript = countMatching(text, pattern);
+  return inScript > 0 && inScript / letters >= MIN_REPLY_SCRIPT_RATIO;
+}

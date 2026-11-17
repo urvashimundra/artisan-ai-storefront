@@ -1,0 +1,65 @@
+<%- include('partials/header') %>
+    <p class="crumb"><a href="/enquiries">&larr; Back to enquiries</a></p>
+    <% if (done) { %><p class="notice" role="status"><%= done %></p><% } %>
+    <header class="card detail-head">
+      <div>
+        <p class="eyebrow">Enquiry</p>
+        <h1><%= enquiry.customerName %></h1>
+        <p class="meta">Asked <%= enquiry.createdAt %></p>
+      </div>
+      <p class="detail-status"><span class="status-badge status-<%= enquiry.status %>"><%= enquiry.statusLabel %></span></p>
+    </header>
+    <% if (enquiry.flagText) { %><p class="callout"><%= enquiry.flagText %></p><% } %>
+    <div class="detail-layout">
+      <div class="detail-main">
+        <section class="card" aria-labelledby="customer-heading">
+          <h2 id="customer-heading">Customer</h2>
+          <dl class="kv">
+            <div><dt>Name</dt><dd><%= enquiry.customerName %></dd></div>
+            <div><dt>WhatsApp number</dt><dd><%= enquiry.customerPhone %></dd></div>
+            <div><dt>Language</dt><dd><%= enquiry.language %></dd></div>
+          </dl>
+        </section>
+        <section class="card" aria-labelledby="question-heading">
+          <h2 id="question-heading">Question</h2>
+          <p class="pre-line"><%= enquiry.question %></p>
+        </section>
+        <section class="card" aria-labelledby="answer-heading">
+          <h2 id="answer-heading">Assistant&#39;s answer</h2>
+<% if (enquiry.answerText) { %>          <p class="pre-line"><%= enquiry.answerText %></p>
+          <p class="meta">The customer sees this labelled as written by the shop&#39;s AI assistant, which you can correct.</p>
+<% } else { %>          <p>The assistant did not give an answer.</p>
+<% } %>        </section>
+        <section class="card" aria-labelledby="trace-heading">
+          <h2 id="trace-heading">What the assistant checked</h2>
+<% if (enquiry.trace.length > 0) { %>          <ul>
+<% enquiry.trace.forEach((step) => { %>            <li><%= step %></li>
+<% }) %>          </ul>
+<% } else { %>          <p>Nothing. The assistant did not look anything up.</p>
+<% } %>        </section>
+      </div>
+      <div class="detail-side">
+<% if (enquiry.canReply) { %>        <section class="card" aria-labelledby="reply-heading">
+          <h2 id="reply-heading">Your reply</h2>
+<% if (replyError) { %>          <p class="error-text" role="alert" id="reply-error"><%= replyError %></p>
+<% } %><% if (enquiry.sellerReply) { %>          <p class="meta">Saved <%= enquiry.repliedAt %>. The customer sees it on their private link, labelled &quot;From the seller&quot;.</p>
+          <p class="pre-line"><%= enquiry.sellerReply %></p>
+<% if (enquiry.whatsappUrl) { %>          <p><a class="button" href="<%= enquiry.whatsappUrl %>" target="_blank" rel="noopener noreferrer">Open WhatsApp with this reply<span class="visually-hidden"> (opens in a new tab)</span></a></p>
+<% if (!enquiry.hasPrivateLink) { %>          <p class="hint">The customer&#39;s private link could not be added to the message.</p>
+<% } %><% } %><% } %>          <form method="post" action="/enquiries/<%= enquiry.id %>/reply" class="stack">
+            <div class="field">
+              <label for="reply"><%= enquiry.sellerReply ? 'Change your reply' : 'Write your reply' %></label>
+              <textarea id="reply" name="reply" rows="5" maxlength="<%= maxReply %>" required data-counter="reply-count" aria-describedby="reply-count<%= replyError ? ' reply-error' : '' %>"<% if (replyError) { %> aria-invalid="true"<% } %>><%= replyValue %></textarea>
+              <p id="reply-count" class="hint" aria-live="polite"></p>
+            </div>
+            <div><button type="submit" class="button">Save reply</button></div>
+          </form>
+        </section>
+<% } %><% if (enquiry.canMarkHandled) { %>        <section class="card" aria-labelledby="handled-heading">
+          <h2 id="handled-heading">Finished with this enquiry?</h2>
+          <form method="post" action="/enquiries/<%= enquiry.id %>/handled"><button type="submit" class="button button-secondary">Mark as handled</button></form>
+        </section>
+<% } %>      </div>
+    </div>
+    <script src="/js/char-counter.js" defer></script>
+<%- include('partials/footer') %>

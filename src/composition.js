@@ -1,3 +1,5 @@
+import { createBulkRuleExtractor } from './ai/bulkRuleExtractor.js';
+import { createEnquiryAgent } from './ai/enquiryAgent.js';
 import { createClaudeProbe } from './ai/claudeProbe.js';
 import { createListingGenerator } from './ai/listingGenerator.js';
 import { createTranslationGenerator } from './ai/translationGenerator.js';
@@ -11,6 +13,8 @@ import { createPasswordService } from './lib/password.js';
 import { createAiBudgetRepository } from './repositories/aiBudgetRepository.js';
 import { createContactRepository } from './repositories/contactRepository.js';
 import { createEmailOutboxRepository } from './repositories/emailOutboxRepository.js';
+import { createKnowledgeRepository } from './repositories/knowledgeRepository.js';
+import { createEnquiryRepository } from './repositories/enquiryRepository.js';
 import { createImageStorageRepository } from './repositories/imageStorageRepository.js';
 import { createProductRepository } from './repositories/productRepository.js';
 import { createPublicShopRepository } from './repositories/publicShopRepository.js';
@@ -22,9 +26,12 @@ import { createStoreTranslationRepository } from './repositories/storeTranslatio
 import { SUPABASE_STORAGE_TIMEOUT_MS, createSupabaseClient } from './repositories/supabaseClient.js';
 import { createSupabaseProbe } from './repositories/supabaseProbe.js';
 import { createAiBudgetService } from './services/aiBudgetService.js';
+import { createAssistantService } from './services/assistantService.js';
 import { createAuthService } from './services/authService.js';
 import { createDiagnosticsService } from './services/diagnosticsService.js';
 import { createContactService } from './services/contactService.js';
+import { createEnquiryInboxService } from './services/enquiryInboxService.js';
+import { createKnowledgeService } from './services/knowledgeService.js';
 import { createListingService } from './services/listingService.js';
 import { createOrderService } from './services/orderService.js';
 import { createProductService } from './services/productService.js';
@@ -72,6 +79,14 @@ function buildProductServices({ config, client, logger }) {
   };
 }
 
+/** Shop notes and bulk discounts: owner editing always; the Claude discount search only when the ai group is configured. */
+function buildKnowledgeService({ config, client, logger }) {
+  const knowledge = createKnowledgeRepository({ client });
+  if (!config.ai) return createKnowledgeService({ knowledge, logger });
+  const budgets = buildBudgets({ config, client });
+  return createKnowledgeService({ knowledge, budgets, extractor: createBulkRuleExtractor({ config: config.ai }), logger });
+}
+
 /** Public storefront read path: its own repository and a storage client with the storage timeout (signed URLs only). */
 function buildPublicShopService({ config, client, logger }) {
   const storageClient = createSupabaseClient(config.supabase, undefined, SUPABASE_STORAGE_TIMEOUT_MS);
@@ -86,6 +101,20 @@ function buildPublicShopService({ config, client, logger }) {
 /** Orders and manual UPI payment: database functions plus the public read repository for prices and titles. */
 function buildOrderService({ client, logger, linkCipher, kick }) {
   return createOrderService({ orders: createOrderRepository({ client }), shops: createPublicShopRepository({ client }), logger, linkCipher, kick });
+}
+
+/**
+ * The shop assistant (ask the seller): enquiries are always saved and reach the seller's inbox; the Claude agent exists only when the
+ * ai group is configured (without it every enquiry goes straight to the seller).
+ */
+function buildAssistantService({ config, client, logger, linkCipher, emails }) {
+  const aiParts = config.ai ? { agent: createEnquiryAgent({ config: config.ai }), budgets: buildBudgets({ config, client }) } : {};
+  return createAssistantService({
+    shops: createPublicShopRepository({ client }),
+    enquiries: createEnquiryRepository({ client }),
+    knowledge: createKnowledgeRepository({ client }),
+    emails, logger, linkCipher, baseUrl: config.baseUrl, ...aiParts,
+  });
 }
 
 /**
@@ -139,6 +168,9 @@ export async function buildDependencies(config) {
       inboxEmail: config.contactInboxEmail ?? config.ownerNotifyEmail ?? null,
       logger,
     }),
+    knowledge: buildKnowledgeService({ config, client, logger }),
+    enquiries: createEnquiryInboxService({ enquiries: createEnquiryRepository({ client }), logger, linkCipher, baseUrl: config.baseUrl }),
+    assistant: buildAssistantService({ config, client, logger, linkCipher, emails: email.emails }),
     ...buildTranslationServices({ config, client, logger, translations }),
     ...buildProductServices({ config, client, logger }),
   };

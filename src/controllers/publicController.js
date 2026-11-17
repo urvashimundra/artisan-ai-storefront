@@ -19,9 +19,10 @@ const SHOP_PATH_PREFIX = /^\/s\/[^/?#]+/i;
  * parameters before anything reaches a service, and renders pure view models. Unknown shops, drafts, other shops'
  * products, invalid ids and reserved slugs all produce the same generic 404.
  * @param {{ publicShop: ReturnType<import('../services/publicShopService.js').createPublicShopService>,
- *   orders?: { canBuy: (slug: string, productId: string, prefs: object) => Promise<boolean> }, cookieSecure: boolean, baseUrl: string }} deps
+ *   orders?: { canBuy: (slug: string, productId: string, prefs: object) => Promise<boolean> },
+ *   assistant?: { askForm: (input: object) => object }, cookieSecure: boolean, baseUrl: string }} deps
  */
-export function createPublicController({ publicShop, orders, cookieSecure, baseUrl }) {
+export function createPublicController({ publicShop, orders, assistant, cookieSecure, baseUrl }) {
   const preferences = (req) => ({
     query: req.query?.lang,
     cookie: parseCookies(req.get('cookie'))[LANGUAGE_COOKIE_NAME],
@@ -61,7 +62,9 @@ export function createPublicController({ publicShop, orders, cookieSecure, baseU
       const slug = acceptSlug(req, res);
       if (!slug) return undefined;
       const page = await publicShop.getShopPage(slug, preferences(req));
-      return page ? sendPage(req, res, 'public/shop', page) : notFound(req, res);
+      if (!page) return notFound(req, res);
+      if (assistant) page.view.ask = assistant.askForm({ slug, language: page.language });
+      return sendPage(req, res, 'public/shop', page);
     },
 
     async product(req, res) {
@@ -72,6 +75,7 @@ export function createPublicController({ publicShop, orders, cookieSecure, baseU
       if (!page) return notFound(req, res);
       const canBuy = orders ? await orders.canBuy(slug, req.params.productId, preferences(req)) : false;
       if (canBuy) page.view.buyHref = checkoutPath(slug, req.params.productId, page.language);
+      if (assistant) page.view.ask = assistant.askForm({ slug, language: page.language, productId: req.params.productId });
       return sendPage(req, res, 'public/product', page);
     },
 
