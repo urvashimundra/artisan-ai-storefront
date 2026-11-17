@@ -81,8 +81,8 @@ export function createConversationService({
   }
 
   /** Maps the agent's result to the finish arguments. A conflict and a not-found answer are escalations to the seller. */
-  function toFinish(result, language) {
-    const strings = stringsFor(language);
+  function toFinish(result, pageLanguage) {
+    const strings = stringsFor(result.language ?? pageLanguage);
     if (!result.ok) {
       const { kind, result: outcome } = REASON_OUTCOMES[result.reason];
       return { outcome, kind, body: strings[NOTICE_KEYS[result.reason]], flagReason: result.reason, outcomeKey: REASON_TO_OUTCOME[result.reason] };

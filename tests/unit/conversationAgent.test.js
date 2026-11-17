@@ -345,9 +345,10 @@ describe('limits and failure categories', () => {
     assert.equal(h.budgets.settled.length, 2);
   });
 
-  it('requires the answer in the page language script', async () => {
+  it('requires the answer in the page language script: one corrective retry, then the localised fixed notice', async () => {
     const h = await harness({ language: 'gu', script: [finalTurn({ outcome: 'answered', text: 'We ship in five days.' }), finalTurn({ outcome: 'answered', text: 'We ship in five days.' })] });
-    assert.equal((await h.run()).reason, 'invalid_output');
+    const result = await h.run();
+    assert.deepEqual([result.ok, result.outcome, result.text, result.language, h.requests.length], [true, 'needs_seller', null, 'gu', 2]);
   });
 
   it('does not request prompt caching (unverified against this deployment)', async () => {

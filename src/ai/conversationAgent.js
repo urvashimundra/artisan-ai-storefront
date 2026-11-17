@@ -3,6 +3,7 @@ import { estimateMaxCostMicroUsd } from '../domain/aiCost.js';
 import { MAX_ANSWER_LENGTH, MAX_MODEL_CALLS, SELLER_NOTICE_PREFIX } from '../domain/enquiryRules.js';
 import { MAX_KNOWLEDGE_LENGTH } from '../domain/knowledgeRules.js';
 import { codePointLength } from '../domain/productRules.js';
+import { LANGUAGE_NAMES_ENGLISH } from '../domain/language.js';
 import { stringsFor } from '../domain/publicStrings.js';
 import { formatInr } from '../lib/money.js';
 import { withTimeout } from '../lib/timeout.js';
@@ -15,7 +16,7 @@ import { CONVERSATION_PROMPT_VERSION, buildConversationSystemPrompt, buildConver
 import {
   CONVERSATION_FINAL_TOOL, CONVERSATION_FINAL_TOOL_NAME, CONVERSATION_OUTCOMES, CONVERSATION_TOOL_DEFINITIONS, conversationAnswerSchema,
 } from './schemas/conversationAnswer.js';
-import { detectIndicLanguage, hasEnglishLabelWords, textUsesScript } from './scriptCheck.js';
+import { hasEnglishLabelWords, requiredReplyLanguage, textUsesScript } from './scriptCheck.js';
 
 /** Output cap per model call: tool calls are short and the final answer is a few sentences. */
 export const CONVERSATION_STEP_MAX_OUTPUT_TOKENS = 1500;
@@ -31,13 +32,14 @@ const VOLUNTEERED_MESSAGE = 'The answer text repeats a fact you named in seller_
 const MIN_AFFECTS_LENGTH = 3;
 const MIN_OVERLAP_WORDS = 3;
 const WORD = /[\p{L}\p{N}]+/gu;
+const wrongLanguageMessage = (language) => `The answer text is not written in ${LANGUAGE_NAMES_ENGLISH[language]}, which is the language this reply must be in. Call final_answer again with the whole text in ${LANGUAGE_NAMES_ENGLISH[language]}, keeping product names as they are written.`;
 const NO_TOOL_MESSAGE = 'Call the final_answer tool now.';
 const PLACEHOLDER_ANYWHERE = /{{[^}]*}}/g;
 const withoutPlaceholders = (text) => text.replace(PLACEHOLDER_ANYWHERE, '');
 
-const failed = (state, reason, detail) => ({ ok: false, reason, detail, trace: finishTrace(state), steps: state.steps, charged: state.charged });
+const failed = (state, reason, detail) => ({ ok: false, reason, detail, language: state.replyLanguage, trace: finishTrace(state), steps: state.steps, charged: state.charged });
 const succeeded = (state, { sellerNotice, ...fields }) => ({
-  ok: true, text: null, sources: [], conflict: null, ...fields, trace: finishTrace(state, sellerNotice ? [`${SELLER_NOTICE_PREFIX}${sellerNotice}`] : []), steps: state.steps, charged: state.charged,
+  ok: true, text: null, sources: [], conflict: null, language: state.replyLanguage, ...fields, trace: finishTrace(state, sellerNotice ? [`${SELLER_NOTICE_PREFIX}${sellerNotice}`] : []), steps: state.steps, charged: state.charged,
 });
 
 /** True when the text quotes part of the customer's latest message (whitespace and case ignored): the part that depends on a contested fact. */
@@ -140,10 +142,10 @@ export function createConversationAgent({ config, createClient = (options) => ne
     if (!parsed.success) return { retry: true };
     const { outcome, text, sources = [], conflict, seller_notice: rawNotice } = parsed.data;
     const sellerNotice = usableNotice(rawNotice);
-    const language = parsed.data.language ?? state.replyLanguage;
+    const language = state.replyLanguage;
     const refs = new Map([...state.tools.refs, ...state.document.refs]);
     const [allowedPercents, allowedNumbers] = await Promise.all([state.tools.allowedPercents(), state.tools.verifiedNumbers()]);
-    const money = text === undefined ? { ok: false } : resolveMoney(text, { refs, allowedPercents, allowedNumbers, descriptive: descriptiveFigures(figureTexts(state)), labels: labelsFor(language), maxLength: MAX_ANSWER_LENGTH - quoteNote.length - 2 });
+    const money = text === undefined ? { ok: false } : resolveMoney(text, { refs, percentRefs: state.tools.percentRefs, tiers: await state.tools.confirmedTiers(), allowedPercents, allowedNumbers, descriptive: descriptiveFigures(figureTexts(state)), labels: labelsFor(language), maxLength: MAX_ANSWER_LENGTH - quoteNote.length - 2 });
     const stockShortage = state.tools.stockShortage();
     if (stockShortage) return { result: succeeded(state, { outcome: CONVERSATION_OUTCOMES.NEEDS_SELLER, stockShortage }) };
     if (outcome === CONVERSATION_OUTCOMES.CONFLICT) {
@@ -154,7 +156,9 @@ export function createConversationAgent({ config, createClient = (options) => ne
     if (outcome === CONVERSATION_OUTCOMES.NEEDS_SELLER) return { result: succeeded(state, { outcome, text: sellerNote(text, money, language), sellerNotice }) };
     if (!money.ok && money.reason === 'unverified_amount') return { result: failed(state, 'unverified_amount', 'typed_amount') };
     const bare = withoutPlaceholders(text);
-    if (!money.ok || !textUsesScript(bare, language) || hasEnglishLabelWords(bare, language)) return { retry: true };
+    if (!money.ok) return { retry: true };
+    if (!textUsesScript(bare, language)) return state.retried ? { result: succeeded(state, { outcome: CONVERSATION_OUTCOMES.NEEDS_SELLER }) } : { retry: true, message: wrongLanguageMessage(language) };
+    if (hasEnglishLabelWords(bare, language, state.tools.shownTitles())) return { retry: true };
     if (sellerNotice && repeatsNotice(money.text, sellerNotice)) return { retry: true, message: VOLUNTEERED_MESSAGE };
     const verified = verifiedClaims(sources, sourceBook(state), { usedLiveData: state.tools.usedLiveData() });
     const answer = money.usedQuote ? `${money.text}\n\n${quoteNote}` : money.text;
@@ -204,7 +208,7 @@ export function createConversationAgent({ config, createClient = (options) => ne
       state.profileTexts = [shop.story, shop.tagline].filter((text) => typeof text === 'string' && text !== '');
       const customerTexts = messages.filter((message) => message.role === 'customer').map((message) => message.body);
       state.latestCustomer = customerTexts.at(-1) ?? '';
-      state.replyLanguage = detectIndicLanguage(state.latestCustomer) ?? language;
+      state.replyLanguage = requiredReplyLanguage(state.latestCustomer, language);
       state.system = buildConversationSystemPrompt({ shopName: shop.name, language: state.replyLanguage, maskedDocument: masked.text, story: shop.story, tagline: shop.tagline });
       try {
         const records = await tools.recordsFor(customerTexts, productId);

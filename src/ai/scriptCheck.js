@@ -58,12 +58,19 @@ export function textUsesScript(text, language) {
 
 const ENGLISH_LABEL_WORDS = /(?<![A-Za-z])(?:unit price|sub-?total|total|discount|in stock|sold out)(?![A-Za-z])/i;
 
+const escapeForRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/** The text with every product title or name the tools returned removed: a label word inside the shop's own title ("Total Glow Candle") is not a model-typed label. */
+const withoutNames = (text, names) => names.filter((name) => name.trim() !== '').reduce((rest, name) => rest.replace(new RegExp(escapeForRegExp(name.trim()), 'giu'), ' '), text);
+
 /**
  * True when a Gujarati or Hindi reply carries one of the English labels the server supplies in the customer's language (unit price, subtotal,
- * discount, total, in stock, sold out): the model must use the label placeholders instead.
- * @param {string} text Reply text with the money and label placeholders already removed. @param {'en'|'gu'|'hi'} language @returns {boolean}
+ * discount, total, in stock, sold out): the model must use the label placeholders instead. Occurrences inside a product title or name the
+ * tools returned (`names`) are the shop's own wording and are not flagged.
+ * @param {string} text Reply text with the money and label placeholders already removed. @param {'en'|'gu'|'hi'} language
+ * @param {string[]} [names] Product titles and names the model was shown. @returns {boolean}
  */
-export const hasEnglishLabelWords = (text, language) => language !== 'en' && ENGLISH_LABEL_WORDS.test(text);
+export const hasEnglishLabelWords = (text, language, names = []) => language !== 'en' && ENGLISH_LABEL_WORDS.test(withoutNames(text, names));
 
 /**
  * The Indic script a customer's message is mostly written in, so a customer who writes Gujarati or Hindi is answered in it whatever language
@@ -78,3 +85,26 @@ export function detectIndicLanguage(text) {
   if (letters === 0 || Math.max(gujarati, devanagari) / letters < MIN_REPLY_SCRIPT_RATIO) return null;
   return gujarati >= devanagari ? 'gu' : 'hi';
 }
+
+const REQUEST_PATTERNS = Object.freeze({
+  en: /(?<![A-Za-z])in english(?![A-Za-z])|અંગ્રેજીમાં|अंग्रेज़ी में|अंग्रेजी में|अँग्रेजी में/giu,
+  gu: /(?<![A-Za-z])in gujarati(?![A-Za-z])|ગુજરાતીમાં|गुजराती में/giu,
+  hi: /(?<![A-Za-z])in hindi(?![A-Za-z])|હિન્દીમાં|हिंदी में|हिन्दी में/giu,
+});
+
+/** The language the customer explicitly asked for ("in Gujarati", "ગુજરાતીમાં", "हिंदी में"); the last request in the message wins. */
+function requestedLanguage(text) {
+  let found = null;
+  let foundAt = -1;
+  for (const [language, pattern] of Object.entries(REQUEST_PATTERNS)) {
+    for (const match of text.matchAll(pattern)) if (match.index > foundAt) [found, foundAt] = [language, match.index];
+  }
+  return found;
+}
+
+/**
+ * The language the reply must be written in, decided by the server and never by the model: an explicit request in the customer's latest
+ * message first, else the script that message is mostly written in, else the page language.
+ * @param {string} latestMessage @param {'en'|'gu'|'hi'} pageLanguage @returns {'en'|'gu'|'hi'}
+ */
+export const requiredReplyLanguage = (latestMessage, pageLanguage) => requestedLanguage(latestMessage) ?? detectIndicLanguage(latestMessage) ?? pageLanguage;

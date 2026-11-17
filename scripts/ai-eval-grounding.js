@@ -13,8 +13,15 @@ import { createFakeBudgets } from '../tests/helpers/assistantFakes.js';
 import { createFakeKnowledgeRepo } from '../tests/helpers/assistantFakes.js';
 import { createFakeConversationRepo } from '../tests/helpers/conversationFakes.js';
 import { createFakePublicRepo, translation } from '../tests/helpers/publicFakes.js';
+import { hasTypedAmount, percentMentions, plainNumbers, toAsciiDigits } from '../src/ai/moneyPlaceholders.js';
+import { detectIndicLanguage, hasEnglishLabelWords, textUsesScript } from '../src/ai/scriptCheck.js';
 
-const MAX_PROVIDER_CALLS = 15;
+const argValue = (name) => process.argv.find((arg) => arg.startsWith(`--${name}=`))?.slice(name.length + 3);
+const DEBUG = process.argv.includes('--debug-rejections');
+const ONLY = argValue('only');
+const PLACEHOLDERS = /\{\{[^}]*\}\}/g;
+const ENGLISH_LABEL = /(?<![A-Za-z])(?:unit price|sub-?total|total|discount|in stock|sold out)(?![A-Za-z])/i;
+const MAX_PROVIDER_CALLS = Number(argValue('max-calls') ?? 15);
 const MICRO_USD_PER_USD = 1_000_000;
 const SOY = 'Hand-poured in a glass jar. 100% soy wax, 200 g, burns for about 45 hours.';
 const PRODUCTS = [
@@ -42,13 +49,33 @@ function capped(options) {
   client.messages.create = async (request, requestOptions) => {
     if (calls.used >= MAX_PROVIDER_CALLS) throw new Error('eval provider-call cap reached');
     calls.used += 1;
+    if (DEBUG) noteRejections(request);
     const response = await create(request, requestOptions);
     for (const block of response.content ?? []) {
+      if (DEBUG && block.type === 'tool_use' && block.name === 'final_answer') explainFinal(block.input);
       if (block.type === 'tool_use') calls.toolsThisStep.push(block.name === 'final_answer' ? `final_answer(${block.input?.outcome})` : `${block.name}(${JSON.stringify(block.input)})`);
     }
     return response;
   };
   return client;
+}
+
+/** Developer diagnosis only (--debug-rejections): prints the raw final_answer and each local check that could reject it. */
+function explainFinal(input) {
+  const text = input?.text ?? '';
+  const bare = text.replace(PLACEHOLDERS, ' ');
+  const language = input?.language;
+  console.log(`  [debug] raw final_answer: outcome=${input?.outcome} language=${language} text=${JSON.stringify(text)}`);
+  console.log(`  [debug] checks: typedAmount=${hasTypedAmount(bare)} scriptOk(${language})=${textUsesScript(bare, language)} englishLabelWord=${hasEnglishLabelWords(bare, language)} detected=${detectIndicLanguage(bare)}`);
+  console.log(`  [debug] percent mentions: ${JSON.stringify(percentMentions(toAsciiDigits(bare)))} | bare numbers: ${JSON.stringify(plainNumbers(toAsciiDigits(bare)))}`);
+  const labelWord = bare.match(ENGLISH_LABEL);
+  if (labelWord) console.log(`  [debug] English label token matched: ${JSON.stringify(labelWord[0])}`);
+}
+
+function noteRejections(request) {
+  const last = request.messages.at(-1);
+  const rejected = Array.isArray(last?.content) ? last.content.filter((part) => part.type === 'tool_result' && part.is_error) : [];
+  for (const part of rejected) console.log(`  [debug] server rejected the previous final_answer with: ${JSON.stringify(part.content)}`);
 }
 
 function fixture() {
@@ -100,9 +127,10 @@ async function scenario(name, turns) {
 async function main() {
   if (!process.env.ANTHROPIC_API_KEY) throw new Error('ANTHROPIC_API_KEY is not set');
   console.log(`model: ${process.env.CLAUDE_MODEL ?? 'claude-haiku-5-5'} | provider-call cap: ${MAX_PROVIDER_CALLS}`);
-  await scenario('1 catalogue + gift recommendation', ["I'm looking for scented candles as a gift. Can you show me all the candles available in your store, with their names, prices and a short description? Also, which one would you recommend as a gift?"]);
-  await scenario('3 fragrance conflict', ['Tell me about the fragrance of the Little Moments Tea Lights. What are the exact fragrance notes? Are they vanilla and lavender, or amber, bergamot, orange, vanilla and coconut?']);
-  await scenario('4 Gujarati bulk follow-up', [GU_FIRST, 'If I order 25 boxes instead, what would the total price be? Please explain in Gujarati.']);
+  const selected = (id) => ONLY === undefined || ONLY === id;
+  if (selected('1')) await scenario('1 catalogue + gift recommendation', ["I'm looking for scented candles as a gift. Can you show me all the candles available in your store, with their names, prices and a short description? Also, which one would you recommend as a gift?"]);
+  if (selected('3')) await scenario('3 fragrance conflict', ['Tell me about the fragrance of the Little Moments Tea Lights. What are the exact fragrance notes? Are they vanilla and lavender, or amber, bergamot, orange, vanilla and coconut?']);
+  if (selected('4')) await scenario('4 Gujarati bulk follow-up', [GU_FIRST, 'If I order 25 boxes instead, what would the total price be? Please explain in Gujarati.']);
   console.log(`\nprovider calls used: ${calls.used}/${MAX_PROVIDER_CALLS}`);
 }
 

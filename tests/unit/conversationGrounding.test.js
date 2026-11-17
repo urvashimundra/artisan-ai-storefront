@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { createConversationAgent } from '../../src/ai/conversationAgent.js';
+import { hasEnglishLabelWords, requiredReplyLanguage } from '../../src/ai/scriptCheck.js';
 import { createEnquiryTools } from '../../src/ai/tools/enquiryTools.js';
 import { createBudgetedCall } from '../../src/services/budgetedCall.js';
 import { createFakeBudgets, createFakeKnowledgeRepo } from '../helpers/assistantFakes.js';
@@ -206,13 +207,10 @@ describe('failure 4: multi-turn bulk quote, answered in Gujarati', () => {
     assert.match(h.requests[0].system, /Gujarati/);
   });
 
-  it('refuses a Gujarati answer that declares English, or an English answer that declares Gujarati', async () => {
-    for (const [declared, body] of [['en', '25 બોક્સનો કુલ ભાવ {{q1.total}} થશે.'], ['gu', 'The total for 25 boxes is {{q1.total}}.']]) {
-      const h = await shopFixture({ products: [BOX], tiers: TIERS, history });
-      const bad = finalTurn({ outcome: 'answered', language: declared, text: body });
-      const result = await h.run([turn(use('calculate_quote', { productId: 'p1', quantity: 25 })), bad, bad]);
-      assert.equal(result.reason, 'invalid_output', declared);
-    }
+  it('ignores the language the model declares: the server decides from the customer message and checks the script', async () => {
+    const h = await shopFixture({ products: [BOX], tiers: TIERS, history });
+    const declaredEnglish = finalTurn({ outcome: 'answered', language: 'en', text: '25 બોક્સનો કુલ ભાવ {{q1.total}} થશે.' });
+    assert.equal((await h.run([turn(use('calculate_quote', { productId: 'p1', quantity: 25 })), declaredEnglish])).ok, true);
   });
 
   it('with no confirmed discount it quotes the plain price honestly and escalates in Gujarati instead of inventing one', async () => {
@@ -239,5 +237,83 @@ describe('unknown information still escalates, with a specific reason', () => {
     const { tools } = await shopFixture();
     const { content } = await tools.run('check_product', { productId: 'p99' });
     assert.equal(content.error, 'This product is not available in this shop.');
+  });
+});
+
+describe('reply language is decided by the server', () => {
+  const BOX = ['Little Moments Tea Lights', 'Scented tea lights. Box of 10.', 34900, 60];
+  const GU_FIRST = 'મને Little Moments Tea Lights ના 10 બોક્સ જોઈએ છે. શું બલ્ક ડિસ્કાઉન્ટ મળે?';
+  const GU_SECOND = 'જો હું 25 બોક્સ મંગાવું તો કુલ કિંમત કેટલી થશે? કૃપા કરીને ગુજરાતીમાં સમજાવો.';
+  const history = said(GU_FIRST, 'તમને 5% ડિસ્કાઉન્ટ મળશે.', GU_SECOND);
+  const quote = (quantity) => turn(use('calculate_quote', { productId: 'p1', quantity }));
+
+  it('detects the language: explicit request, then script, then page language, including mixed text', () => {
+    assert.equal(requiredReplyLanguage('Please answer in Gujarati', 'en'), 'gu');
+    assert.equal(requiredReplyLanguage('કૃપા કરીને હિન્દીમાં સમજાવો', 'en'), 'hi');
+    assert.equal(requiredReplyLanguage('मुझे अंग्रेज़ी में बताइए', 'gu'), 'en');
+    assert.equal(requiredReplyLanguage('हिंदी में बताओ', 'en'), 'hi');
+    assert.equal(requiredReplyLanguage('મને 10 boxes જોઈએ છે', 'en'), 'gu');
+    assert.equal(requiredReplyLanguage('मुझे दस डिब्बे चाहिए', 'en'), 'hi');
+    assert.equal(requiredReplyLanguage('How much for ten boxes?', 'hi'), 'hi');
+    assert.equal(requiredReplyLanguage('મને 10 boxes જોઈએ, in English please', 'gu'), 'en');
+    assert.equal(requiredReplyLanguage('answer in Hindi, then in Gujarati', 'en'), 'gu');
+  });
+
+  it('puts the required language in the system rules for the turn', async () => {
+    const h = await shopFixture({ products: [BOX], tiers: TIERS, history });
+    await h.run([finalTurn({ outcome: 'needs_seller', text: 'ખબર નથી.' })]);
+    assert.match(h.requests[0].system, /write the whole reply in Gujarati/);
+  });
+
+  it('an English reply in a Gujarati chat gets one corrective retry, then the localised fixed notice', async () => {
+    const h = await shopFixture({ products: [BOX], tiers: TIERS, history });
+    const english = finalTurn({ outcome: 'answered', language: 'gu', text: 'The total for 25 boxes is {{q1.total}}.' });
+    const result = await h.run([quote(25), english, english]);
+    assert.deepEqual([result.ok, result.outcome, result.text, result.language], [true, 'needs_seller', null, 'gu']);
+    const retry = h.requests.at(-1).messages.at(-1).content[0];
+    assert.match(retry.content, /not written in Gujarati/);
+    assert.equal(h.requests.length, 3);
+  });
+
+  it('an English reply followed by a Gujarati one is accepted after the retry', async () => {
+    const h = await shopFixture({ products: [BOX], tiers: TIERS, history });
+    const result = await h.run([quote(25), finalTurn({ outcome: 'answered', text: 'The total is {{q1.total}}.' }), finalTurn({ outcome: 'answered', text: '25 બોક્સનો કુલ ભાવ {{q1.total}} છે.' })]);
+    assert.equal(result.ok, true);
+    assert.match(result.text, /₹7,852.50/);
+  });
+
+  it('turn-2 regression: a 25-box quote may also state the confirmed 5% tier beside its own 10 boxes, and use the percent placeholder', async () => {
+    const h = await shopFixture({ products: [BOX], tiers: TIERS, history });
+    const text = '25 બોક્સ માટેનું ક્વોટ:\n- {{label.unit_price}}: {{q1.unit_price}}\n- {{label.discount}} ({{q1.discount_percent}}%): {{q1.discount}}\n- {{label.total}}: {{q1.total}}\n\n25 બોક્સ પર 10% બલ્ક ડિસ્કાઉન્ટ લાગુ પડે છે. 10 બોક્સ માટે 5% ડિસ્કાઉન્ટ મળે છે.';
+    const result = await h.run([quote(25), finalTurn({ outcome: 'answered', text })]);
+    assert.equal(result.ok, true, result.reason);
+    assert.match(result.text, /\(10%\)/);
+  });
+
+  it('still refuses a confirmed percentage attached to the wrong quantity', async () => {
+    const h = await shopFixture({ products: [BOX], tiers: TIERS, history });
+    const result = await h.run([quote(25), finalTurn({ outcome: 'answered', text: '25 બોક્સ માટે 5% ડિસ્કાઉન્ટ મળે છે, કુલ {{q1.total}}.' })]);
+    assert.equal(result.reason, 'unverified_amount');
+  });
+
+  it('still rejects typed prices and discounts in Latin, Gujarati and Hindi digits', async () => {
+    const typed = ['Total Rs 8000', 'કુલ ભાવ ₹૭૮૫૨ થશે', 'कुल १००० रुपये होगा', '25 બોક્સ પર 20% ડિસ્કાઉન્ટ મળશે', '२५ डिब्बों पर २०% छूट मिलेगी', 'Discount 15% off today'];
+    for (const text of typed) {
+      const h = await shopFixture({ products: [BOX], tiers: TIERS, history });
+      const result = await h.run([quote(25), finalTurn({ outcome: 'answered', text })]);
+      assert.equal(result.reason, 'unverified_amount', text);
+    }
+  });
+
+  it('does not flag label words that are part of a product title', () => {
+    assert.equal(hasEnglishLabelWords('Total Glow Candle ની કિંમત', 'gu', ['Total Glow Candle']), false);
+    assert.equal(hasEnglishLabelWords('Total Glow Candle નો total', 'gu', ['Total Glow Candle']), true);
+    assert.equal(hasEnglishLabelWords('Sold Out Soon Candle', 'hi', []), true);
+  });
+
+  it('accepts a Gujarati answer that names a product whose title contains a label word', async () => {
+    const h = await shopFixture({ products: [['Total Glow Candle', 'A bright candle.', 50000, 9]], history: said('Total Glow Candle વિશે કહો') });
+    const result = await h.run([turn(use('search_products', {})), finalTurn({ outcome: 'answered', text: 'Total Glow Candle ની કિંમત {{p1.price}} છે.' })]);
+    assert.equal(result.ok, true, result.reason);
   });
 });

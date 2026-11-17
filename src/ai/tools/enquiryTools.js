@@ -31,11 +31,13 @@ const tierView = (tier) => ({ min_quantity: tier.minQty, percent_off: tier.perce
 export function createEnquiryTools({ storeId, shop, language, shops, knowledge, labelPlaceholders = false }) {
   const stockText = labelPlaceholders ? stockPlaceholder : stockLabel;
   const refs = new Map();
+  const percentRefs = new Map();
   const trace = [];
   const productNumbers = new Map();
   const quotes = [];
   const seenNumbers = new Set();
   const shownTexts = new Set();
+  const shownTitles = new Set();
   const descriptions = new Set();
   let usedLive = false;
   let quoteCount = 0;
@@ -79,6 +81,7 @@ export function createEnquiryTools({ storeId, shop, language, shops, knowledge, 
   /** A description the model has been shown: the text a product-description quote may be checked against, and a source of descriptive figures. */
   function shown(title, description) {
     shownTexts.add(title);
+    shownTitles.add(title);
     if (description !== '') {
       descriptions.add(description);
       shownTexts.add(description);
@@ -159,6 +162,7 @@ export function createEnquiryTools({ storeId, shop, language, shops, knowledge, 
       for (const [field, paise] of Object.entries({ unit_price: quote.unitPricePaise, subtotal: quote.subtotalPaise, discount: quote.discountPaise, total: quote.totalPaise })) {
         refs.set(`${ref}.${field}`, paise);
       }
+      percentRefs.set(`${ref}.discount_percent`, quote.discountPercent);
       const bulk = quote.discountPercent > 0 ? `, ${quote.discountPercent}% bulk discount` : '';
       trace.push(`Calculated a quote: ${quantity} x ${clip(title, MAX_TRACE_TITLE_LENGTH)}${bulk}`);
       return {
@@ -171,7 +175,14 @@ export function createEnquiryTools({ storeId, shop, language, shops, knowledge, 
 
   return {
     refs,
+    percentRefs,
     trace,
+
+    /** @returns {Promise<{ minQty: number, percentOff: number }[]>} The confirmed bulk tiers. */
+    async confirmedTiers() {
+      const { bulkRules } = await loadKnowledge();
+      return bulkRules;
+    },
 
     /**
      * The records of the products a conversation is about, read from the live database BEFORE the model's first call: those the customer's
@@ -215,6 +226,9 @@ export function createEnquiryTools({ storeId, shop, language, shops, knowledge, 
 
     /** @returns {string[]} Every product title and description this run showed the model (the source of the descriptive figures an answer may repeat). */
     shownTexts: () => [...shownTexts],
+
+    /** @returns {string[]} The product titles this run showed the model (the shop's own wording: label words inside them are not model-typed labels). */
+    shownTitles: () => [...shownTitles],
 
     /** @returns {boolean} True when a live-data tool (products, stock, quotes, confirmed discounts) really ran this run. */
     usedLiveData: () => usedLive,

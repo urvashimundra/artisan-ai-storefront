@@ -41,6 +41,8 @@ const MONEY_WORD_AFTER = new RegExp(`^\\s*${MONEY_WORDS}`, 'iu');
 /** A percentage is a discount claim when one of these words sits right beside it: "100% soy wax" is not one, "100% off" is. */
 const DISCOUNT_WORDS = /(?<![A-Za-z])(?:discounts?|off|save[sd]?|savings?|sale|deals?|offers?|concession)(?![A-Za-z])|છૂટ|ડિસ્કાઉન્ટ|ઓફ|બચત|छूट|डिस्काउंट|ऑफ|बचत|रियायत/iu;
 const DISCOUNT_WINDOW = 12;
+/** How far back a tier statement may reach for its minimum quantity: "for 10 boxes the discount is 5%". */
+const TIER_CLAUSE_WINDOW = 60;
 /** The context of a percentage stops at the end of its clause, so "5% off, 100% soy wax" does not make the second figure a discount. */
 const CLAUSE_BREAK = /[,;.!?:\n]/;
 
@@ -60,13 +62,14 @@ export function hasTypedAmount(text) {
 /**
  * Every percentage figure in the text with the few characters around it.
  * @param {string} ascii Text already passed through toAsciiDigits.
- * @returns {{ value: number, context: string }[]}
+ * @returns {{ value: number, context: string, clause: string }[]} clause reaches further back, to the start of the sentence part.
  */
 export function percentMentions(ascii) {
   return [...ascii.matchAll(PERCENT_AFTER_NUMBER), ...ascii.matchAll(PERCENT_BEFORE_NUMBER)].map((match) => {
     const before = ascii.slice(Math.max(0, match.index - DISCOUNT_WINDOW), match.index).split(CLAUSE_BREAK).at(-1);
     const after = ascii.slice(match.index + match[0].length, match.index + match[0].length + DISCOUNT_WINDOW).split(CLAUSE_BREAK)[0];
-    return { value: Number(match[1]), context: `${before}${match[0]}${after}` };
+    const clauseBefore = ascii.slice(Math.max(0, match.index - TIER_CLAUSE_WINDOW), match.index).split(CLAUSE_BREAK).at(-1);
+    return { value: Number(match[1]), context: `${before}${match[0]}${after}`, clause: `${clauseBefore}${match[0]}${after}` };
   });
 }
 
@@ -106,9 +109,13 @@ export function hasUnverifiedNumber(text, allowedNumbers, descriptiveNumbers = [
   });
 }
 
-/** A percentage may be stated when it is a confirmed one, or one the shop's texts state about a product ("100% soy wax") and it is not used as a discount here. */
-const percentAllowed = ({ value, context }, allowedPercents, descriptivePercents) =>
-  allowedPercents.includes(value) || (descriptivePercents.includes(value) && !isDiscountContext(context));
+/** True when the mention is a confirmed tier percentage stated together with that tier's own minimum quantity ("10 boxes: 5%"), whatever quote came first. */
+const statesConfirmedTier = (mention, tiers) =>
+  tiers.some((tier) => tier.percentOff === mention.value && plainNumbers(mention.clause).includes(tier.minQty));
+
+/** A percentage may be stated when it is a confirmed one, one a confirmed tier states beside its own quantity, or one the shop's texts state about a product ("100% soy wax") and it is not used as a discount here. */
+const percentAllowed = (mention, { allowedPercents, descriptivePercents, tiers }) =>
+  allowedPercents.includes(mention.value) || statesConfirmedTier(mention, tiers) || (descriptivePercents.includes(mention.value) && !isDiscountContext(mention.context));
 
 const placeholderKeys = (text) => [...text.matchAll(PLACEHOLDER)].map((match) => match[1]);
 
@@ -119,18 +126,19 @@ const placeholderKeys = (text) => [...text.matchAll(PLACEHOLDER)].map((match) =>
  *   maxLength: number }} context refs maps a placeholder key (for example "q1.total") to integer paise that really came from a tool result;
  *   allowedPercents are the percentages that apply to the quoted quantities; allowedNumbers are the other plain numbers a tool returned
  *   (quantities, stock, tier minimums); descriptive holds the figures the shop's own texts state (see descriptiveFigures), never usable as a price or a discount;
- *   labels maps a label key (for example "total") to the word in the customer's language.
+ *   percentRefs maps a placeholder key such as "q1.discount_percent" to the whole percentage the server's quote applied; tiers are the confirmed bulk tiers
+ *   (a tier's percentage may be stated beside its own minimum quantity, even when the quote asked for another quantity); labels maps a label key (for example "total") to the word in the customer's language.
  * @returns {{ ok: true, text: string, usedQuote: boolean } | { ok: false, reason: 'unverified_amount' | 'invalid_output' }}
  */
-export function resolveMoney(text, { refs, allowedPercents, allowedNumbers = [], descriptive = { numbers: [], percents: [] }, labels = {}, maxLength }) {
+export function resolveMoney(text, { refs, percentRefs = new Map(), tiers = [], allowedPercents, allowedNumbers = [], descriptive = { numbers: [], percents: [] }, labels = {}, maxLength }) {
   const keys = placeholderKeys(text);
-  if (keys.some((key) => !refs.has(key))) return { ok: false, reason: 'unverified_amount' };
+  if (keys.some((key) => !refs.has(key) && !percentRefs.has(key))) return { ok: false, reason: 'unverified_amount' };
   if ([...text.matchAll(LABEL)].some((match) => !Object.hasOwn(labels, match[1]))) return { ok: false, reason: 'invalid_output' };
   const bare = text.replace(PLACEHOLDER, BLANK).replace(LABEL, BLANK);
   if (ANY_BRACES.test(bare) || hasTypedAmount(bare)) return { ok: false, reason: 'unverified_amount' };
-  if (percentMentions(toAsciiDigits(bare)).some((mention) => !percentAllowed(mention, allowedPercents, descriptive.percents))) return { ok: false, reason: 'unverified_amount' };
+  if (percentMentions(toAsciiDigits(bare)).some((mention) => !percentAllowed(mention, { allowedPercents, descriptivePercents: descriptive.percents, tiers }))) return { ok: false, reason: 'unverified_amount' };
   if (hasUnverifiedNumber(bare, [...allowedNumbers, ...allowedPercents], descriptive.numbers)) return { ok: false, reason: 'unverified_amount' };
-  const substituted = text.replace(PLACEHOLDER, (_whole, key) => formatInr(refs.get(key))).replace(LABEL, (_whole, key) => labels[key]).trim();
+  const substituted = text.replace(PLACEHOLDER, (_whole, key) => (percentRefs.has(key) ? String(percentRefs.get(key)) : formatInr(refs.get(key)))).replace(LABEL, (_whole, key) => labels[key]).trim();
   if (substituted === '' || codePointLength(substituted) > maxLength) return { ok: false, reason: 'invalid_output' };
   return { ok: true, text: substituted, usedQuote: keys.some((key) => QUOTE_REF.test(key)) };
 }
