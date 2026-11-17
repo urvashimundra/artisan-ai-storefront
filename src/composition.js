@@ -32,6 +32,7 @@ import { createAssistantService } from './services/assistantService.js';
 import { createAuthService } from './services/authService.js';
 import { createDiagnosticsService } from './services/diagnosticsService.js';
 import { createContactService } from './services/contactService.js';
+import { createConversationInboxService } from './services/conversationInboxService.js';
 import { createConversationService } from './services/conversationService.js';
 import { createEnquiryInboxService } from './services/enquiryInboxService.js';
 import { createKnowledgeService } from './services/knowledgeService.js';
@@ -172,6 +173,7 @@ export async function buildDependencies(config) {
   const email = buildEmail({ config, client, logger, owners, relay, linkCipher });
   const translations = createStoreTranslationRepository({ client });
   const stores = createStoreService({ stores: createStoreRepository({ client }), translations });
+  const legacyInbox = createEnquiryInboxService({ enquiries: createEnquiryRepository({ client }), logger, linkCipher, baseUrl: config.baseUrl });
   const services = {
     auth: createAuthService({ owners, passwords, sessions, inviteCode: config.signupInviteCode }),
     sessions,
@@ -186,7 +188,8 @@ export async function buildDependencies(config) {
       logger,
     }),
     knowledge: buildKnowledgeService({ config, client, logger }),
-    enquiries: createEnquiryInboxService({ enquiries: createEnquiryRepository({ client }), logger, linkCipher, baseUrl: config.baseUrl }),
+    enquiries: legacyInbox,
+    conversationInbox: createConversationInboxService({ conversations: createConversationRepository({ client }), legacy: legacyInbox, logger, linkCipher, baseUrl: config.baseUrl }),
     assistant: buildAssistantService({ config, client, logger, linkCipher, emails: email.emails }),
     conversations: buildConversationService({ config, client, logger, linkCipher, emails: email.emails }),
     ...buildTranslationServices({ config, client, logger, translations }),

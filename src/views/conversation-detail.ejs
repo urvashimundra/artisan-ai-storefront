@@ -1,0 +1,86 @@
+<%- include('partials/header') %>
+    <p class="crumb"><a href="/enquiries">&larr; Back to conversations</a></p>
+    <% if (done) { %><p class="notice" role="status"><%= done %></p><% } %>
+    <header class="detail-head thread-head">
+      <div>
+        <p class="eyebrow">Conversation</p>
+        <h1><%= conversation.customerName %></h1>
+        <p class="meta">Started <%= conversation.started %> &middot; <%= conversation.messageCount %> <%= conversation.messageCount === 1 ? 'message' : 'messages' %></p>
+      </div>
+      <p class="detail-status"><span class="status-badge status-<%= conversation.state %>"><%= conversation.stateLabel %></span></p>
+    </header>
+    <% if (conversation.flagText) { %><p class="callout"><%= conversation.flagText %></p><% } %>
+    <% if (conversation.assistantRunning) { %><p class="callout" role="status">The assistant is still working on the latest message. Refresh in a moment.</p><% } %>
+    <div class="detail-layout">
+      <div class="detail-main">
+        <section aria-labelledby="thread-heading">
+          <h2 id="thread-heading" class="visually-hidden">Messages</h2>
+          <ol class="thread plain">
+            <% conversation.messages.forEach((m) => { %>
+            <li class="thread-msg thread-<%= m.role %><%= m.kind !== 'text' ? ' thread-flag' : '' %>">
+              <div class="thread-bubble">
+                <p class="thread-who"><%= m.role === 'customer' ? conversation.customerName : (m.role === 'assistant' ? 'AI assistant' : 'You') %><% if (m.kind === 'conflict') { %> &middot; sources disagree<% } else if (m.kind === 'escalation') { %> &middot; passed to you<% } else if (m.kind === 'notice') { %> &middot; assistant unavailable<% } %></p>
+                <p class="pre-line"><%= m.text %></p>
+                <% if (m.conflict) { %>
+                <div class="conflict">
+                  <p class="conflict-topic">Conflict: <%= m.conflict.topic %></p>
+                  <ul class="conflict-claims plain">
+                    <% m.conflict.claims.forEach((claim) => { %>
+                    <li><span class="conflict-source"><%= claim.label %></span><blockquote><%= claim.excerpt %></blockquote></li>
+                    <% }) %>
+                  </ul>
+                  <p class="hint">Decide which is right, correct the source if needed, and reply to the customer below.</p>
+                </div>
+                <% } %>
+                <% if (m.sources.length > 0) { %><p class="thread-sources">Based on: <%= m.sources.join(', ') %></p><% } %>
+                <p class="thread-time"><%= m.time %></p>
+              </div>
+            </li>
+            <% }) %>
+          </ol>
+        </section>
+        <section class="card" aria-labelledby="reply-heading">
+          <h2 id="reply-heading">Reply in this conversation</h2>
+          <% if (replyError) { %><p class="error-text" role="alert" id="reply-error"><%= replyError %></p><% } %>
+          <form method="post" action="/enquiries/<%= conversation.id %>/reply" class="stack">
+            <input type="hidden" name="messageId" value="<%= replyId %>">
+            <div class="field">
+              <label for="reply">Your reply</label>
+              <textarea id="reply" name="reply" rows="4" maxlength="<%= maxReply %>" required data-counter="reply-count" aria-describedby="reply-count<%= replyError ? ' reply-error' : '' %>"<% if (replyError) { %> aria-invalid="true"<% } %>><%= replyValue %></textarea>
+              <p id="reply-count" class="hint" aria-live="polite"></p>
+            </div>
+            <div><button type="submit" class="button">Send reply</button></div>
+          </form>
+        </section>
+      </div>
+      <div class="detail-side">
+        <section class="card" aria-labelledby="customer-heading">
+          <h2 id="customer-heading">Customer</h2>
+          <dl class="kv">
+            <div><dt>Name</dt><dd><%= conversation.customerName %></dd></div>
+            <div><dt>WhatsApp number</dt><dd><%= conversation.customerPhone %></dd></div>
+            <div><dt>Language</dt><dd><%= conversation.language %></dd></div>
+          </dl>
+          <p><a class="button" href="<%= conversation.whatsappUrl %>" target="_blank" rel="noopener noreferrer">Open WhatsApp<span class="visually-hidden"> (opens in a new tab)</span></a></p>
+          <% if (!conversation.hasPrivateLink) { %><p class="hint">The customer's private link could not be added to the WhatsApp message.</p><% } else { %><p class="hint">The message includes the latest reply and the customer's private chat link.</p><% } %>
+        </section>
+        <% if (conversation.canMarkHandled) { %>
+        <section class="card" aria-labelledby="handled-heading">
+          <h2 id="handled-heading">Finished?</h2>
+          <form method="post" action="/enquiries/<%= conversation.id %>/handled"><button type="submit" class="button button-secondary">Mark as handled</button></form>
+        </section>
+        <% } %>
+        <section class="card" aria-labelledby="delete-heading">
+          <h2 id="delete-heading">Delete conversation</h2>
+          <p class="hint">Removes the messages, the customer's name and number, and their private link. This cannot be undone. Conversations are also deleted 12 months after the last message.</p>
+          <% if (deleteError) { %><p class="error-text" role="alert"><%= deleteError %></p><% } %>
+          <form method="post" action="/enquiries/<%= conversation.id %>/delete" class="stack" data-confirm="Delete this conversation and the customer's details permanently?">
+            <div class="field-check"><input type="checkbox" id="confirm-delete" name="confirm" value="yes" required><label for="confirm-delete">Yes, delete it</label></div>
+            <div><button type="submit" class="button button-danger">Delete</button></div>
+          </form>
+        </section>
+      </div>
+    </div>
+    <script src="/js/char-counter.js" defer></script>
+    <script src="/js/confirm-submit.js" defer></script>
+<%- include('partials/footer') %>

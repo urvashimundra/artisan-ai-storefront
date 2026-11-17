@@ -7,8 +7,8 @@
  */
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
+import { startAssistantApp } from './assistantApp.js';
 import { answered, createFakeAgent } from './conversationFakes.js';
-import { startChatApp } from './chatApp.js';
 import { translation } from './publicFakes.js';
 
 const PORT = Number(process.argv[2]) || 4100;
@@ -28,23 +28,38 @@ const swatch = (index) => {
 };
 
 async function seed() {
-  const agent = createFakeAgent({ fallback: answered('Yes, we ship across India. Delivery usually takes about five days.', { sources: [{ label: 'seller_notes' }] }) });
-  const app = await startChatApp({ agent, shop: { name: 'Kutch Clay Works', tagline: 'Handmade pottery and textiles from Gujarat', story: 'We are a family of potters in Bhuj. Our workshop has made diyas, vases and water pots for three generations, using local clay and a wood-fired kiln.', instagramHandle: 'kutchclayworks', accentKey: 'terracotta' } });
+  const conflict = { topic: 'Returns', claims: [{ label: 'seller_notes', excerpt: 'We accept returns within 7 days of delivery.' }, { label: 'product_description', excerpt: 'Returns on this item are accepted for 14 days.' }] };
+  const chatAgent = createFakeAgent({
+    results: [
+      answered('Yes, we ship across India. Delivery usually takes about five days.', { sources: [{ label: 'seller_notes' }] }),
+      { ok: true, outcome: 'conflict', text: null, conflict, sources: [], trace: [], steps: 1, charged: {} },
+      { ok: false, reason: 'provider_limit', detail: 'x', trace: [], steps: 1, charged: {} },
+    ],
+    fallback: answered('Yes, we ship across India. Delivery usually takes about five days.', { sources: [{ label: 'seller_notes' }] }),
+  });
+  const app = await startAssistantApp({ chatAgent, shop: { name: 'Kutch Clay Works', tagline: 'Handmade pottery and textiles from Gujarat', story: 'We are a family of potters in Bhuj. Our workshop has made diyas, vases and water pots for three generations, using local clay and a wood-fired kiln.', instagramHandle: 'kutchclayworks' } });
   const ids = [app.product.id];
   PRODUCTS.slice(1).forEach(([title, description, price], index) => {
     const row = app.repo.addProduct(app.shop, { pricePaise: price, translations: { en: translation(title, description, `${title}, photographed on a plain background`) }, createdAt: `2026-11-1${index}T08:00:00.000Z` });
     ids.push(row.id);
   });
   app.product.pricePaise = PRODUCTS[0][2];
-  app.product.translations = { en: translation(PRODUCTS[0][0], PRODUCTS[0][1], `${PRODUCTS[0][0]}, photographed on a plain background`) };
-  app.images.createSignedUrl = async (_storeId, productId) => `/preview-img/${ids.indexOf(productId)}.svg`;
-  const started = await app.start({ name: 'Asha Patel', phone: '98765 43210', message: 'Do you deliver to Pune, and how long does it take?' });
-  const token = app.tokenOf(started);
-  await app.send(token, 'Can I order 20 diyas for a wedding?');
-  return { app, token, ids };
+  app.product.translations = { en: translation(PRODUCTS[0][0], PRODUCTS[0][1], `${PRODUCTS[0][0]} on a plain background`) };
+  const images = app.images;
+  images.createSignedUrl = async (_storeId, productId) => `/preview-img/${ids.indexOf(productId)}.svg`;
+  const post = (form) => app.request(`/s/${app.store.slug}/chat`, { method: 'POST', form: { startKey: randomUUID(), messageId: randomUUID(), ...form } });
+  const first = await post({ name: 'Asha Patel', phone: '98765 43210', message: 'Do you deliver to Pune, and how long does it take?' });
+  const token = /\/c\/([A-Za-z0-9_-]{43})/.exec(first.location)[1];
+  await app.request(`/s/${app.store.slug}/c/${token}/messages`, { method: 'POST', form: { message: 'Can I order 20 diyas for a wedding?', messageId: randomUUID() }, headers: { accept: 'application/json' } });
+  await post({ name: 'Ravi Mehta', phone: '90000 11111', message: 'What is your return policy for the blue vase?' });
+  const third = await post({ name: 'Meera Shah', phone: '90000 22222', message: 'Do you take custom orders with my own colours?' });
+  const [, , last] = [...app.conversationRepo.conversations.values()];
+  await app.conversationRepo.sellerReply(last.storeId, last.id, { messageId: randomUUID(), body: 'Yes, we do custom colours. It takes about two weeks.' });
+  const cookie = app.cookie;
+  return { app, token, ids, cookie, slug: app.store.slug, third };
 }
 
-const { app, token, ids } = await seed();
+const { app, token, ids, cookie, slug } = await seed();
 const server = createServer(async (req, res) => {
   const frame = /^\/__frame\?w=(\d+)&h=(\d+)&u=(.+)$/.exec(req.url);
   if (frame) {
@@ -59,7 +74,7 @@ const server = createServer(async (req, res) => {
   const chunks = [];
   for await (const chunk of req) chunks.push(chunk);
   const upstream = await fetch(`${app.url}${req.url}`, {
-    method: req.method, headers: { ...req.headers, host: new URL(app.url).host, origin: 'http://localhost' }, body: chunks.length ? Buffer.concat(chunks) : undefined, redirect: 'manual',
+    method: req.method, headers: { ...req.headers, host: new URL(app.url).host, origin: 'http://localhost', ...(req.url.startsWith('/enquiries') || req.url.startsWith('/dashboard') ? { cookie } : {}) }, body: chunks.length ? Buffer.concat(chunks) : undefined, redirect: 'manual',
   });
   const headers = Object.fromEntries(upstream.headers);
   delete headers['content-encoding'];
@@ -71,6 +86,10 @@ const server = createServer(async (req, res) => {
 });
 server.listen(PORT, () => {
   const base = `http://localhost:${PORT}`;
-  process.stdout.write(`shop:     ${base}/s/clay-works\nproduct:  ${base}/s/clay-works/p/${ids[0]}\nstart:    ${base}/s/clay-works/chat\nchat:     ${base}/s/clay-works/c/${token}\n`);
-  process.stdout.write(`(session ids: ${randomUUID().slice(0, 4)})\n`);
+  process.stdout.write(`shop:     ${base}/s/${slug}
+product:  ${base}/s/${slug}/p/${ids[0]}
+start:    ${base}/s/${slug}/chat
+chat:     ${base}/s/${slug}/c/${token}
+inbox:    ${base}/enquiries
+`);
 });

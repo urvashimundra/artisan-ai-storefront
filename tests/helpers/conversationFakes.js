@@ -8,7 +8,7 @@ import { requireStoreId } from '../../src/repositories/requireStoreId.js';
  * limits (with reserve / settle / release), idempotency keys, one run per conversation, escalation counting, and deletion. `failNext` makes the
  * next call throw a database error. Calls are synchronous inside, so concurrent callers are serialized like the database's row locks do.
  */
-export function createFakeConversationRepo({ now = Date.now } = {}) {
+export function createFakeConversationRepo({ now = Date.now, ownerContextOf = null, legacyDelete = null } = {}) {
   const conversations = new Map();
   const messages = [];
   const customerUsed = new Map();
@@ -124,7 +124,7 @@ export function createFakeConversationRepo({ now = Date.now } = {}) {
 
     async deleteById(storeId, id) {
       const conversation = scoped(storeId, id);
-      if (!conversation) return 'none';
+      if (!conversation) return legacyDelete?.(requireStoreId(storeId), id) ? 'enquiry' : 'none';
       if (conversation.aiRunId) state.storeReserved -= 1;
       conversations.delete(id);
       for (let i = messages.length - 1; i >= 0; i -= 1) if (messages[i].conversationId === id) messages.splice(i, 1);
@@ -173,6 +173,7 @@ export function createFakeConversationRepo({ now = Date.now } = {}) {
     },
 
     async findOwnerContext(storeId) {
+      if (ownerContextOf) return ownerContextOf(requireStoreId(storeId));
       return { id: storeId, ownerId: '99999999-9999-4999-8999-999999999999', name: 'Shop', notifyEnquiryEmail: true, isDemo: false };
     },
 
