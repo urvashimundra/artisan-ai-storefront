@@ -264,7 +264,7 @@ $$;
 CREATE OR REPLACE FUNCTION pg_temp.smoke_worker() RETURNS void
 LANGUAGE plpgsql AS $$
 DECLARE
-  a uuid; b uuid; c uuid; d uuid; v_next timestamptz;
+  a uuid; b uuid; c uuid; d uuid; v_next timestamptz; v_claimed bigint;
 BEGIN
   a := pg_temp.row_for('smoke-010-wa', 'wa@example.invalid');
   PERFORM pg_temp.check_that(pg_temp.claimed(a) = 1, 'a due row is claimed');
@@ -291,7 +291,9 @@ BEGIN
 
   b := pg_temp.row_for('smoke-010-wb', 'wb@example.invalid');
   UPDATE public.email_outbox SET attempts = 4 WHERE id = b;
-  PERFORM pg_temp.check_that(pg_temp.claimed(b) = 1 AND (SELECT attempts = 5 FROM public.email_outbox WHERE id = b), 'the 5th attempt is claimed');
+  v_claimed := pg_temp.claimed(b);
+  PERFORM pg_temp.check_that(v_claimed = 1, 'the 5th attempt is claimed');
+  PERFORM pg_temp.check_that((SELECT status = 'sending' AND attempts = 5 FROM public.email_outbox WHERE id = b), 'the claimed row is sending on attempt 5');
   PERFORM pg_temp.check_that(public.finish_email(b, false, 'RELAY_UNREACHABLE', 7200) = 'dead', 'a failure on the maximum attempt is dead');
   PERFORM pg_temp.check_that((SELECT status = 'dead' AND body = '' AND last_error_code = 'RELAY_UNREACHABLE' FROM public.email_outbox WHERE id = b), 'dead: body blanked, code kept');
 
