@@ -24,12 +24,13 @@ const OWNER_KEYED_OR_INFRASTRUCTURE = new Set([
 ]);
 /**
  * The ONLY repository methods allowed to skip the storeId-first rule, by file and name (documented in
- * docs/DECISIONS.md): findShopBySlug resolves a validated slug to a store, listSitemapEntries is the single
- * cross-store query and selects public columns only. Every other method of those files must still take storeId first.
+ * docs/DECISIONS.md): findShopBySlug resolves a validated slug to a store, listSitemapEntries is a cross-store
+ * query that selects public columns only, and purgeExpired is the retention sweep (one database function, no caller-supplied store). Every other method of those files must still take storeId first.
  */
 const NON_STORE_SCOPED_ENTRY_POINTS = Object.freeze({
   'publicShopRepository.js': ['findShopBySlug', 'listSitemapEntries'],
   'orderRepository.js': ['findByTokenHash'],
+  'conversationRepository.js': ['purgeExpired'],
 });
 const STORE_ID = '3f2b8c1e-5a4d-4b7e-9c10-1d2e3f4a5b6c';
 

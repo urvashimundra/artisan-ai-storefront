@@ -23,6 +23,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CASE_INSENSITIVE_SLUG = new RegExp(SLUG_PATTERN.source, 'i');
 const EAGER_IMAGE_COUNT = 2;
 export const SITEMAP_MAX_URLS = 5000;
+/** The hero shows only the opening of the maker's story; the full story follows the products. */
+const MAX_HERO_STORY_LENGTH = 180;
 export const SITEMAP_TTL_MS = 600_000;
 
 /** Plain module variable (no ttlCache): the memoised sitemap XML and when it expires. */
@@ -77,8 +79,14 @@ export function pickShopTexts(shop, language) {
   };
 }
 
+/** The "Ask AI assistant" link: always carries the page language, and the product when asked from a product page. The shop comes from the slug. */
+function chatPath(slug, language, productId) {
+  const product = productId ? `&product=${encodeURIComponent(productId)}` : '';
+  return `${shopPath(slug)}/chat?lang=${language}${product}`;
+}
+
 /** Shared view fields: language, strings, theme and contact links. The WhatsApp number never leaves this function. */
-function baseView({ shop, texts, language, baseUrl, pagePath, pathFor, templateKey, values }) {
+function baseView({ shop, texts, language, baseUrl, pagePath, pathFor, templateKey, values, chatProductId = null }) {
   const strings = stringsFor(language);
   const pageUrl = absoluteUrl(baseUrl, pagePath);
   const message = fillTemplate(strings[templateKey], { shop: shop.name, url: pageUrl, ...values });
@@ -91,6 +99,7 @@ function baseView({ shop, texts, language, baseUrl, pagePath, pathFor, templateK
     shopHref: withLang(shopPath(shop.slug), language, shop.defaultLanguage),
     instagramUrl: shop.instagramHandle ? instagramUrl(shop.instagramHandle) : null,
     whatsappUrl,
+    chatHref: chatPath(shop.slug, language, chatProductId),
     languageLinks: languageLinks(pathFor, language),
     pageUrl,
   };
@@ -152,7 +161,8 @@ export function buildShopPage({ shop, products, language, baseUrl }) {
     siteName: shop.name,
   });
   const shown = cards.slice(0, MAX_PUBLIC_PRODUCTS);
-  return { view: { ...base, kind: 'shop', products: shown, hasMore: cards.length > MAX_PUBLIC_PRODUCTS, meta }, skippedIds };
+  const heroStory = truncateText(texts.story?.text ?? '', MAX_HERO_STORY_LENGTH);
+  return { view: { ...base, kind: 'shop', products: shown, hasMore: cards.length > MAX_PUBLIC_PRODUCTS, heroStory, meta }, skippedIds };
 }
 
 /**
@@ -175,6 +185,7 @@ export function buildProductPage({ shop, product, language, baseUrl }) {
     pathFor: () => productPath(shop.slug, product.id),
     templateKey: 'whatsappProductMessage',
     values: { product: card.title.text },
+    chatProductId: product.id,
   });
   const meta = buildMeta({
     title: `${card.title.text} | ${shop.name}`,

@@ -7,7 +7,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PRODUCT_REF = /^p(\d+)$/;
 const MAX_SEARCH_RESULTS = 20;
 const MAX_TRACE_TITLE_LENGTH = 40;
-const NO_INPUT_TOOLS = new Set(['get_shop_info', 'read_knowledge']);
+const NO_INPUT_TOOLS = new Set(['get_shop_info', 'read_knowledge', 'get_bulk_discounts']);
 
 const clip = (text, max) => (Array.from(text).length > max ? `${Array.from(text).slice(0, max).join('')}...` : text);
 const stockLabel = (stock) => (stock === null ? 'available' : stock === 0 ? 'sold out' : `${stock} in stock`);
@@ -28,6 +28,8 @@ export function createEnquiryTools({ storeId, shop, language, shops, knowledge }
   const productNumbers = new Map();
   const quotes = [];
   const seenNumbers = new Set();
+  const descriptions = [];
+  let usedLive = false;
   let quoteCount = 0;
   let knowledgeRow;
 
@@ -74,7 +76,15 @@ export function createEnquiryTools({ storeId, shop, language, shops, knowledge }
       return { document: row.content, confirmed_bulk_tiers: row.bulkRules.map(tierView) };
     },
 
+    async get_bulk_discounts() {
+      const { bulkRules } = await loadKnowledge();
+      usedLive = true;
+      trace.push('Read the confirmed bulk discounts');
+      return { confirmed_bulk_tiers: bulkRules.map(tierView) };
+    },
+
     async search_products(input) {
+      usedLive = true;
       const { query } = searchProductsSchema.parse(input);
       const needle = query?.trim().toLowerCase() ?? '';
       const found = (await shops.listPublished(storeId))
@@ -87,15 +97,19 @@ export function createEnquiryTools({ storeId, shop, language, shops, knowledge }
 
     async check_product(input) {
       const { productId } = checkProductSchema.parse(input);
+      usedLive = true;
       const product = await findProduct(productId);
       const title = product ? titleOf(product) : null;
       if (!product || title === null) return { error: 'This product is not available in this shop.' };
       trace.push(`Checked product: ${clip(title, MAX_TRACE_TITLE_LENGTH)}`);
-      return { ...productView(product, productRef(product), title), description: descriptionOf(product) };
+      const description = descriptionOf(product);
+      if (description !== '') descriptions.push(description);
+      return { ...productView(product, productRef(product), title), description };
     },
 
     async calculate_quote(input) {
       const { productId, quantity } = calculateQuoteSchema.parse(input);
+      usedLive = true;
       const product = await findProduct(productId);
       const title = product ? titleOf(product) : null;
       if (!product || title === null || product.pricePaise === null) return { error: 'This product is not available in this shop.' };
@@ -140,13 +154,19 @@ export function createEnquiryTools({ storeId, shop, language, shops, knowledge }
       return [...seenNumbers, ...bulkRules.map((tier) => tier.minQty)];
     },
 
+    /** @returns {string[]} The approved product descriptions this run read (the texts a product-description quote is checked against). */
+    descriptionTexts: () => [...descriptions],
+
+    /** @returns {boolean} True when a live-data tool (products, stock, quotes, confirmed discounts) really ran this run. */
+    usedLiveData: () => usedLive,
+
     /** @returns {boolean} True when any quote this run asked for more items than the shop has in stock. */
     hasStockShortage() {
       return quotes.some((quote) => !quote.stockCovers);
     },
 
     /**
-     * Runs one tool call. Never throws for a bad call: the model gets an error result it can react to. Only the five listed tools exist.
+     * Runs one tool call. Never throws for a bad call: the model gets an error result it can react to. Only the listed tools exist.
      * @param {string} name @param {unknown} input
      * @returns {Promise<{ content: object, isError: boolean }>}
      */

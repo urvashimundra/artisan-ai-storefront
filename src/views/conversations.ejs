@@ -1,0 +1,57 @@
+<%- include('partials/header') %>
+    <div class="page-head">
+      <h1>Conversations</h1>
+      <p class="page-count" id="conversation-count"><%= rows.length %> <%= rows.length === 1 ? 'conversation' : 'conversations' %><%= filter ? ' in this view' : '' %></p>
+    </div>
+    <nav aria-label="Filter conversations">
+      <ul class="status-summary">
+        <% filters.forEach((item) => { %><li><a class="summary-chip"<% if (item.current) { %> aria-current="page"<% } %> href="<%= item.href %>"><%= item.label %><%= item.current ? ' (selected)' : '' %></a></li><% }) %>
+      </ul>
+    </nav>
+    <% if (locals.done) { %><p class="notice" role="status"><%= done %></p><% } %>
+    <% if (rows.length === 0 && earlier.length === 0) { %>
+    <div class="empty-state">
+      <h2>No conversations to show</h2>
+      <p><%= filter ? 'Nothing matches this view. Try another one, or show all conversations.' : 'When a customer starts a chat from your shop, it appears here. The assistant answers what it can from your shop notes and live shop data. You answer the rest.' %></p>
+      <p><% if (filter) { %><a class="button" href="/enquiries">Show all conversations</a><% } else { %><a class="button" href="/dashboard">Back to dashboard</a><% } %></p>
+    </div>
+    <% } else { %>
+    <ul class="convo-list plain" aria-label="Conversations, most recent first">
+      <% rows.forEach((row) => { %>
+      <li class="convo-row convo-<%= row.state %>">
+        <a class="convo-link" href="/enquiries/<%= row.id %>">
+          <span class="convo-avatar" aria-hidden="true"><%= Array.from(row.customerName)[0] %></span>
+          <span class="convo-body">
+            <span class="convo-top"><strong class="convo-name"><%= row.customerName %></strong><span class="convo-time"><%= row.time %></span></span>
+            <span class="convo-preview"><%= row.preview %></span>
+            <span class="convo-meta"><span class="status-badge status-<%= row.state %>"><%= row.stateLabel %></span> <span class="convo-count"><%= row.messageCount %> <%= row.messageCount === 1 ? 'message' : 'messages' %></span></span>
+          </span>
+          <span class="visually-hidden">Open conversation with <%= row.customerName %></span>
+        </a>
+      </li>
+      <% }) %>
+    </ul>
+    <% if (earlier.length > 0) { %>
+    <section aria-labelledby="earlier-heading" class="earlier">
+      <h2 id="earlier-heading">Earlier enquiries</h2>
+      <p class="hint">Questions asked before the chat was introduced.</p>
+      <ul class="convo-list plain">
+        <% earlier.forEach((row) => { %>
+        <li class="convo-row">
+          <a class="convo-link" href="/enquiries/<%= row.id %>">
+            <span class="convo-avatar" aria-hidden="true"><%= Array.from(row.customerName)[0] %></span>
+            <span class="convo-body">
+              <span class="convo-top"><strong class="convo-name"><%= row.customerName %></strong><span class="convo-time"><%= row.createdAt %></span></span>
+              <span class="convo-preview"><%= row.preview %></span>
+              <span class="convo-meta"><span class="status-badge status-<%= row.status %>"><%= row.statusLabel %></span></span>
+            </span>
+            <span class="visually-hidden">Open enquiry from <%= row.customerName %></span>
+          </a>
+        </li>
+        <% }) %>
+      </ul>
+    </section>
+    <% } %>
+    <% } %>
+    <p><a href="/dashboard">Back to dashboard</a></p>
+<%- include('partials/footer') %>

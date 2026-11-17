@@ -1,7 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { estimateMaxCostMicroUsd } from '../domain/aiCost.js';
-import { AGENT_WALL_CLOCK_MS, MAX_ANSWER_LENGTH, MAX_MODEL_CALLS, MAX_TRACE_ITEMS, MAX_TRACE_ITEM_LENGTH } from '../domain/enquiryRules.js';
+import { AGENT_WALL_CLOCK_MS, MAX_ANSWER_LENGTH, MAX_MODEL_CALLS } from '../domain/enquiryRules.js';
 import { withTimeout } from '../lib/timeout.js';
+import { echoBlocks, finishTrace, runTools, toolUseBlocks } from './agentSupport.js';
 import { classifyFailure, readUsage } from './listingGenerator.js';
 import { INDIC_TOKENS_PER_CHARACTER } from './listingCost.js';
 import { resolveMoney } from './moneyPlaceholders.js';
@@ -20,23 +21,12 @@ const NO_TOOL_MESSAGE = 'Call the final_answer tool now.';
 
 /** Why a run ended without an answer. `reason` maps to the enquiry's flag_reason; `detail` is for logs only. */
 const failed = (state, reason, detail) => ({ ok: false, reason, detail, trace: finishTrace(state), steps: state.steps, charged: state.charged });
-const finishTrace = (state) => state.tools.trace.slice(0, MAX_TRACE_ITEMS).map((item) => Array.from(item).slice(0, MAX_TRACE_ITEM_LENGTH).join(''));
 
 function failureOf(error) {
   if (BUDGET_ERROR_CODES.has(error?.code)) return { reason: 'budget', detail: error.code };
   const timedOut = error?.name === 'TimeoutError' || error?.kind === 'timeout';
   return { reason: 'error', detail: timedOut ? 'timeout' : (error?.kind ?? 'unexpected') };
 }
-
-const toolUseBlocks = (response) => (Array.isArray(response?.content) ? response.content : []).filter((block) => block?.type === 'tool_use');
-
-/** Re-sends only the block fields the API needs, never anything else the response happened to carry. */
-const echoBlocks = (response) =>
-  (Array.isArray(response?.content) ? response.content : []).flatMap((block) => {
-    if (block?.type === 'text') return [{ type: 'text', text: String(block.text ?? '') }];
-    if (block?.type === 'tool_use') return [{ type: 'tool_use', id: block.id, name: block.name, input: block.input ?? {} }];
-    return [];
-  });
 
 /**
  * The shop assistant: an Anthropic Messages tool-use loop over READ-ONLY tools. At most six model calls, a wall-clock cap, every call
@@ -78,15 +68,6 @@ export function createEnquiryAgent({ config, createClient = (options) => new Ant
     state.charged.outputTokens += charged.outputTokens;
     state.charged.costMicroUsd += charged.costMicroUsd;
     return result.response;
-  }
-
-  async function runTools(blocks, tools) {
-    const results = [];
-    for (const block of blocks) {
-      const { content, isError } = await tools.run(block.name, block.input);
-      results.push({ type: 'tool_result', tool_use_id: block.id, content: JSON.stringify(content), ...(isError ? { is_error: true } : {}) });
-    }
-    return results;
   }
 
   /** Validates the final_answer. @returns {Promise<{ result: object } | { retry: true }>} */

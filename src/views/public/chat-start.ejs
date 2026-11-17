@@ -1,0 +1,43 @@
+<%- include('layout') %>
+    <section class="start" aria-labelledby="start-heading">
+      <p class="eyebrow"><%= strings.chatAskAi %></p>
+      <h1 id="start-heading"><%= strings.chatStartHeading.replace('{shop}', shop.name) %></h1>
+      <p class="lead"><%= strings.chatStartIntro %></p>
+<% if (reviewPending) { %>      <p class="review-note" role="note" data-translation-status="pending-review"><%= strings.chatReviewNotice %></p>
+<% } %><% const errorFields = Object.keys(start.errors || {}); %><% if (start.formError || errorFields.length > 0) { %>      <div class="error-summary" role="alert" id="start-errors">
+<% if (start.formError) { %>        <p><%= start.formError %></p>
+<% } %><% if (errorFields.length > 0) { %>        <ul>
+<% errorFields.forEach((field) => { %>          <li><a href="#start-<%= field %>"><%= start.errors[field] %></a></li>
+<% }) %>        </ul>
+<% } %>      </div>
+<% } %>      <form method="post" action="<%= start.action %>" class="start-form" id="start-form">
+        <input type="hidden" name="startKey" value="<%= start.keys.startKey %>">
+        <input type="hidden" name="messageId" value="<%= start.keys.messageId %>">
+<% if (start.productId) { %>        <input type="hidden" name="productId" value="<%= start.productId %>">
+<% } %>        <div class="field-grid">
+          <div class="field">
+            <label for="start-name"><%= strings.chatNameLabel %></label>
+            <input type="text" id="start-name" name="name" maxlength="<%= start.maxName %>" autocomplete="name" autocapitalize="words" required value="<%= start.values.name || '' %>"<% if (start.errors.name) { %> aria-invalid="true"<% } %>>
+          </div>
+          <div class="field">
+            <label for="start-phone"><%= strings.chatPhoneLabel %></label>
+            <input type="tel" id="start-phone" name="phone" maxlength="30" inputmode="tel" autocomplete="tel" required value="<%= start.values.phone || '' %>" aria-describedby="start-phone-hint"<% if (start.errors.phone) { %> aria-invalid="true"<% } %>>
+            <p id="start-phone-hint" class="hint"><%= strings.chatPhoneHint %></p>
+          </div>
+        </div>
+        <div class="field">
+          <label for="start-message"><%= strings.chatMessageLabel %></label>
+          <textarea id="start-message" name="message" rows="4" maxlength="<%= start.maxMessage %>" required data-counter="start-count" aria-describedby="start-message-hint start-count"<% if (start.errors.message) { %> aria-invalid="true"<% } %>><%= start.values.message || '' %></textarea>
+          <p id="start-message-hint" class="hint"><%= strings.chatMessageHint %></p>
+          <p id="start-count" class="hint count" aria-live="polite"></p>
+        </div>
+        <div class="trap-field" aria-hidden="true">
+          <label for="start-website">Leave this field empty</label>
+          <input type="text" id="start-website" name="website" tabindex="-1" autocomplete="off">
+        </div>
+        <p class="hint"><%= strings.chatPrivacyNote %></p>
+        <p><button type="submit" class="button button-large"><%= strings.chatStartButton %></button></p>
+      </form>
+      <p><a href="<%= shopHref %>"><%= strings.chatBackToShop %></a></p>
+    </section>
+<%- include('layout-end') %>

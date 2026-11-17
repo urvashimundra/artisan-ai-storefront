@@ -324,3 +324,144 @@ input:not([type="checkbox"], [type="radio"], [type="file"], [type="submit"], [ty
 .save-link-box { display: grid; gap: 0.5rem; }
 .save-link-box input { max-width: none; font-size: 1rem; }
 .save-link-box .button { justify-self: start; }
+
+/* Customer chat (Module 7). A messaging layout: a branded header, a scrolling conversation, a composer that stays at the bottom.
+   Colours are palette tokens and tints mixed from them, so every text colour is still a covered pair: customer bubbles are
+   on-accent text on accent; assistant bubbles are text on surface; seller bubbles are text on a light accent tint. */
+:root {
+  --hairline: color-mix(in srgb, var(--text) 14%, var(--surface));
+  --font-display: Georgia, "Iowan Old Style", "Palatino Linotype", "Noto Sans Gujarati", "Noto Sans Devanagari", serif;
+}
+
+.eyebrow { margin: 0 0 0.25rem; color: var(--accent); font-size: 0.85rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; }
+.review-note { margin: 0.5rem 0; padding: 0.4rem 0.75rem; border: 1px dashed var(--accent); border-radius: 0.5rem; background: var(--surface); font-size: 0.9rem; }
+
+.start { max-width: 36rem; margin: 0 auto; padding: 1rem 0 2rem; }
+.start h1 { font-family: var(--font-display); font-size: 2rem; font-weight: 600; }
+.start-form { display: grid; gap: 1.1rem; margin-top: 1.25rem; }
+.start-form .field input, .start-form .field textarea { max-width: none; }
+.start-form .count { text-align: right; }
+.start .error-summary { margin-top: 1rem; }
+
+.body-chat { background: color-mix(in srgb, var(--accent) 6%, var(--page)); }
+.main-chat { max-width: 46rem; padding: 0; }
+.chat { display: flex; flex-direction: column; height: 100vh; height: 100dvh; background: var(--page); }
+@media (min-width: 48em) { .chat { border-inline: 1px solid var(--hairline); } }
+
+.chat-head { display: flex; align-items: center; gap: 0.75rem; padding: 0.7rem 1rem; background: var(--surface); border-bottom: 1px solid var(--hairline); }
+.chat-avatar { flex: none; display: grid; place-items: center; width: 2.75rem; height: 2.75rem; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; }
+.chat-title { min-width: 0; }
+.chat-title h1 { margin: 0; font-family: var(--font-display); font-size: 1.1rem; line-height: 1.25; }
+.chat-status { display: flex; align-items: center; gap: 0.4rem; margin: 0; color: var(--muted); font-size: 0.85rem; }
+.status-dot { flex: none; width: 0.6rem; height: 0.6rem; border-radius: 50%; background: var(--accent); }
+.status-needs_you { background: transparent; border: 2px solid var(--accent); }
+.chat-back { margin-left: auto; flex: none; display: inline-flex; align-items: center; min-height: 2.75rem; padding: 0 0.25rem; font-size: 0.9rem; }
+
+.chat-notes { padding: 0.4rem 1rem 0; }
+.chat-ai-note { margin: 0; color: var(--muted); font-size: 0.85rem; }
+.chat-link { margin: 0 1rem; font-size: 0.9rem; }
+.chat-link summary { display: flex; align-items: center; min-height: 2.75rem; cursor: pointer; color: var(--accent); font-weight: 600; }
+.chat-link input { max-width: none; margin: 0.25rem 0 0.5rem; }
+.chat-link .button { margin-bottom: 0.5rem; }
+
+.chat-log { flex: 1 1 0; min-height: 6rem; padding: 1rem; overflow-y: auto; overscroll-behavior: contain; scroll-behavior: smooth; }
+.chat-log:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
+.chat-messages { display: flex; flex-direction: column; gap: 0.65rem; margin: 0; padding: 0; list-style: none; }
+.msg { display: flex; }
+.msg-customer { justify-content: flex-end; }
+.msg-bubble { max-width: min(88%, 32rem); padding: 0.6rem 0.9rem; border: 1px solid var(--hairline); border-radius: 1.1rem; background: var(--surface); box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 8%, transparent); }
+.msg-customer .msg-bubble { border-color: var(--accent); border-bottom-right-radius: 0.3rem; background: var(--accent); color: var(--on-accent); }
+.msg-assistant .msg-bubble { border-bottom-left-radius: 0.3rem; }
+.msg-seller .msg-bubble { border-color: color-mix(in srgb, var(--accent) 45%, var(--surface)); border-bottom-left-radius: 0.3rem; background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+.msg-flag .msg-bubble { border-style: dashed; border-color: var(--accent); }
+.msg-speaker { margin: 0 0 0.15rem; color: var(--accent); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.03em; }
+.msg-text { margin: 0; white-space: pre-line; overflow-wrap: anywhere; }
+.msg-sources { margin: 0.4rem 0 0; color: var(--muted); font-size: 0.8rem; }
+.msg-meta { margin: 0.25rem 0 0; color: var(--muted); font-size: 0.75rem; }
+.msg-customer .msg-meta { color: var(--on-accent); text-align: right; }
+.msg-pending .msg-bubble { border-style: dashed; }
+.msg-failed .msg-bubble { border: 2px solid var(--text); }
+.msg-retry { margin-top: 0.4rem; min-height: 2.75rem; padding: 0 1rem; border: 2px solid var(--on-accent); border-radius: 1.4rem; background: var(--surface); color: var(--accent); font: inherit; font-weight: 600; cursor: pointer; }
+.msg-retry:focus-visible { outline: 3px solid var(--on-accent); outline-offset: 2px; }
+
+.chat-typing { display: flex; align-items: center; gap: 0.5rem; width: fit-content; margin: 0.65rem 0 0; padding: 0.5rem 0.9rem; border: 1px solid var(--hairline); border-radius: 1.1rem; background: var(--surface); color: var(--muted); font-size: 0.9rem; }
+.dots { display: inline-flex; gap: 0.25rem; }
+.dots i { width: 0.45rem; height: 0.45rem; border-radius: 50%; background: var(--accent); animation: dot-bounce 1.2s infinite ease-in-out; }
+.dots i:nth-child(2) { animation-delay: 0.15s; }
+.dots i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes dot-bounce { 0%, 80%, 100% { transform: translateY(0); } 40% { transform: translateY(-0.3rem); } }
+
+.chat-seller { margin: 0 1rem 0.5rem; padding: 0.6rem 0.9rem; border-left: 0.35rem solid var(--accent); border-radius: 0.5rem; background: color-mix(in srgb, var(--accent) 8%, var(--surface)); font-size: 0.95rem; }
+.chat-seller p { margin: 0.25rem 0; }
+.chat-error { margin: 0 1rem 0.5rem; padding: 0.5rem 0.75rem; border-left: 0.35rem solid var(--accent); background: var(--surface); font-weight: 600; }
+
+.composer { display: flex; align-items: flex-end; gap: 0.5rem; padding: 0.7rem 1rem calc(0.7rem + env(safe-area-inset-bottom)); border-top: 1px solid var(--hairline); background: var(--surface); }
+.composer textarea { flex: 1; max-width: none; min-height: 2.75rem; max-height: 10rem; padding: 0.65rem 1rem; border-radius: 1.4rem; resize: none; line-height: 1.4; }
+.composer-send { flex: none; min-width: 2.75rem; min-height: 2.75rem; padding: 0 1.2rem; border: 2px solid var(--accent); border-radius: 1.4rem; background: var(--accent); color: var(--on-accent); font: inherit; font-weight: 600; cursor: pointer; }
+.composer-send:disabled { cursor: progress; }
+.composer-send:focus-visible, .composer textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+@media (max-height: 30em) { .chat-notes { display: none; } }
+
+/* Storefront (Module 7). Generous whitespace, one display typeface for headings, borderless product cards with consistent square pictures,
+   and ONE group of contact actions shared by the shop and product pages. Same tokens as the chat; tints are mixed from palette tokens. */
+.main-store { max-width: 72rem; padding: 0 1rem 1rem; }
+body:has(.main-store) .site-header, body:has(.main-store) .site-footer { max-width: 72rem; }
+.site-header { padding: 0.75rem 1rem; }
+.brand { display: flex; align-items: center; gap: 0.6rem; font-family: var(--font-display); font-size: 1.1rem; }
+.brand a { color: var(--text); text-decoration: none; }
+.brand a:hover { text-decoration: underline; }
+.brand-mark { flex: none; display: grid; place-items: center; width: 2.25rem; height: 2.25rem; border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 1.05rem; font-weight: 700; }
+.site-footer { margin-top: 3rem; padding: 1.5rem 1rem 2rem; border-top: 1px solid var(--hairline); text-align: center; font-size: 0.9rem; }
+.site-footer p { margin: 0; }
+
+.hero { padding: 2.5rem 0 2.25rem; background: color-mix(in srgb, var(--accent) 8%, var(--page)); box-shadow: 0 0 0 100vmax color-mix(in srgb, var(--accent) 8%, var(--page)); clip-path: inset(0 -100vmax); }
+.hero h1 { margin: 0 0 0.5rem; font-family: var(--font-display); font-size: clamp(2.25rem, 8vw, 3.75rem); font-weight: 600; line-height: 1.08; letter-spacing: -0.01em; }
+.hero .tagline { margin: 0 0 1rem; color: var(--accent); font-family: var(--font-display); font-size: clamp(1.15rem, 3.5vw, 1.5rem); font-style: italic; }
+.hero-story { max-width: 38rem; margin: 0 0 1.5rem; font-size: 1.05rem; }
+.hero-actions { margin: 0; }
+
+.section { margin-top: 3.25rem; }
+.section > h2, .contact-group > h2 { position: relative; margin: 0 0 1.5rem; padding-bottom: 0.75rem; font-family: var(--font-display); font-size: clamp(1.5rem, 4.5vw, 2rem); font-weight: 600; }
+.section > h2::after { content: ""; position: absolute; left: 0; bottom: 0; width: 3rem; height: 3px; border-radius: 2px; background: var(--accent); }
+
+.grid { --card-min: 8rem; gap: 1.5rem 0.9rem; }
+.product-card { min-width: 0; }
+.product-card .card-link { display: block; padding: 0; color: var(--text); text-decoration: none; }
+.card-media { display: block; overflow: hidden; border-radius: 0.9rem; background: color-mix(in srgb, var(--accent) 8%, var(--page)); aspect-ratio: 1 / 1; box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 12%, transparent); transition: box-shadow 0.25s ease, transform 0.25s ease; }
+.card-media img { width: 100%; height: 100%; aspect-ratio: 1 / 1; object-fit: cover; transition: transform 0.4s ease; }
+.product-card .card-link:hover .card-media { box-shadow: 0 8px 20px color-mix(in srgb, var(--text) 18%, transparent); transform: translateY(-2px); }
+.product-card .card-link:hover img { transform: scale(1.04); }
+.product-card .card-link:focus-visible { outline: none; }
+.product-card .card-link:focus-visible .card-media { outline: 3px solid var(--accent); outline-offset: 3px; }
+.product-card .card-title { padding: 0.7rem 0 0; font-family: var(--font-display); font-size: 1.05rem; font-weight: 600; line-height: 1.3; }
+.product-card .card-link:hover .card-title { text-decoration: none; color: var(--accent); }
+.product-card .price { padding: 0.15rem 0 0; font-size: 1rem; }
+.product-card .badge { margin: 0.35rem 0 0; font-size: 0.8rem; }
+@media (min-width: 40em) { .grid { --card-min: 14rem; gap: 2rem 1.5rem; } }
+
+.maker .prose { max-width: 42rem; font-size: 1.05rem; line-height: 1.8; }
+
+.contact-actions { display: grid; gap: 0.75rem; max-width: 26rem; margin: 0; }
+.contact-actions .button { display: flex; align-items: center; justify-content: center; min-height: 3rem; margin: 0; }
+@media (min-width: 40em) { .contact-actions { display: flex; flex-wrap: wrap; max-width: none; } .contact-actions .button { display: inline-flex; min-width: 11rem; } }
+.button { border-radius: 0.65rem; transition: background-color 0.15s ease, box-shadow 0.15s ease; }
+.button-primary { box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 25%, transparent); }
+.button-primary:hover { box-shadow: 0 4px 12px color-mix(in srgb, var(--accent) 35%, transparent); }
+.button-secondary:hover { background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.button[disabled] { cursor: not-allowed; }
+
+.product { display: grid; gap: 1.5rem; margin-top: 1rem; }
+.product-media { min-width: 0; }
+.product-photo { width: 100%; max-width: none; margin: 0; border-radius: 1rem; box-shadow: 0 1px 3px color-mix(in srgb, var(--text) 18%, transparent); }
+.product-info { min-width: 0; }
+.product-info h1 { margin: 0 0 0.5rem; font-family: var(--font-display); font-size: clamp(1.75rem, 5vw, 2.5rem); font-weight: 600; line-height: 1.15; }
+.product-info .price-large { margin: 0 0 1rem; font-size: 1.6rem; }
+.product-info .prose { margin: 0 0 1.5rem; font-size: 1.05rem; }
+.purchase { margin: 0 0 2rem; }
+.contact-group { padding-top: 1.5rem; border-top: 1px solid var(--hairline); }
+.contact-group > h2 { margin-bottom: 1rem; padding-bottom: 0; font-family: inherit; font-size: 0.85rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.back-link { margin: 2rem 0 0; }
+@media (min-width: 48em) {
+  .product { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 3rem; margin-top: 2rem; align-items: start; }
+  .product-media { position: sticky; top: 1rem; }
+}

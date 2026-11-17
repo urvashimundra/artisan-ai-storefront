@@ -79,13 +79,13 @@ describe('seller inbox: list, filters, counter', () => {
     assert.doesNotMatch(needs.text, /First Buyer/);
     assert.match((await t.owner('/enquiries?status=bogus')).text, /First Buyer/);
     const dash = await t.owner('/dashboard');
-    assert.match(dash.text, /href="\/enquiries">Enquiries <span class="badge">1 need you<\/span>/);
+    assert.match(dash.text, /href="\/enquiries">Conversations <span class="badge">1 need you<\/span>/);
   }));
 
-  it('shows an empty state and adds an Enquiries link in the header', () => run({}, async (t) => {
+  it('shows an empty state and adds a Conversations link in the header', () => run({}, async (t) => {
     const res = await t.owner('/enquiries');
-    assert.match(res.text, /No enquiries to show/);
-    assert.match(res.text, /<a href="\/enquiries">Enquiries<\/a>/);
+    assert.match(res.text, /No conversations to show/);
+    assert.match(res.text, /<a href="\/enquiries">Conversations<\/a>/);
   }));
 });
 

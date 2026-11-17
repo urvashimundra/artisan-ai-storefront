@@ -1,3 +1,4 @@
+import { CONVERSATION_STRINGS } from './conversationStrings.js';
 import { ENQUIRY_STRINGS } from './enquiryStrings.js';
 import { ORDER_STRINGS } from './orderStrings.js';
 
@@ -89,7 +90,7 @@ const BASE_STRINGS = Object.freeze({
 
 /** Storefront strings plus the ordering strings (orderStrings.js), per language. */
 export const PUBLIC_STRINGS = Object.freeze(
-  Object.fromEntries(Object.keys(BASE_STRINGS).map((language) => [language, Object.freeze({ ...BASE_STRINGS[language], ...ORDER_STRINGS[language], ...ENQUIRY_STRINGS[language] })])),
+  Object.fromEntries(Object.keys(BASE_STRINGS).map((language) => [language, Object.freeze({ ...BASE_STRINGS[language], ...ORDER_STRINGS[language], ...ENQUIRY_STRINGS[language], ...CONVERSATION_STRINGS[language] })])),
 );
 
 export const STRING_KEYS = Object.freeze(Object.keys(PUBLIC_STRINGS.en));

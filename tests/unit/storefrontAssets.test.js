@@ -56,13 +56,13 @@ describe('share.js', () => {
     }
   });
 
-  it('references only the self-hosted share.js, copy-upi.js, countdown.js, char-counter.js and autosubmit.js scripts in public templates', () => {
+  it('references only the self-hosted share.js, copy-upi.js, countdown.js, char-counter.js, autosubmit.js and chat.js scripts in public templates', () => {
     const files = [];
     const walk = (dir) => readdirSync(dir).forEach((name) => (statSync(join(dir, name)).isDirectory() ? walk(join(dir, name)) : files.push(join(dir, name))));
     walk(fileURLToPath(new URL('../../src/views/public', import.meta.url)));
     for (const file of files) {
       const scripts = readFileSync(file, 'utf8').match(/<script[^>]*>/g) ?? [];
-      for (const tag of scripts) assert.ok(['<script src="/js/share.js" defer>', '<script src="/js/copy-upi.js" defer>', '<script src="/js/countdown.js" defer>', '<script src="/js/char-counter.js" defer>', '<script src="/js/autosubmit.js" defer>'].includes(tag), `${file}: ${tag}`);
+      for (const tag of scripts) assert.ok(['<script src="/js/share.js" defer>', '<script src="/js/copy-upi.js" defer>', '<script src="/js/countdown.js" defer>', '<script src="/js/char-counter.js" defer>', '<script src="/js/autosubmit.js" defer>', '<script src="/js/chat.js" defer>'].includes(tag), `${file}: ${tag}`);
     }
   });
 });

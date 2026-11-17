@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { createAssistantController } from '../controllers/assistantController.js';
+import { createConversationController } from '../controllers/conversationController.js';
 import { originCheck } from '../middleware/originCheck.js';
 import { createRateLimiter } from '../middleware/rateLimit.js';
 
@@ -10,6 +11,9 @@ export const ASSISTANT_LIMITS = Object.freeze({
   page: Object.freeze({ windowMs: ONE_MINUTE_MS, limit: 60 }),
   ask: Object.freeze({ windowMs: ONE_HOUR_MS, limit: 10 }),
   answer: Object.freeze({ windowMs: ONE_HOUR_MS, limit: 20 }),
+  chatStart: Object.freeze({ windowMs: ONE_HOUR_MS, limit: 10 }),
+  chatMessage: Object.freeze({ windowMs: ONE_HOUR_MS, limit: 60 }),
+  chatPoll: Object.freeze({ windowMs: ONE_MINUTE_MS, limit: 120 }),
 });
 
 /**
@@ -34,20 +38,36 @@ export function privacyHeaders(_req, res, next) {
  * (asking, answering and viewing are counted separately). Every POST passes the Origin check BEFORE the limiter and the handler.
  * Every response carries the privacy headers (no-store, noindex, Referrer-Policy same-origin). The Origin check is unchanged and is not
  * weakened to suit the referrer policy.
- * @param {{ config: { allowedOrigins: string[] }, assistant: object, logger: object,
- *   rateLimits?: { page?: object, ask?: object, answer?: object } }} deps
+ * @param {{ config: { allowedOrigins: string[] }, assistant: object, conversations?: object | null, logger: object,
+ *   rateLimits?: { page?: object, ask?: object, answer?: object, chatStart?: object, chatMessage?: object, chatPoll?: object } }} deps
  * @returns {import('express').Router}
  */
-export function createAssistantRouter({ config, assistant, logger, rateLimits = {} }) {
+export function createAssistantRouter({ config, assistant = null, conversations = null, logger, rateLimits = {} }) {
   const router = Router();
-  const controller = createAssistantController({ assistant });
+  const controller = assistant ? createAssistantController({ assistant, conversations }) : null;
+  const chat = conversations ? createConversationController({ conversations }) : null;
   const sameOrigin = originCheck(config.allowedOrigins);
   const limit = (name) => createRateLimiter(rateLimits[name] ?? ASSISTANT_LIMITS[name]);
-  const [page, ask, answer] = ['page', 'ask', 'answer'].map(limit);
+  const [page, ask, answer, chatStart, chatMessage, chatPoll] = ['page', 'ask', 'answer', 'chatStart', 'chatMessage', 'chatPoll'].map(limit);
 
-  router.post('/s/:slug/ask', privacyHeaders, sameOrigin, ask, controller.postAsk);
-  router.get('/s/:slug/q/:token', privacyHeaders, page, controller.showEnquiry);
-  router.post('/s/:slug/q/:token/answer', privacyHeaders, sameOrigin, answer, controller.postAnswer);
-  router.use(controller.handleError(logger));
+  if (chat) mountChatRoutes(router, { chat, sameOrigin, page, chatStart, chatMessage, chatPoll });
+  router.all('/s/:slug/ask', privacyHeaders, (req, res) => res.redirect(303, `/s/${req.params.slug}/chat`));
+  if (controller) {
+    router.get('/s/:slug/q/:token', privacyHeaders, page, controller.showEnquiry);
+    router.post('/s/:slug/q/:token/answer', privacyHeaders, sameOrigin, answer, controller.postAnswer);
+  }
+  router.use(chat ? chat.handleError(logger) : controller.handleError(logger));
   return router;
+}
+
+/**
+ * Customer chat routes. Every response carries the privacy headers; every POST passes the Origin check BEFORE its limiter and handler.
+ * The private chat link is /s/:slug/c/:token (the shop comes from the slug, the conversation from the hashed token inside that shop).
+ */
+function mountChatRoutes(router, { chat, sameOrigin, page, chatStart, chatMessage, chatPoll }) {
+  router.get('/s/:slug/chat', privacyHeaders, page, chat.startPage);
+  router.post('/s/:slug/chat', privacyHeaders, sameOrigin, chatStart, chat.postStart);
+  router.get('/s/:slug/c/:token', privacyHeaders, page, chat.showChat);
+  router.get('/s/:slug/c/:token/messages', privacyHeaders, chatPoll, chat.poll);
+  router.post('/s/:slug/c/:token/messages', privacyHeaders, sameOrigin, chatMessage, chat.postMessage);
 }

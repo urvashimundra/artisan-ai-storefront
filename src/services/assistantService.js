@@ -1,31 +1,27 @@
 import { createEnquiryTools } from '../ai/tools/enquiryTools.js';
-import {
-  AGENT_WALL_CLOCK_MS, ENQUIRY_STATUS, PHONE_DAILY_LIMIT, STORE_AI_DAILY_CAP, STUCK_AFTER_MS, askSchema, dayAgoMs, enquiryLimitError, indiaDayStartMs, isStuck,
-} from '../domain/enquiryRules.js';
+import { AGENT_WALL_CLOCK_MS, ENQUIRY_STATUS, STUCK_AFTER_MS, isStuck } from '../domain/enquiryRules.js';
 import { resolveLanguage } from '../domain/language.js';
 import { stringsFor } from '../domain/publicStrings.js';
-import { notFound } from '../lib/errors.js';
-import { generateStatusToken, hashStatusToken, isWellFormedToken } from '../lib/statusToken.js';
+import { hashStatusToken, isWellFormedToken } from '../lib/statusToken.js';
 import { createBudgetedCall } from './budgetedCall.js';
-import { buildAskForm, buildAskPage, buildEnquiryView } from './enquiryView.js';
-import { isProductId, normalizeSlug } from './publicShopService.js';
+import { buildEnquiryView } from './enquiryView.js';
+import { normalizeSlug } from './publicShopService.js';
 
-const NOT_FOUND_MESSAGE = 'Not found';
 const iso = (ms) => new Date(ms).toISOString();
 
 /**
- * The customer side of "ask the seller": saving the enquiry FIRST (pending), the private answer page, and running the assistant once.
- * The shop comes from the URL slug (resolved here), the product id must be a published product of that shop, and the seller's account
- * (who pays for the AI call) is read by shop id, never from input. GET never calls Claude: only the POST that wins the
+ * LEGACY customer side of "ask the seller" (Module 6): the private answer page of an existing enquiry and running the assistant once for one that
+ * is still pending. New questions go through the chat (conversationService); no enquiry is created here any more. The shop comes from the URL
+ * slug (resolved here) and the seller's account (who pays for the AI call) is read by shop id, never from input. GET never calls Claude: only the POST that wins the
  * pending -> answering claim runs the agent. Any failure keeps the question and hands it to the seller.
  * @param {{ shops: { findShopBySlug: Function, listPublished: Function, findPublished: Function },
  *   enquiries: ReturnType<import('../repositories/enquiryRepository.js').createEnquiryRepository>,
  *   knowledge: { get: Function }, agent?: ReturnType<typeof import('../ai/enquiryAgent.js').createEnquiryAgent> | null, budgets?: object | null,
  *   emails?: { enqueueSellerEnquiryAlert: Function }, logger: { info: Function, warn: Function, error: Function }, baseUrl: string,
- *   linkCipher?: { encrypt: (token: string) => string } | null, newToken?: () => string, now?: () => number, agentWallClockMs?: number }} deps
+ *   now?: () => number, agentWallClockMs?: number }} deps
  */
 export function createAssistantService({
-  shops, enquiries, knowledge, agent = null, budgets = null, emails = null, logger, baseUrl, linkCipher = null, newToken = generateStatusToken, now = Date.now, agentWallClockMs = AGENT_WALL_CLOCK_MS,
+  shops, enquiries, knowledge, agent = null, budgets = null, emails = null, logger, baseUrl, now = Date.now, agentWallClockMs = AGENT_WALL_CLOCK_MS,
 }) {
   const budgetedCall = agent && budgets ? createBudgetedCall({ budgets, logger }) : null;
 
@@ -65,19 +61,6 @@ export function createAssistantService({
     return found ? { shop, enquiry: await settleStuck(shop.id, found, tokenHash), tokenHash } : null;
   }
 
-  async function resolveProduct(shop, rawId) {
-    if (rawId === undefined || rawId === '') return null;
-    if (!isProductId(rawId) || !(await shops.findPublished(shop.id, rawId))) throw notFound(NOT_FOUND_MESSAGE);
-    return rawId;
-  }
-
-  async function startingState(shop) {
-    const cappedToday = (await enquiries.countClaimedSince(shop.id, iso(indiaDayStartMs(now())))) >= STORE_AI_DAILY_CAP;
-    if (cappedToday) return { status: ENQUIRY_STATUS.NEEDS_YOU, flagReason: 'daily_cap' };
-    if (!agent || !budgetedCall) return { status: ENQUIRY_STATUS.NEEDS_YOU, flagReason: 'error' };
-    return { status: ENQUIRY_STATUS.PENDING, flagReason: null };
-  }
-
   /** Maps the agent's outcome to what is stored. needs_seller ALWAYS becomes needs_you, whatever the text says. */
   function toOutcome(result) {
     if (!result.ok) return { status: ENQUIRY_STATUS.NEEDS_YOU, answerText: null, flagReason: result.reason };
@@ -108,45 +91,6 @@ export function createAssistantService({
   }
 
   return {
-    /** True when the ask form may be offered (the assistant service is mounted whenever enquiries work). */
-    enabled: true,
-
-    /** @returns {{ action: string, productId: string | null, values: object, errors: object, formError: string | null, maxQuestion: number }} */
-    askForm: buildAskForm,
-
-    /**
-     * Saves a new enquiry. Throws ZodError (bad form), AppError 404 (unknown shop or product) and ENQUIRY_LIMIT (429). The trap field
-     * answers like success but saves nothing.
-     * @returns {Promise<{ trap: true, slug: string } | { trap: false, token: string, slug: string, language: string }>}
-     */
-    async ask(slug, prefs, body) {
-      const shop = await findShop(slug);
-      if (!shop) throw notFound(NOT_FOUND_MESSAGE);
-      const form = askSchema.parse(body ?? {});
-      if (form.website) return { trap: true, slug: shop.slug };
-      const productId = await resolveProduct(shop, form.productId);
-      if ((await enquiries.countByPhoneSince(shop.id, form.phone, iso(dayAgoMs(now())))) >= PHONE_DAILY_LIMIT) throw enquiryLimitError();
-      const { status, flagReason } = await startingState(shop);
-      const token = newToken();
-      const language = prefsLanguage(prefs, shop);
-      const { id } = await enquiries.create(shop.id, {
-        productId, language, customerName: form.name, customerPhone: form.phone, question: form.question, status, flagReason,
-        tokenHash: hashStatusToken(token), tokenEnc: linkCipher ? linkCipher.encrypt(token) : null,
-      });
-      logger.info('enquiry saved', { storeId: shop.id, enquiryId: id, status, flagReason });
-      if (status === ENQUIRY_STATUS.NEEDS_YOU) await alertSeller(shop.id, id);
-      return { trap: false, token, slug: shop.slug, language };
-    },
-
-    /** The ask form page for an error re-render. @returns {Promise<{ language: string, view: object } | null>} */
-    async getAskPage(slug, prefs, { productId = null, values = {}, errors = {}, formError = null } = {}) {
-      const shop = await findShop(slug);
-      if (!shop) return null;
-      const language = prefsLanguage(prefs, shop);
-      const ask = buildAskForm({ slug: shop.slug, language, productId, values, errors, formError });
-      return { language, view: buildAskPage({ shop, language, ask }) };
-    },
-
     /** The private page. NEVER calls Claude. @returns {Promise<{ language: string, view: object } | null>} null for any unknown link. */
     async getPage(slug, token, prefs) {
       const loaded = await load(slug, token);

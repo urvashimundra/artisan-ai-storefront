@@ -41,7 +41,7 @@ export function createBrowserRouter({ config, services, authRateLimits, productR
   const pageLocals = (_req, res, next) => {
     Object.assign(res.locals, { signupEnabled, showAuthLinks: true, productsEnabled: Boolean(services.products && services.listings),
       ordersEnabled: Boolean(services.orders), knowledgeEnabled: Boolean(services.knowledge),
-      enquiriesEnabled: Boolean(services.enquiries) });
+      enquiriesEnabled: Boolean(services.enquiries || services.conversationInbox) });
     next();
   };
   const guard = [
@@ -58,7 +58,7 @@ export function createBrowserRouter({ config, services, authRateLimits, productR
     translations: services.translations,
     products: services.products,
     orders: services.orders,
-    enquiries: services.enquiries,
+    enquiries: services.conversationInbox ?? services.enquiries,
     canDraft: Boolean(services.translationDrafts),
   });
   const settings = createShopSettingsController({
@@ -101,7 +101,7 @@ export function createBrowserRouter({ config, services, authRateLimits, productR
   }
   if (services.orders) mountOrderRoutes(router, { storeGuard, orders: services.orders });
   if (services.knowledge) mountKnowledgeRoutes(router, { storeGuard, knowledge: services.knowledge, limiters: productLimiters });
-  if (services.enquiries) mountEnquiryRoutes(router, { storeGuard, enquiries: services.enquiries });
+  if (services.enquiries || services.conversationInbox) mountEnquiryRoutes(router, { storeGuard, enquiries: services.enquiries ?? null, inbox: services.conversationInbox ?? null });
   return router;
 }
 
@@ -150,12 +150,13 @@ function mountKnowledgeRoutes(router, { storeGuard, knowledge, limiters }) {
   router.post('/store/knowledge/rules/find', ...storeGuard, limiters.draft, controller.findRules);
 }
 
-/** Owner enquiries inbox. Same guard order as the orders routes; the enquiry id in the URL is only ever looked up inside the session's store. */
-function mountEnquiryRoutes(router, { storeGuard, enquiries }) {
-  const controller = createEnquiryController({ enquiries });
+/** Owner Conversations inbox (the /enquiries URLs are kept). Same guard order as the orders routes; the enquiry id in the URL is only ever looked up inside the session's store. */
+function mountEnquiryRoutes(router, { storeGuard, enquiries, inbox }) {
+  const controller = createEnquiryController({ enquiries, inbox });
   const form = express.urlencoded({ extended: false, limit: PRODUCT_FORM_BODY_LIMIT });
   router.get('/enquiries', ...storeGuard, controller.list);
   router.get('/enquiries/:id', ...storeGuard, controller.detail);
   router.post('/enquiries/:id/reply', ...storeGuard, form, controller.reply);
-  router.post('/enquiries/:id/handled', ...storeGuard, controller.markHandled);
+  router.post('/enquiries/:id/handled', ...storeGuard, form, controller.markHandled);
+  router.post('/enquiries/:id/delete', ...storeGuard, form, controller.remove);
 }

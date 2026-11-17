@@ -95,7 +95,7 @@ const XML_ESCAPES = Object.freeze({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"':
 export const escapeXml = (text) => String(text).replace(/[&<>"']/g, (char) => XML_ESCAPES[char]);
 
 /** Paths crawlers must not fetch. Public shops live under /s/. */
-export const ROBOTS_DISALLOWED_PATHS = Object.freeze(['/dashboard', '/products', '/store', '/login', '/signup', '/internal', '/enquiries', '/s/*/q/']);
+export const ROBOTS_DISALLOWED_PATHS = Object.freeze(['/dashboard', '/products', '/store', '/login', '/signup', '/internal', '/enquiries', '/s/*/q/', '/s/*/c/', '/s/*/chat']);
 
 /**
  * robots.txt: allow the public shops, disallow owner and internal areas, point at the absolute sitemap URL.

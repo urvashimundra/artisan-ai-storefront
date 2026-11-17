@@ -4,8 +4,13 @@ import { createEnquiryAgent } from '../../src/ai/enquiryAgent.js';
 import { ENQUIRY_STATUS } from '../../src/domain/enquiryRules.js';
 import { createEmailService } from '../../src/email/emailService.js';
 import { createLinkCipher } from '../../src/lib/linkCipher.js';
+import { generateStatusToken, hashStatusToken } from '../../src/lib/statusToken.js';
+import { normalizeWhatsappNumber } from '../../src/domain/whatsapp.js';
 import { requireStoreId } from '../../src/repositories/requireStoreId.js';
 import { createAssistantService } from '../../src/services/assistantService.js';
+import { createConversationInboxService } from '../../src/services/conversationInboxService.js';
+import { createConversationService } from '../../src/services/conversationService.js';
+import { answered, createFakeAgent, createFakeConversationRepo } from './conversationFakes.js';
 import { createEnquiryInboxService } from '../../src/services/enquiryInboxService.js';
 import { createKnowledgeService } from '../../src/services/knowledgeService.js';
 import { STORE_FORM, signupAndLogin } from './appHarness.js';
@@ -96,7 +101,7 @@ export const finalAnswer = (outcome, text) => turn(call('final_answer', { outcom
  * (logged in) with one shop (WhatsApp on) and one published product (Rs 250, stock 5).
  * @param {{ script?: object[], send?: Function, tiers?: object[], document?: string, shop?: object, appDeps?: object, withAgent?: boolean, wallClockMs?: number, stock?: number | null }} [options]
  */
-export async function startAssistantApp({ script = [], send, tiers = [], document = 'We ship across India in 5 days.', shop = {}, appDeps = {}, withAgent = true, wallClockMs, stock = 5 } = {}) {
+export async function startAssistantApp({ chatAgent = createFakeAgent({ fallback: answered() }), script = [], send, tiers = [], document = 'We ship across India in 5 days.', shop = {}, appDeps = {}, withAgent = true, wallClockMs, stock = 5 } = {}) {
   const clock = { now: Date.parse('2026-11-16T10:00:00Z') };
   const repo = createFakePublicRepo();
   const logs = createLogCollector();
@@ -129,7 +134,17 @@ export async function startAssistantApp({ script = [], send, tiers = [], documen
   });
   const enquiries = createEnquiryInboxService({ enquiries: enquiryRepo, knowledge: knowledgeRepo, emails: emailService, logger: logs, linkCipher, baseUrl: 'https://shop.example.test', now: () => clock.now });
   const knowledge = createKnowledgeService({ knowledge: knowledgeRepo, budgets, now: () => clock.now });
-  app = await startPublicApp({ appOptions: { appDeps }, repo, extraServices: { assistant, enquiries, knowledge } });
+  const conversationRepo = createFakeConversationRepo({
+    now: () => clock.now, ownerContextOf,
+    legacyDelete: (storeId, id) => { const at = enquiryRepo.rows.findIndex((row) => row.storeId === storeId && row.id === id); if (at < 0) return false; enquiryRepo.rows.splice(at, 1); return true; },
+  });
+  const conversationInbox = createConversationInboxService({ conversations: conversationRepo, legacy: enquiries, logger: logs, linkCipher, baseUrl: 'https://shop.example.test', now: () => clock.now });
+  const chatAlerts = [];
+  const conversations = createConversationService({
+    shops: repo, conversations: conversationRepo, knowledge: knowledgeRepo, agent: chatAgent, budgets, emails: { enqueueSellerEnquiryAlert: async (ctx, id) => { chatAlerts.push(id); return emailService.enqueueSellerEnquiryAlert(ctx, id); } },
+    logger: logs, linkCipher, now: () => clock.now, baseUrl: 'https://shop.example.test',
+  });
+  app = await startPublicApp({ appOptions: { appDeps }, repo, extraServices: { assistant, enquiries, knowledge, conversationInbox, conversations } });
   const cookie = await signupAndLogin(app);
   await app.request('/store/new', { method: 'POST', cookie, form: STORE_FORM });
   const store = app.storesRepo.rows[0];
@@ -138,7 +153,16 @@ export async function startAssistantApp({ script = [], send, tiers = [], documen
   const product = repo.addProduct(fakeShop, { pricePaise: 25000, stock, translations: { en: translation('Clay diya', 'A hand made diya.', 'A diya.') } });
   await knowledgeRepo.replaceContent(store.id, document, 'now');
   await knowledgeRepo.saveRules(store.id, tiers, 'now');
-  const ask = (form = ASK, extra = {}) => app.request(`/s/${store.slug}/ask`, { method: 'POST', form, ...extra });
+  /** Legacy enquiries are no longer created through the site (the chat replaced the form), so the legacy tests seed a pending enquiry directly. */
+  const ask = async (form = ASK) => {
+    const token = generateStatusToken();
+    tokens.push(token);
+    await enquiryRepo.create(store.id, {
+      productId: form.productId ?? null, language: 'en', customerName: form.name, customerPhone: normalizeWhatsappNumber(form.phone), question: form.question, status: 'pending', flagReason: null,
+      tokenHash: hashStatusToken(token), tokenEnc: linkCipher.encrypt(token),
+    });
+    return { status: 303, location: `/s/${store.slug}/q/${token}?lang=en`, text: '' };
+  };
   const tokenOf = (res) => {
     assert.equal(res.status, 303, res.text.slice(0, 300));
     return /\/q\/([A-Za-z0-9_-]{43})/.exec(res.location)[1];
@@ -148,6 +172,6 @@ export async function startAssistantApp({ script = [], send, tiers = [], documen
   const owner = (path, extra = {}) => app.request(path, { cookie, ...extra });
   return {
     ...app, cookie, store, shop: fakeShop, product, repo, clock, serviceLogs: logs, outbox, budgets, knowledgeRepo, enquiryRepo, requests, linkCipher, tokens, assistant, enquiries,
-    ask, tokenOf, page, answer, owner,
+    ask, tokenOf, page, answer, owner, conversationRepo, conversationInbox, conversations, chatAlerts, chatAgent,
   };
 }

@@ -1,18 +1,24 @@
 <%- include('layout') %>
     <article class="product" aria-labelledby="product-title">
-      <img class="product-photo" src="<%= product.imageSrc %>" alt="<%= product.alt.text %>" lang="<%= product.alt.lang %>" width="800" height="800" fetchpriority="high" decoding="async">
-      <h1 id="product-title" lang="<%= product.title.lang %>"><%= product.title.text %></h1>
-<% if (product.price) { %>      <p class="price price-large"><span class="visually-hidden"><%= strings.price %>: </span><%= product.price %></p>
-<% } %><% if (product.soldOut) { %>      <p class="badge"><%= strings.soldOut %></p>
-<% } %><% if (product.description) { %>      <p class="prose" lang="<%= product.description.lang %>"><%= product.description.text %></p>
-<% } %><%- include('partials/product-actions') %>
+      <div class="product-media">
+        <img class="product-photo" src="<%= product.imageSrc %>" alt="<%= product.alt.text %>" lang="<%= product.alt.lang %>" width="800" height="800" fetchpriority="high" decoding="async">
+      </div>
+      <div class="product-info">
+        <h1 id="product-title" lang="<%= product.title.lang %>"><%= product.title.text %></h1>
+<% if (product.price) { %>        <p class="price price-large"><span class="visually-hidden"><%= strings.price %>: </span><%= product.price %></p>
+<% } %><% if (product.soldOut) { %>        <p class="badge"><%= strings.soldOut %></p>
+<% } %><% if (product.description) { %>        <p class="prose" lang="<%= product.description.lang %>"><%= product.description.text %></p>
+<% } %><% if (locals.buyHref) { %>        <p class="purchase"><a class="button button-primary button-large" href="<%= buyHref %>"><%= strings.buyNow %></a></p>
+<% } %>        <section class="contact-group" aria-labelledby="contact-heading">
+          <h2 id="contact-heading"><%= strings.contactHeading %></h2>
+<%- include('partials/contact-actions') %>
+        </section>
+      </div>
     </article>
-    <section class="maker" aria-labelledby="maker-heading">
+    <section class="section maker" aria-labelledby="maker-heading">
       <h2 id="maker-heading"><%= strings.aboutTheMaker %></h2>
       <p class="prose" lang="<%= maker.lang %>"><%= maker.excerpt %></p>
       <p><a href="<%= shopHref %>"><%= strings.visitShop %></a></p>
     </section>
-<%- include('partials/contact-block') %>
-<% if (locals.ask) { %><%- include('partials/ask-form') %>
-<% } %>    <p><a href="<%= shopHref %>"><%= strings.backToShop %></a></p>
+    <p class="back-link"><a href="<%= shopHref %>"><%= strings.backToShop %></a></p>
 <%- include('layout-end') %>

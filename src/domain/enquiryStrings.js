@@ -1,5 +1,5 @@
 /*
- * Customer-facing strings for asking the seller (Module 6), in English, Gujarati and Hindi. Merged into PUBLIC_STRINGS by
+ * Customer-facing strings for the legacy enquiry answer page (Module 6; new questions use the chat strings of Module 7), in English, Gujarati and Hindi. Merged into PUBLIC_STRINGS by
  * publicStrings.js, so the same key-parity and placeholder tests apply.
  * NOTE: the Gujarati and Hindi text was written by an AI assistant and has NOT been proofread by a native speaker.
  * It needs human review before real customers see it (listed in docs/DECISIONS.md).
@@ -7,21 +7,6 @@
  */
 export const ENQUIRY_STRINGS = Object.freeze({
   en: Object.freeze({
-    askHeading: 'Ask the seller a question',
-    askIntro: "Our AI assistant answers from the seller's notes. If it cannot, the seller will see your question and reply.",
-    askNameLabel: 'Your name',
-    askPhoneLabel: 'WhatsApp number',
-    askPhoneHint: 'The seller can reply to this number. Example: 98765 43210.',
-    askQuestionLabel: 'Your question',
-    askQuestionHint: 'Up to 500 characters. English, Hindi or Gujarati.',
-    askSubmit: 'Send question',
-    askPageTitle: 'Ask the seller',
-    askErrorsHeading: 'Please fix the following',
-    errAskName: 'Enter your name (up to 80 characters).',
-    errAskPhone: 'Enter a valid mobile number.',
-    errAskQuestion: 'Write your question (up to 500 characters).',
-    errAskLimit: 'You have asked several questions today. Please try again tomorrow, or message the seller directly.',
-    askPrivacyNote: 'Your number is used only so the seller can reply. It is not shown on the shop.',
     enquiryPageTitle: 'Your question to {shop}',
     enquiryHeading: 'Your question',
     enquiryStatusLabel: 'Status',
@@ -49,21 +34,6 @@ export const ENQUIRY_STRINGS = Object.freeze({
     quoteEstimateNote: 'This is an estimate. The seller will confirm.',
   }),
   gu: Object.freeze({
-    askHeading: 'વિક્રેતાને પ્રશ્ન પૂછો',
-    askIntro: 'અમારો AI સહાયક વિક્રેતાની નોંધોમાંથી જવાબ આપે છે. જો તે ન આપી શકે, તો વિક્રેતા તમારો પ્રશ્ન જોઈને જવાબ આપશે.',
-    askNameLabel: 'તમારું નામ',
-    askPhoneLabel: 'વોટ્સએપ નંબર',
-    askPhoneHint: 'વિક્રેતા આ નંબર પર જવાબ આપી શકે છે. ઉદાહરણ: 98765 43210.',
-    askQuestionLabel: 'તમારો પ્રશ્ન',
-    askQuestionHint: 'વધુમાં વધુ 500 અક્ષર. અંગ્રેજી, હિન્દી અથવા ગુજરાતી.',
-    askSubmit: 'પ્રશ્ન મોકલો',
-    askPageTitle: 'વિક્રેતાને પૂછો',
-    askErrorsHeading: 'કૃપા કરીને નીચેનું સુધારો',
-    errAskName: 'તમારું નામ લખો (વધુમાં વધુ 80 અક્ષર).',
-    errAskPhone: 'માન્ય મોબાઇલ નંબર લખો.',
-    errAskQuestion: 'તમારો પ્રશ્ન લખો (વધુમાં વધુ 500 અક્ષર).',
-    errAskLimit: 'તમે આજે ઘણા પ્રશ્નો પૂછ્યા છે. કૃપા કરીને કાલે ફરી પ્રયત્ન કરો, અથવા વિક્રેતાને સીધો સંદેશ મોકલો.',
-    askPrivacyNote: 'તમારો નંબર ફક્ત વિક્રેતા જવાબ આપી શકે તે માટે વપરાય છે. તે દુકાન પર બતાવાતો નથી.',
     enquiryPageTitle: '{shop} ને તમારો પ્રશ્ન',
     enquiryHeading: 'તમારો પ્રશ્ન',
     enquiryStatusLabel: 'સ્થિતિ',
@@ -91,21 +61,6 @@ export const ENQUIRY_STRINGS = Object.freeze({
     quoteEstimateNote: 'આ અંદાજ છે. વિક્રેતા પુષ્ટિ કરશે.',
   }),
   hi: Object.freeze({
-    askHeading: 'विक्रेता से सवाल पूछें',
-    askIntro: 'हमारा AI सहायक विक्रेता के नोट्स से जवाब देता है। अगर वह न दे सके, तो विक्रेता आपका सवाल देखकर जवाब देंगे।',
-    askNameLabel: 'आपका नाम',
-    askPhoneLabel: 'व्हाट्सएप नंबर',
-    askPhoneHint: 'विक्रेता इसी नंबर पर जवाब दे सकते हैं। उदाहरण: 98765 43210।',
-    askQuestionLabel: 'आपका सवाल',
-    askQuestionHint: 'अधिकतम 500 अक्षर। अंग्रेज़ी, हिन्दी या गुजराती।',
-    askSubmit: 'सवाल भेजें',
-    askPageTitle: 'विक्रेता से पूछें',
-    askErrorsHeading: 'कृपया नीचे दी गई बातें ठीक करें',
-    errAskName: 'अपना नाम लिखें (अधिकतम 80 अक्षर)।',
-    errAskPhone: 'सही मोबाइल नंबर लिखें।',
-    errAskQuestion: 'अपना सवाल लिखें (अधिकतम 500 अक्षर)।',
-    errAskLimit: 'आपने आज कई सवाल पूछ लिए हैं। कृपया कल फिर कोशिश करें, या सीधे विक्रेता को संदेश भेजें।',
-    askPrivacyNote: 'आपका नंबर सिर्फ इसलिए इस्तेमाल होता है कि विक्रेता जवाब दे सकें। वह दुकान पर नहीं दिखता।',
     enquiryPageTitle: '{shop} से आपका सवाल',
     enquiryHeading: 'आपका सवाल',
     enquiryStatusLabel: 'स्थिति',
