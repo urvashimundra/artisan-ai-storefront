@@ -21,9 +21,10 @@ const messagesFor = (strings) => Object.fromEntries(Object.entries(FIELD_STRINGS
  * HTTP layer for asking the seller: the ask form post, the private answer page and the "find the answer" post. No session. The page
  * never calls Claude. Unknown, other-shop and malformed links all get the same generic 404, and nothing here logs a question, an answer,
  * a name, a number or a token.
- * @param {{ assistant: ReturnType<import('../services/assistantService.js').createAssistantService> }} deps
+ * @param {{ assistant: ReturnType<import('../services/assistantService.js').createAssistantService>,
+ *   conversations?: { hasChat: (slug: string, token: string) => Promise<boolean> } | null }} deps
  */
-export function createAssistantController({ assistant }) {
+export function createAssistantController({ assistant, conversations = null }) {
   const preferences = (req) => ({
     query: req.query?.lang,
     cookie: parseCookies(req.get('cookie'))[LANGUAGE_COOKIE_NAME],
@@ -72,7 +73,12 @@ export function createAssistantController({ assistant }) {
       return res.redirect(SEE_OTHER, `/s/${saved.slug}/q/${saved.token}?lang=${saved.language}`);
     },
 
+    /** Legacy /q/ link: a conversation with the same private token (copied by the optional backfill) takes over; otherwise the old page. */
     async showEnquiry(req, res) {
+      if (conversations && (await conversations.hasChat(req.params.slug, req.params.token))) {
+        const language = isSupportedLanguage(req.query?.lang) ? req.query.lang : 'en';
+        return res.redirect(SEE_OTHER, `/s/${req.params.slug}/c/${req.params.token}?lang=${language}`);
+      }
       const page = await assistant.getPage(req.params.slug, req.params.token, preferences(req));
       return page ? sendPage(res, 'public/enquiry', page, 200) : notFound(req, res);
     },

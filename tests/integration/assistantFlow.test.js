@@ -168,21 +168,6 @@ describe('ask the seller: failures keep the question and point to the seller', (
     assert.equal(t.requests.length, 0);
   }));
 
-  it('the daily cap for AI-answered enquiries sends the next one straight to the seller', () => run({ script: [finalAnswer('answered', 'never')] }, async (t) => {
-    const claimedAt = new Date(t.clock.now).toISOString();
-    for (let i = 0; i < STORE_AI_DAILY_CAP; i += 1) t.enquiryRepo.rows.push({ id: `old-${i}`, storeId: t.store.id, status: 'answered', claimedAt, customerPhone: `9100000${String(i).padStart(4, '0')}`, createdAt: claimedAt });
-    const token = t.tokenOf(await t.ask());
-    const created = t.enquiryRepo.rows.at(-1);
-    assert.deepEqual([created.status, created.flagReason], ['needs_you', 'daily_cap']);
-    assert.equal(t.outbox.rows.filter((r) => r.kind === 'seller_enquiry_needs_you').length, 1);
-    assert.match((await t.page(token)).text, SELLER_WA);
-    assert.equal(t.requests.length, 0);
-  }));
-
-  it('without Claude configured every enquiry goes straight to the seller', () => run({ withAgent: false }, async (t) => {
-    await t.ask();
-    assert.deepEqual([row(t).status, row(t).flagReason], ['needs_you', 'error']);
-  }));
 });
 
 describe('ask the seller: quotes and money through the whole app', () => {
@@ -225,56 +210,6 @@ describe('ask the seller: quotes and money through the whole app', () => {
 });
 
 describe('ask the seller: limits, trap, validation', () => {
-  it('limits asks per IP (in memory)', () => run({ appDeps: { assistantRateLimits: { ask: { windowMs: 60_000, limit: 2 } } } }, async (t) => {
-    assert.equal((await t.ask({ ...ASK, phone: '9876543201' })).status, 303);
-    assert.equal((await t.ask({ ...ASK, phone: '9876543202' })).status, 303);
-    assert.equal((await t.ask({ ...ASK, phone: '9876543203' })).status, 429);
-  }));
-
-  it('limits a phone number to five a day at one shop, counted only from that shop', () => run({}, async (t) => {
-    for (let i = 0; i < 5; i += 1) t.enquiryRepo.rows.push({ id: `other-${i}`, storeId: '00000000-0000-4000-8000-000000000000', customerPhone: '919876543210', createdAt: new Date(t.clock.now).toISOString() });
-    for (let i = 0; i < 5; i += 1) assert.equal((await t.ask()).status, 303, `ask ${i}`);
-    const sixth = await t.ask();
-    assert.equal(sixth.status, 429);
-    assert.match(sixth.text, /role="alert"/);
-    assert.match(sixth.text, /You have asked several questions today/);
-    assert.equal(t.enquiryRepo.rows.filter((r) => r.storeId === t.store.id).length, 5);
-    t.clock.now += 86_400_001;
-    assert.equal((await t.ask()).status, 303);
-  }));
-
-  it('the hidden trap field answers like success but saves nothing', () => run({}, async (t) => {
-    const res = await t.ask({ ...ASK, website: 'http://spam.example' });
-    assert.equal(res.status, 303);
-    assert.equal(res.location, `/s/${t.store.slug}`);
-    assert.equal(t.enquiryRepo.rows.length, 0);
-  }));
-
-  it('re-renders the form with a summary, per-field messages and what was typed', () => run({}, async (t) => {
-    const res = await t.ask({ name: '', phone: '123', question: 'x'.repeat(501) });
-    assert.equal(res.status, 400);
-    assert.match(res.text, /role="alert" id="ask-errors"/);
-    assert.match(res.text, /aria-describedby="ask-phone-hint ask-phone-error"/);
-    assert.match(res.text, /Enter a valid mobile number\./);
-    assert.equal(t.enquiryRepo.rows.length, 0);
-  }));
-
-  it('rejects unknown keys (a store id) and never saves', () => run({}, async (t) => {
-    assert.equal((await t.ask({ ...ASK, store_id: t.store.id })).status, 400);
-    assert.equal(t.enquiryRepo.rows.length, 0);
-  }));
-
-  it('the product must be a published product of this shop', () => run({}, async (t) => {
-    const draft = t.repo.addProduct(t.shop, { status: 'draft' });
-    const otherShop = t.repo.addShop({ slug: 'other-shop' });
-    const foreign = t.repo.addProduct(otherShop);
-    for (const productId of [draft.id, foreign.id, 'nope', '00000000-0000-4000-8000-000000000000']) {
-      assert.equal((await t.ask({ ...ASK, productId })).status, 404, productId);
-    }
-    assert.equal(t.enquiryRepo.rows.length, 0);
-    assert.equal((await t.ask({ ...ASK, productId: t.product.id })).status, 303);
-  }));
-
   it('accepts a same-origin answer POST with realistic headers (Origin, no Referer) and still refuses a bad Origin', () => run({ script: [finalAnswer('answered', 'We ship in 5 days.')] }, async (t) => {
     const token = t.tokenOf(await t.ask());
     const forged = await t.answer(token, { origin: 'https://evil.test', headers: { referer: 'https://evil.test/' } });
@@ -286,34 +221,13 @@ describe('ask the seller: limits, trap, validation', () => {
     assert.equal((await t.page(token)).headers.get('referrer-policy'), 'same-origin');
   }));
 
-  it('still rejects a literal Origin: null on both POSTs, so the Origin check is not weakened', () => run({}, async (t) => {
+  it('still rejects a literal Origin: null on the answer POST, so the Origin check is not weakened', () => run({}, async (t) => {
     const nullOrigin = { origin: 'null', headers: { 'sec-fetch-site': 'same-origin' } };
-    assert.equal((await t.ask(ASK, nullOrigin)).status, 403);
     const token = t.tokenOf(await t.ask());
     assert.equal((await t.answer(token, nullOrigin)).status, 403);
     assert.equal(row(t).status, 'pending');
   }));
 
-  it('applies the Origin check to both POSTs', () => run({}, async (t) => {
-    assert.equal((await t.ask(ASK, { origin: 'https://evil.test' })).status, 403);
-    const token = t.tokenOf(await t.ask());
-    assert.equal((await t.answer(token, { origin: 'https://evil.test' })).status, 403);
-    assert.equal(row(t).status, 'pending');
-  }));
-
-  it('the ask form is on the shop and product pages and the error page, in the page language', () => run({}, async (t) => {
-    for (const path of [`/s/${t.store.slug}`, `/s/${t.store.slug}/p/${t.product.id}`]) {
-      const res = await t.request(path);
-      assert.match(res.text, /id="ask-form"/);
-      assert.match(res.text, /maxlength="500"/);
-      assert.match(res.text, /type="tel"[^>]*inputmode="tel"[^>]*autocomplete="tel"/);
-      assert.match(res.text, /class="trap-field" aria-hidden="true"/);
-    }
-    assert.match((await t.request(`/s/${t.store.slug}/p/${t.product.id}`)).text, new RegExp(`name="productId" value="${t.product.id}"`));
-    const gu = await t.request(`/s/${t.store.slug}?lang=gu`);
-    assert.match(gu.text, /વિક્રેતાને પ્રશ્ન પૂછો/);
-    assert.match(gu.text, new RegExp(`action="/s/${t.store.slug}/ask\\?lang=gu"`));
-  }));
 });
 
 describe('ask the seller: tokens, privacy and output safety', () => {

@@ -47,8 +47,8 @@ const noDiagnostics = { run: async () => ({ ok: false, checks: [] }) };
  *   logger?: ReturnType<typeof createLogger>,
  *   diagnostics?: { run: (names: string[]) => Promise<object> },
  *   services?: { auth: object, sessions: object, stores: object, products?: object, listings?: object, publicShop?: object, orders?: object,
- *     contact?: object, assistant?: object },
- *   assistantRateLimits?: { page?: object, ask?: object, answer?: object },
+ *     contact?: object, assistant?: object, conversations?: object },
+ *   assistantRateLimits?: { page?: object, ask?: object, answer?: object, chatStart?: object, chatMessage?: object, chatPoll?: object },
  *   contactRateLimits?: { ip?: object },
  *   publicRateLimits?: { pages?: object, image?: object },
  *   orderRateLimits?: { page?: object, create?: object, utr?: object, status?: object },
@@ -95,7 +95,9 @@ export function createApp({
   // Customer orders: its own limiters and Origin check, also before the global limiter and with no session.
   if (services?.orders) app.use(createOrderRouter({ config, orders: services.orders, logger: log, rateLimits: orderRateLimits }));
   // Customer questions to the seller: private answer pages and the assistant run, same placement and rules as orders.
-  if (services?.assistant) app.use(createAssistantRouter({ config, assistant: services.assistant, logger: log, rateLimits: assistantRateLimits }));
+  if (services?.assistant || services?.conversations) {
+    app.use(createAssistantRouter({ config, assistant: services.assistant ?? null, conversations: services.conversations ?? null, logger: log, rateLimits: assistantRateLimits }));
+  }
   app.use(createRateLimiter(limits));
 
   app.use(createHealthRouter({ version: version ?? readVersion() }));

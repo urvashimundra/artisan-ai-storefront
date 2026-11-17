@@ -4,6 +4,8 @@ import { createEnquiryAgent } from '../../src/ai/enquiryAgent.js';
 import { ENQUIRY_STATUS } from '../../src/domain/enquiryRules.js';
 import { createEmailService } from '../../src/email/emailService.js';
 import { createLinkCipher } from '../../src/lib/linkCipher.js';
+import { generateStatusToken, hashStatusToken } from '../../src/lib/statusToken.js';
+import { normalizeWhatsappNumber } from '../../src/domain/whatsapp.js';
 import { requireStoreId } from '../../src/repositories/requireStoreId.js';
 import { createAssistantService } from '../../src/services/assistantService.js';
 import { createEnquiryInboxService } from '../../src/services/enquiryInboxService.js';
@@ -138,7 +140,16 @@ export async function startAssistantApp({ script = [], send, tiers = [], documen
   const product = repo.addProduct(fakeShop, { pricePaise: 25000, stock, translations: { en: translation('Clay diya', 'A hand made diya.', 'A diya.') } });
   await knowledgeRepo.replaceContent(store.id, document, 'now');
   await knowledgeRepo.saveRules(store.id, tiers, 'now');
-  const ask = (form = ASK, extra = {}) => app.request(`/s/${store.slug}/ask`, { method: 'POST', form, ...extra });
+  /** Legacy enquiries are no longer created through the site (the chat replaced the form), so the legacy tests seed a pending enquiry directly. */
+  const ask = async (form = ASK) => {
+    const token = generateStatusToken();
+    tokens.push(token);
+    await enquiryRepo.create(store.id, {
+      productId: form.productId ?? null, language: 'en', customerName: form.name, customerPhone: normalizeWhatsappNumber(form.phone), question: form.question, status: 'pending', flagReason: null,
+      tokenHash: hashStatusToken(token), tokenEnc: linkCipher.encrypt(token),
+    });
+    return { status: 303, location: `/s/${store.slug}/q/${token}?lang=en`, text: '' };
+  };
   const tokenOf = (res) => {
     assert.equal(res.status, 303, res.text.slice(0, 300));
     return /\/q\/([A-Za-z0-9_-]{43})/.exec(res.location)[1];

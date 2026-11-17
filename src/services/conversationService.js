@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { createEnquiryTools } from '../ai/tools/enquiryTools.js';
 import {
   MAX_CONTEXT_MESSAGES, REASON_OUTCOMES, isStaleRun, messageSchema, persistenceError, refusalError, startSchema,
@@ -9,6 +10,7 @@ import { stringsFor } from '../domain/publicStrings.js';
 import { AppError, notFound } from '../lib/errors.js';
 import { generateStatusToken, hashStatusToken, isWellFormedToken } from '../lib/statusToken.js';
 import { createBudgetedCall } from './budgetedCall.js';
+import { buildChatView, buildPollView, buildStartView } from './conversationView.js';
 import { isProductId, normalizeSlug } from './publicShopService.js';
 
 const NOT_FOUND_MESSAGE = 'Not found';
@@ -31,10 +33,10 @@ const iso = (ms) => new Date(ms).toISOString();
  *   conversations: ReturnType<import('../repositories/conversationRepository.js').createConversationRepository>, knowledge: { get: Function },
  *   agent?: { run: Function } | null, budgets?: object | null, emails?: { enqueueSellerEnquiryAlert: Function } | null,
  *   logger: { info: Function, warn: Function, error: Function }, linkCipher?: { encrypt: Function, decrypt: Function } | null,
- *   newToken?: () => string, now?: () => number, agentWallClockMs?: number }} deps
+ *   newToken?: () => string, now?: () => number, baseUrl?: string, agentWallClockMs?: number }} deps
  */
 export function createConversationService({
-  shops, conversations, knowledge, agent = null, budgets = null, emails = null, logger, linkCipher = null, newToken = generateStatusToken, now = Date.now,
+  shops, conversations, knowledge, agent = null, budgets = null, emails = null, logger, linkCipher = null, newToken = generateStatusToken, now = Date.now, baseUrl = '',
   agentWallClockMs = AGENT_WALL_CLOCK_MS,
 }) {
   const budgetedCall = agent && budgets ? createBudgetedCall({ budgets, logger }) : null;
@@ -163,7 +165,34 @@ export function createConversationService({
     return token;
   }
 
-  return {
+  const api = {
+    /** True when this private token belongs to a conversation of this shop (used to forward legacy /q/ links). NEVER calls Claude. */
+    async hasChat(slug, token) {
+      return (await load(slug, token)) !== null;
+    },
+
+    /** The start screen model (kind chat-start), with fresh idempotency keys unless the caller keeps the ones from a failed attempt. @returns {Promise<{ language: string, view: object } | null>} */
+    async startPage(slug, prefs, { productId: rawProductId, values, errors, formError, keys } = {}) {
+      const opened = await api.openStart(slug, prefs, rawProductId);
+      if (!opened) return null;
+      const fresh = keys ?? { startKey: randomUUID(), messageId: randomUUID() };
+      return { language: opened.language, view: buildStartView({ shop: opened.shop, language: opened.language, productId: opened.productId, keys: fresh, values, errors, formError }) };
+    },
+
+    /** The private chat page model. NEVER calls Claude. @returns {Promise<{ language: string, view: object } | null>} */
+    async chatPage(slug, token, prefs) {
+      const opened = await api.open(slug, token, prefs);
+      if (!opened) return null;
+      const view = buildChatView({ ...opened, token, baseUrl, messageId: randomUUID(), nowMs: now() });
+      return { language: opened.language, view };
+    },
+
+    /** New messages after a sequence number and the live state, for the page script. NEVER calls Claude. @returns {Promise<{ language: string, view: object } | null>} */
+    async poll(slug, token, prefs, afterSeq) {
+      const opened = await api.open(slug, token, prefs, { afterSeq });
+      return opened ? { language: opened.language, view: buildPollView({ ...opened, nowMs: now() }) } : null;
+    },
+
     /** Looks the shop up for the start screen. @returns {Promise<{ shop: object, language: string, productId: string | null } | null>} */
     async openStart(slug, prefs, rawProductId) {
       const shop = await findShop(slug);
@@ -234,4 +263,5 @@ export function createConversationService({
       return { found: true, outcome, duplicate: false, language };
     },
   };
+  return api;
 }

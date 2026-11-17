@@ -11,8 +11,8 @@ const SENSITIVE_KEY =
 const PHONE_IN_TEXT = /\+?\d[\d\s().-]{8,}\d/g;
 const BEARER_IN_TEXT = /\bBearer\s+[A-Za-z0-9._~+/=-]+/gi;
 const WA_LINK_IN_TEXT = /https?:\/\/(?:wa\.me|api\.whatsapp\.com)\/\S*/gi;
-/** Private links: /o/<token> (orders) and /q/<token> (enquiry answers). */
-const STATUS_TOKEN_IN_PATH = /\/(o|q)\/[A-Za-z0-9_-]{43}/g;
+/** Private links: /o/<token> (orders), /q/<token> (legacy enquiry answers) and /c/<token> (customer chat). */
+const STATUS_TOKEN_IN_PATH = /\/(o|q|c)\/[A-Za-z0-9_-]{43}/g;
 const REDACTED_LINK = '[REDACTED_LINK]';
 
 const WHOLE_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

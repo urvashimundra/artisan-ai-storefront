@@ -1,4 +1,5 @@
 import { createBulkRuleExtractor } from './ai/bulkRuleExtractor.js';
+import { createConversationAgent } from './ai/conversationAgent.js';
 import { createEnquiryAgent } from './ai/enquiryAgent.js';
 import { createClaudeProbe } from './ai/claudeProbe.js';
 import { createListingGenerator } from './ai/listingGenerator.js';
@@ -11,6 +12,7 @@ import { createLinkCipher } from './lib/linkCipher.js';
 import { createLogger } from './lib/logger.js';
 import { createPasswordService } from './lib/password.js';
 import { createAiBudgetRepository } from './repositories/aiBudgetRepository.js';
+import { createConversationRepository } from './repositories/conversationRepository.js';
 import { createContactRepository } from './repositories/contactRepository.js';
 import { createEmailOutboxRepository } from './repositories/emailOutboxRepository.js';
 import { createKnowledgeRepository } from './repositories/knowledgeRepository.js';
@@ -30,6 +32,7 @@ import { createAssistantService } from './services/assistantService.js';
 import { createAuthService } from './services/authService.js';
 import { createDiagnosticsService } from './services/diagnosticsService.js';
 import { createContactService } from './services/contactService.js';
+import { createConversationService } from './services/conversationService.js';
 import { createEnquiryInboxService } from './services/enquiryInboxService.js';
 import { createKnowledgeService } from './services/knowledgeService.js';
 import { createListingService } from './services/listingService.js';
@@ -118,6 +121,20 @@ function buildAssistantService({ config, client, logger, linkCipher, emails }) {
 }
 
 /**
+ * The customer chat: conversations are always saved and reach the seller's inbox; the Claude agent exists only when the ai group is configured
+ * (without it every message goes straight to the seller).
+ */
+function buildConversationService({ config, client, logger, linkCipher, emails }) {
+  const aiParts = config.ai ? { agent: createConversationAgent({ config: config.ai }), budgets: buildBudgets({ config, client }) } : {};
+  return createConversationService({
+    shops: createPublicShopRepository({ client }),
+    conversations: createConversationRepository({ client }),
+    knowledge: createKnowledgeRepository({ client }),
+    emails, logger, linkCipher, baseUrl: config.baseUrl, ...aiParts,
+  });
+}
+
+/**
  * The email outbox: the enqueue API for emails the app queues itself, and the background worker (created here, started only by
  * the server entry). Order emails are queued by the order database functions, not by this service.
  */
@@ -171,6 +188,7 @@ export async function buildDependencies(config) {
     knowledge: buildKnowledgeService({ config, client, logger }),
     enquiries: createEnquiryInboxService({ enquiries: createEnquiryRepository({ client }), logger, linkCipher, baseUrl: config.baseUrl }),
     assistant: buildAssistantService({ config, client, logger, linkCipher, emails: email.emails }),
+    conversations: buildConversationService({ config, client, logger, linkCipher, emails: email.emails }),
     ...buildTranslationServices({ config, client, logger, translations }),
     ...buildProductServices({ config, client, logger }),
   };
