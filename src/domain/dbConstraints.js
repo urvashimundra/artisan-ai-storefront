@@ -85,3 +85,30 @@ export const ORDER_FUNCTIONS = Object.freeze([
   'cancel_order',
   'expire_overdue_orders',
 ]);
+
+/** Module 5 (migration 010) constraint, index and function names. Mirrored in db/migrations/010_email_outbox_contact.sql. */
+export const EMAIL_CONSTRAINTS = Object.freeze({
+  dedupeKey: 'email_outbox_dedupe_key_key',
+  kind: 'email_outbox_kind_check',
+  toEmail: 'email_outbox_to_email_check',
+  replyTo: 'email_outbox_reply_to_check',
+  language: 'email_outbox_language_check',
+  subject: 'email_outbox_subject_check',
+  body: 'email_outbox_body_check',
+  dedupeKeyLength: 'email_outbox_dedupe_key_length_check',
+  status: 'email_outbox_status_check',
+  attempts: 'email_outbox_attempts_check',
+  errorCode: 'email_outbox_error_code_check',
+  contactName: 'contact_messages_name_check',
+  contactEmail: 'contact_messages_email_check',
+  contactMessage: 'contact_messages_message_check',
+});
+
+export const EMAIL_INDEXES = Object.freeze([
+  'email_outbox_status_next_attempt_idx',
+  'email_outbox_recipient_created_idx',
+  'email_outbox_created_at_idx',
+  'contact_messages_email_created_idx',
+]);
+
+export const EMAIL_FUNCTIONS = Object.freeze(['email_enqueue', 'email_enqueue_order', 'claim_due_emails', 'finish_email']);
