@@ -7,6 +7,7 @@ import { correlationId } from './middleware/correlationId.js';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { createRateLimiter } from './middleware/rateLimit.js';
 import { requestLogger } from './middleware/requestLogger.js';
+import { createAssistantRouter } from './routes/assistant.js';
 import { createBrowserRouter } from './routes/browser.js';
 import { createContactRouter } from './routes/contact.js';
 import { createHealthRouter } from './routes/health.js';
@@ -46,7 +47,8 @@ const noDiagnostics = { run: async () => ({ ok: false, checks: [] }) };
  *   logger?: ReturnType<typeof createLogger>,
  *   diagnostics?: { run: (names: string[]) => Promise<object> },
  *   services?: { auth: object, sessions: object, stores: object, products?: object, listings?: object, publicShop?: object, orders?: object,
- *     contact?: object },
+ *     contact?: object, assistant?: object },
+ *   assistantRateLimits?: { page?: object, ask?: object, answer?: object },
  *   contactRateLimits?: { ip?: object },
  *   publicRateLimits?: { pages?: object, image?: object },
  *   orderRateLimits?: { page?: object, create?: object, utr?: object, status?: object },
@@ -66,6 +68,7 @@ export function createApp({
   productRateLimits,
   publicRateLimits,
   orderRateLimits,
+  assistantRateLimits,
   contactRateLimits,
   version,
   globalRateLimit,
@@ -87,10 +90,12 @@ export function createApp({
   app.use(express.static(PUBLIC_DIR));
   // Public storefront: before the global limiter and before any session-loading route; it has its own limiters.
   if (services?.publicShop) {
-    app.use(createPublicRouter({ config, publicShop: services.publicShop, orders: services.orders, logger: log, rateLimits: publicRateLimits }));
+    app.use(createPublicRouter({ config, publicShop: services.publicShop, orders: services.orders, assistant: services.assistant, logger: log, rateLimits: publicRateLimits }));
   }
   // Customer orders: its own limiters and Origin check, also before the global limiter and with no session.
   if (services?.orders) app.use(createOrderRouter({ config, orders: services.orders, logger: log, rateLimits: orderRateLimits }));
+  // Customer questions to the seller: private answer pages and the assistant run, same placement and rules as orders.
+  if (services?.assistant) app.use(createAssistantRouter({ config, assistant: services.assistant, logger: log, rateLimits: assistantRateLimits }));
   app.use(createRateLimiter(limits));
 
   app.use(createHealthRouter({ version: version ?? readVersion() }));

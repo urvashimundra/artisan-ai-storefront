@@ -13,5 +13,6 @@
       <p><a href="<%= shopHref %>"><%= strings.visitShop %></a></p>
     </section>
 <%- include('partials/contact-block') %>
-    <p><a href="<%= shopHref %>"><%= strings.backToShop %></a></p>
+<% if (locals.ask) { %><%- include('partials/ask-form') %>
+<% } %>    <p><a href="<%= shopHref %>"><%= strings.backToShop %></a></p>
 <%- include('layout-end') %>
