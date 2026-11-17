@@ -17,7 +17,7 @@ import { createPublicRouter } from './routes/public.js';
 export const JSON_BODY_LIMIT = '100kb';
 export const FORM_BODY_LIMIT = '10kb';
 /** These routes parse their own (larger) forms after authentication: Gujarati text is 9 bytes per character URL-encoded. */
-const LARGE_FORM_PATH_PREFIXES = Object.freeze(['/products', '/store/settings', '/store/new', '/contact']);
+const LARGE_FORM_PATH_PREFIXES = Object.freeze(['/products', '/store/settings', '/store/new', '/store/knowledge', '/contact']);
 const VIEWS_DIR = fileURLToPath(new URL('./views', import.meta.url));
 const PUBLIC_DIR = fileURLToPath(new URL('../public', import.meta.url));
 export const GLOBAL_RATE_WINDOW_MS = 60_000;

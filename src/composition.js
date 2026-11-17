@@ -1,3 +1,4 @@
+import { createBulkRuleExtractor } from './ai/bulkRuleExtractor.js';
 import { createClaudeProbe } from './ai/claudeProbe.js';
 import { createListingGenerator } from './ai/listingGenerator.js';
 import { createTranslationGenerator } from './ai/translationGenerator.js';
@@ -11,6 +12,7 @@ import { createPasswordService } from './lib/password.js';
 import { createAiBudgetRepository } from './repositories/aiBudgetRepository.js';
 import { createContactRepository } from './repositories/contactRepository.js';
 import { createEmailOutboxRepository } from './repositories/emailOutboxRepository.js';
+import { createKnowledgeRepository } from './repositories/knowledgeRepository.js';
 import { createImageStorageRepository } from './repositories/imageStorageRepository.js';
 import { createProductRepository } from './repositories/productRepository.js';
 import { createPublicShopRepository } from './repositories/publicShopRepository.js';
@@ -25,6 +27,7 @@ import { createAiBudgetService } from './services/aiBudgetService.js';
 import { createAuthService } from './services/authService.js';
 import { createDiagnosticsService } from './services/diagnosticsService.js';
 import { createContactService } from './services/contactService.js';
+import { createKnowledgeService } from './services/knowledgeService.js';
 import { createListingService } from './services/listingService.js';
 import { createOrderService } from './services/orderService.js';
 import { createProductService } from './services/productService.js';
@@ -70,6 +73,14 @@ function buildProductServices({ config, client, logger }) {
     products: createProductService({ products, images, logger }),
     listings: createListingService({ products, images, budgets, generator, logger }),
   };
+}
+
+/** Shop notes and bulk discounts: owner editing always; the Claude discount search only when the ai group is configured. */
+function buildKnowledgeService({ config, client, logger }) {
+  const knowledge = createKnowledgeRepository({ client });
+  if (!config.ai) return createKnowledgeService({ knowledge, logger });
+  const budgets = buildBudgets({ config, client });
+  return createKnowledgeService({ knowledge, budgets, extractor: createBulkRuleExtractor({ config: config.ai }), logger });
 }
 
 /** Public storefront read path: its own repository and a storage client with the storage timeout (signed URLs only). */
@@ -139,6 +150,7 @@ export async function buildDependencies(config) {
       inboxEmail: config.contactInboxEmail ?? config.ownerNotifyEmail ?? null,
       logger,
     }),
+    knowledge: buildKnowledgeService({ config, client, logger }),
     ...buildTranslationServices({ config, client, logger, translations }),
     ...buildProductServices({ config, client, logger }),
   };
