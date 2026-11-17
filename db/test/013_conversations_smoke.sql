@@ -33,7 +33,7 @@ CREATE OR REPLACE FUNCTION pg_temp.smoke_013() RETURNS text
 LANGUAGE plpgsql AS $$
 DECLARE
   v_owner uuid; v_store uuid; v_other uuid; v_owner2 uuid;
-  v_r jsonb; v_conv uuid; v_run uuid; v_msg uuid := gen_random_uuid(); v_key uuid := gen_random_uuid();
+  v_r jsonb; v_conv uuid; v_busy_conv uuid; v_run uuid; v_msg uuid := gen_random_uuid(); v_key uuid := gen_random_uuid();
   v_usage public.conversation_usage; v_day date := public.conversation_india_day();
   v_phone text := '9876500013';
 BEGIN
@@ -116,11 +116,13 @@ BEGIN
   PERFORM pg_temp.check_that(public.conversation_seller_reply(v_other, v_conv, gen_random_uuid(), 'x')->>'reason' = 'not_found', 'seller of another store cannot reply');
 
   -- customer limit: 6 per customer per store per India day, counted even when the AI fails -----------------------------------
+  -- The conversation id is kept in v_busy_conv: a refused post returns no conversation_id, so reading it from v_r would post to NULL.
   v_r := pg_temp.start_chat(v_store, '9876500099', 'l1');
+  v_busy_conv := (v_r->>'conversation_id')::uuid;
   FOR i IN 2..6 LOOP
-    v_r := public.conversation_post_message(v_store, (v_r->>'conversation_id')::uuid, gen_random_uuid(), 'q', 'n');
+    v_r := public.conversation_post_message(v_store, v_busy_conv, gen_random_uuid(), 'q', 'n');
+    PERFORM pg_temp.check_that(NOT (v_r->>'ok')::boolean AND v_r->>'reason' = 'busy', 'busy blocks follow-ups while a run is in flight (limit not consumed by refused posts)');
   END LOOP;
-  PERFORM pg_temp.check_that(v_r->>'reason' = 'busy', 'busy blocks follow-ups while a run is in flight (limit not consumed by refused posts)');
   PERFORM pg_temp.check_that((SELECT used = 1 FROM public.conversation_usage WHERE store_id = v_store AND scope = 'customer' AND subject = encode(sha256(convert_to('9876500099', 'UTF8')), 'hex')),
     'refused (busy) posts did not consume question slots');
   FOR i IN 2..6 LOOP

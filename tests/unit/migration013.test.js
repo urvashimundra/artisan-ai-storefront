@@ -111,6 +111,11 @@ describe('013 verify, smoke, races and rollback scripts', () => {
     }
   });
 
+  it('smoke busy loop posts to the conversation id kept apart from the result, and asserts busy on every refused post', () => {
+    assert.match(smoke, /v_busy_conv := \(v_r->>'conversation_id'\)::uuid;\s+FOR i IN 2\.\.6 LOOP\s+v_r := public\.conversation_post_message\(v_store, v_busy_conv, [^;]*\);\s+PERFORM pg_temp\.check_that\(NOT \(v_r->>'ok'\)::boolean AND v_r->>'reason' = 'busy'/);
+    assert.doesNotMatch(smoke, /conversation_post_message\(v_store, \(v_r->>'conversation_id'\)/);
+  });
+
   it('documents two-session race scenarios for both limits, one run, idempotency and single settlement', () => {
     for (const text of ['CUSTOMER LIMIT', 'STORE LIMIT', 'ONE RUN PER CONVERSATION', 'IDEMPOTENT SUBMISSION', 'SETTLE ONCE', 'CLEANUP']) assert.ok(races.includes(text), text);
   });
