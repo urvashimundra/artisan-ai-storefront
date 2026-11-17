@@ -39,7 +39,7 @@ export async function startChatApp({ agent = createFakeAgent({ fallback: answere
   const send = (token, message, extra = {}) => app.request(`/s/clay-works/c/${token}/messages`, {
     method: 'POST', form: { message, messageId: randomUUID(), ...extra.form }, headers: extra.json === false ? {} : { accept: 'application/json' }, ...extra.request,
   });
-  return { ...app, repo, shop: shopRow, other: otherRow, product, clock, logs, alerts, agent, conversationsRepo, conversations, start, tokenOf, page, poll, send };
+  return { ...app, repo, shop: shopRow, other: otherRow, product, clock, serviceLogs: logs, alerts, agent, conversationsRepo, conversations, start, tokenOf, page, poll, send };
 }
 
 export { startAuthApp };

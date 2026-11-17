@@ -33,6 +33,7 @@ import { createAuthService } from './services/authService.js';
 import { createDiagnosticsService } from './services/diagnosticsService.js';
 import { createContactService } from './services/contactService.js';
 import { createConversationInboxService } from './services/conversationInboxService.js';
+import { createConversationRetention } from './services/conversationRetention.js';
 import { createConversationService } from './services/conversationService.js';
 import { createEnquiryInboxService } from './services/enquiryInboxService.js';
 import { createKnowledgeService } from './services/knowledgeService.js';
@@ -142,7 +143,8 @@ function buildConversationService({ config, client, logger, linkCipher, emails }
 function buildEmail({ config, client, logger, owners, relay, linkCipher }) {
   const outbox = createEmailOutboxRepository({ client });
   const contacts = createContactRepository({ client });
-  const worker = createOutboxWorker({ outbox, contacts, relay, baseUrl: config.baseUrl, logger, linkCipher });
+  const conversationRetention = createConversationRetention({ conversations: createConversationRepository({ client }), logger });
+  const worker = createOutboxWorker({ outbox, contacts, relay, baseUrl: config.baseUrl, logger, linkCipher, conversationRetention });
   const emails = createEmailService({ outbox, owners, logger, baseUrl: config.baseUrl, kick: worker.kick });
   return { emails, contacts, worker };
 }

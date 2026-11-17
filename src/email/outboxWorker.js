@@ -52,13 +52,14 @@ function messageFor(row, baseUrl, linkCipher) {
 /**
  * Background sender for the email outbox. Claims due rows (atomic, leased, so two workers never send the same row), sends each
  * through the relay and reports the result. Retries: 10 s, 30 s, 2 min, 15 min, dead at the 5th attempt; a relay refusal (4xx)
- * is dead at once; timeouts, network errors and 5xx retry. Also deletes finished rows and old contact messages once a day.
+ * is dead at once; timeouts, network errors and 5xx retry. Also deletes finished rows and old contact messages once a day, and runs the
+ * 12-month customer chat retention (a failure there is logged and never stops the email cleanup or the sending).
  * Started only by the server entry. The timer is unref'ed. Logs ids, counts and codes only, never addresses or text.
- * @param {{ outbox: object, contacts: object, relay: { send: Function }, baseUrl: string, linkCipher?: { decrypt: Function } | null, logger: { info: Function, warn: Function },
+ * @param {{ outbox: object, contacts: object, relay: { send: Function }, baseUrl: string, linkCipher?: { decrypt: Function } | null, conversationRetention?: { run: Function } | null, logger: { info: Function, warn: Function },
  *   clock?: () => number, timers?: { setInterval: Function, clearInterval: Function }, intervalMs?: number }} deps
  */
 export function createOutboxWorker({
-  outbox, contacts, relay, baseUrl, logger, linkCipher = null, clock = Date.now, timers = { setInterval, clearInterval }, intervalMs = WORKER_INTERVAL_MS,
+  outbox, contacts, relay, baseUrl, logger, linkCipher = null, conversationRetention = null, clock = Date.now, timers = { setInterval, clearInterval }, intervalMs = WORKER_INTERVAL_MS,
 }) {
   let timer = null;
   let current = null;
@@ -103,6 +104,16 @@ export function createOutboxWorker({
     const cutoff = new Date(now - RETENTION_DAYS * MS_PER_DAY).toISOString();
     const removed = { emails: await outbox.deleteFinishedBefore(cutoff), contacts: await contacts.deleteBefore(cutoff) };
     if (removed.emails + removed.contacts > 0) logger.info('email retention run', removed);
+    await purgeConversations();
+  }
+
+  async function purgeConversations() {
+    if (!conversationRetention) return;
+    try {
+      await conversationRetention.run();
+    } catch (error) {
+      logger.warn('conversation retention failed', { code: error?.code });
+    }
   }
 
   async function runOnce() {

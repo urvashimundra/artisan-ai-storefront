@@ -86,7 +86,7 @@ describe('customer chat: start, resume and history', () => {
       const chat = await app.page(token);
       assert.deepEqual(res.setCookie, []);
       assert.deepEqual(chat.setCookie, []);
-      assert.ok(!JSON.stringify(app.logs).includes(token));
+      assert.ok(!JSON.stringify(app.serviceLogs).includes(token));
       const { readFileSync } = await import('node:fs');
       const script = readFileSync(new URL('../../public/js/chat.js', import.meta.url), 'utf8');
       assert.doesNotMatch(script, /localStorage|sessionStorage|indexedDB|document\.cookie|innerHTML|eval\(/);
@@ -270,6 +270,28 @@ describe('customer chat: distinct outcomes', () => {
       assert.equal((await app.request('/s/nope-shop/chat')).status, 404);
       assert.equal((await app.start({}, {})).status, 303);
       assert.equal((await app.request('/s/nope-shop/chat', { method: 'POST', form: { name: 'A' } })).status, 404);
+    });
+  });
+});
+
+describe('customer chat: logs and crawlers', () => {
+  it('redacts the private token in request logs and logs no name, number or message text anywhere', async () => {
+    await withApp({}, async (app) => {
+      const token = app.tokenOf(await app.start({ message: 'My secret question 12345' }));
+      await app.page(token);
+      await app.poll(token);
+      await app.send(token, 'another private message');
+      await app.waitForLog((entry) => String(entry.path ?? entry.url ?? '').includes('/messages')).catch(() => null);
+      const everything = JSON.stringify([app.logs, app.serviceLogs]);
+      for (const secret of [token, '9876543210', '919876543210', 'Asha Patel', 'My secret question', 'another private message']) assert.ok(!everything.includes(secret), secret);
+      assert.match(everything, /\/s\/clay-works\/c\/\[REDACTED\]/);
+    });
+  });
+
+  it('keeps the chat and the private link out of search engines', async () => {
+    await withApp({}, async (app) => {
+      const robots = (await app.request('/robots.txt')).text;
+      assert.ok(robots.includes('Disallow: /s/*/c/\n') && robots.includes('Disallow: /s/*/chat\n'));
     });
   });
 });
