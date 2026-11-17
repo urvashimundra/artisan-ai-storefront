@@ -70,6 +70,7 @@ export function createBrowserRouter({ config, services, authRateLimits, productR
     stores: services.stores,
     translations: services.translations,
     drafts: services.translationDrafts,
+    knowledgeEnabled: Boolean(services.knowledge),
   });
   const settingsForm = express.urlencoded({ extended: false, limit: PRODUCT_FORM_BODY_LIMIT });
   const storeGuard = [...ownerOnly, loadStore({ stores: services.stores })];

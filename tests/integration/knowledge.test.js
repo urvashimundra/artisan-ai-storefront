@@ -138,4 +138,20 @@ describe('shop notes page (owner)', () => {
       assert.equal(res.status, 502);
     }, { extractResult: { ok: false, usage: { inputTokens: 10, outputTokens: 5 } } });
   });
+
+  it('is optional onboarding step 4: reached after step 3, skippable, and ends on the welcome dashboard', async () => {
+    await withApp(async ({ app, repo, cookieA, storeA }) => {
+      const afterLanguages = await app.request('/store/new/languages', { cookie: cookieA });
+      assert.equal(afterLanguages.location, '/store/knowledge?step=4');
+      const step = await app.request('/store/knowledge?step=4', { cookie: cookieA });
+      assert.match(step.text, /Step 4 of 4/);
+      assert.ok(step.text.includes('href="/dashboard?welcome=1">Skip, I will do this later'));
+      assert.ok(step.text.includes('action="/store/knowledge?step=4"'));
+      assert.doesNotMatch((await app.request('/store/knowledge', { cookie: cookieA })).text, /Step 4 of 4/);
+      const saved = await save(app, cookieA, { content: 'Delivery in 5 days.' }, '/store/knowledge?step=4');
+      assert.equal(saved.location, '/dashboard?welcome=1');
+      assert.equal(repo.rows.get(storeA.id).content, 'Delivery in 5 days.');
+      assert.match((await app.request('/store/new/contact', { cookie: cookieA })).text, /Step 2 of 4/);
+    });
+  });
 });

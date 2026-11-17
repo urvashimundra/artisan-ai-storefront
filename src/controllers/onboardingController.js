@@ -8,8 +8,8 @@ const SEE_OTHER = 303;
 const HTTP_OK = 200;
 const HTTP_BAD_REQUEST = 400;
 const LANGUAGES_PATH = '/store/new/languages';
-const DONE_PATH = '/dashboard?welcome=1';
-const SKIP_PATH = '/dashboard';
+const WELCOME_PATH = '/dashboard?welcome=1';
+const KNOWLEDGE_STEP_PATH = '/store/knowledge?step=4';
 
 const hasDraftText = (row) => row.story !== '';
 const withNames = (rows) => rows.map((row) => ({ ...row, name: LANGUAGE_NAMES_ENGLISH[row.language] }));
@@ -17,10 +17,12 @@ const withNames = (rows) => rows.map((row) => ({ ...row, name: LANGUAGE_NAMES_EN
 /**
  * Onboarding steps 2 (contact) and 3 (languages) after the store exists. The store comes from the session (`req.store`,
  * set by loadStore) and the owner from `req.owner`; neither is ever read from the request. `drafts` is absent when
- * Claude is not configured: step 3 then skips straight to the dashboard.
- * @param {{ stores: { updateContact: Function }, translations: object, drafts?: { draft: Function } }} deps
+ * Claude is not configured: step 3 then skips straight to the next step. The next step is the optional shop notes (step 4) when the
+ * knowledge feature is mounted, otherwise the welcome dashboard.
+ * @param {{ stores: { updateContact: Function }, translations: object, drafts?: { draft: Function }, knowledgeEnabled?: boolean }} deps
  */
-export function createOnboardingController({ stores, translations, drafts }) {
+export function createOnboardingController({ stores, translations, drafts, knowledgeEnabled = false }) {
+  const nextPath = knowledgeEnabled ? KNOWLEDGE_STEP_PATH : WELCOME_PATH;
   const contactPage = (res, status, view) =>
     res.status(status).render('store-contact', { title: 'Contact and payments', errors: {}, ...view });
 
@@ -33,11 +35,12 @@ export function createOnboardingController({ stores, translations, drafts }) {
       review,
       autosubmit: autosubmit && !review,
       aiError,
+      nextPath,
       defaultLanguageName: LANGUAGE_NAMES_ENGLISH[req.store.defaultLanguage],
     });
   }
 
-  const skipWithoutDrafts = (res) => res.redirect(SEE_OTHER, DONE_PATH);
+  const skipWithoutDrafts = (res) => res.redirect(SEE_OTHER, nextPath);
 
   return {
     showContact(req, res) {
@@ -76,7 +79,7 @@ export function createOnboardingController({ stores, translations, drafts }) {
     async approveLanguages(req, res) {
       if (!drafts) return skipWithoutDrafts(res);
       await translations.approveAll(req.store);
-      return res.redirect(SEE_OTHER, DONE_PATH);
+      return res.redirect(SEE_OTHER, nextPath);
     },
   };
 }
