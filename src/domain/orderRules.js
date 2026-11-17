@@ -159,8 +159,7 @@ const emailField = z
   .string()
   .max(MAX_EMAIL_LENGTH)
   .transform((value) => value.trim())
-  .refine((value) => value === '' || (value.length <= MAX_EMAIL_LENGTH && EMAIL_PATTERN.test(value)), { message: 'invalid_email' })
-  .transform((value) => (value === '' ? null : value));
+  .refine((value) => value.length > 0 && EMAIL_PATTERN.test(value), { message: 'invalid_email' });
 
 const addressField = z
   .string()
@@ -177,7 +176,7 @@ export const checkoutSchema = z
     quantity: quantityField,
     name: z.string().max(rawLimit(MAX_CUSTOMER_NAME_LENGTH)).transform(cleanLine).refine((v) => v.length > 0 && withinCodePoints(MAX_CUSTOMER_NAME_LENGTH)(v), { message: 'invalid_name' }),
     phone: phoneField,
-    email: emailField.optional().transform((value) => value ?? null),
+    email: emailField,
     address: addressField,
   })
   .strict();

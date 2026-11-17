@@ -1,12 +1,16 @@
 import { createClaudeProbe } from './ai/claudeProbe.js';
 import { createListingGenerator } from './ai/listingGenerator.js';
 import { createTranslationGenerator } from './ai/translationGenerator.js';
+import { createEmailService } from './email/emailService.js';
+import { createOutboxWorker } from './email/outboxWorker.js';
 import { createRelayClient } from './email/relayClient.js';
 import { createRelayProbe } from './email/relayProbe.js';
 import { createSmtpProbe } from './email/smtpProbe.js';
 import { createLogger } from './lib/logger.js';
 import { createPasswordService } from './lib/password.js';
 import { createAiBudgetRepository } from './repositories/aiBudgetRepository.js';
+import { createContactRepository } from './repositories/contactRepository.js';
+import { createEmailOutboxRepository } from './repositories/emailOutboxRepository.js';
 import { createImageStorageRepository } from './repositories/imageStorageRepository.js';
 import { createProductRepository } from './repositories/productRepository.js';
 import { createPublicShopRepository } from './repositories/publicShopRepository.js';
@@ -79,8 +83,20 @@ function buildPublicShopService({ config, client, logger }) {
 }
 
 /** Orders and manual UPI payment: database functions plus the public read repository for prices and titles. */
-function buildOrderService({ client, logger }) {
-  return createOrderService({ orders: createOrderRepository({ client }), shops: createPublicShopRepository({ client }), logger });
+function buildOrderService({ config, client, logger }) {
+  return createOrderService({ orders: createOrderRepository({ client }), shops: createPublicShopRepository({ client }), logger, baseUrl: config.baseUrl });
+}
+
+/**
+ * The email outbox: the enqueue API for emails the app queues itself, and the background worker (created here, started only by
+ * the server entry). Order emails are queued by the order database functions, not by this service.
+ */
+function buildEmail({ config, client, logger, owners, relay }) {
+  const outbox = createEmailOutboxRepository({ client });
+  const contacts = createContactRepository({ client });
+  const worker = createOutboxWorker({ outbox, contacts, relay, baseUrl: config.baseUrl, logger });
+  const emails = createEmailService({ outbox, owners, logger, baseUrl: config.baseUrl, kick: worker.kick });
+  return { emails, contacts, worker };
 }
 
 /**
@@ -89,7 +105,7 @@ function buildOrderService({ client, logger }) {
  * before it accepts requests.
  * @param {ReturnType<import('./config/env.js').loadEnv>} config
  * @returns {Promise<{ diagnostics: ReturnType<typeof createDiagnosticsService>,
- *   sendTestEmail: (() => Promise<void>) | undefined,
+ *   sendTestEmail: (() => Promise<void>) | undefined, emailWorker: { start: Function, stop: Function } | null,
  *   services: { auth: ReturnType<typeof createAuthService>, sessions: ReturnType<typeof createSessionService>,
  *     stores: ReturnType<typeof createStoreService> } }>}
  */
@@ -107,6 +123,7 @@ export async function buildDependencies(config) {
   const sessions = createSessionService({ sessions: createSessionRepository({ client }), owners });
   const passwords = await createPasswordService();
   const logger = createLogger({ level: config.nodeEnv === 'test' ? 'silent' : 'info' });
+  const email = buildEmail({ config, client, logger, owners, relay });
   const translations = createStoreTranslationRepository({ client });
   const stores = createStoreService({ stores: createStoreRepository({ client }), translations });
   const services = {
@@ -114,9 +131,11 @@ export async function buildDependencies(config) {
     sessions,
     stores,
     publicShop: buildPublicShopService({ config, client, logger }),
-    orders: buildOrderService({ client, logger }),
+    orders: buildOrderService({ config, client, logger }),
+    emails: email.emails,
     ...buildTranslationServices({ config, client, logger, translations }),
     ...buildProductServices({ config, client, logger }),
   };
-  return { diagnostics: createDiagnosticsService({ probes }), sendTestEmail: smtp?.sendTest, services };
+  const emailWorker = config.emailWorkerEnabled ? email.worker : null;
+  return { diagnostics: createDiagnosticsService({ probes }), sendTestEmail: smtp?.sendTest, services, emailWorker };
 }

@@ -191,12 +191,13 @@ export function createOrderRepository({ client }) {
           title: line.title,
           title_lang: line.titleLang,
         })),
+        p_status_link: order.statusLink ?? null,
       });
     },
 
-    /** The customer's UTR, scoped by the status-token hash. */
-    submitPaymentReference(storeId, tokenHash, utr) {
-      return rpcOutcome('submit_payment_reference', { p_store_id: requireStoreId(storeId), p_token_hash: tokenHash, p_utr: utr });
+    /** The customer's UTR, scoped by the status-token hash. statusLink is the private order link, for the confirmation email. */
+    submitPaymentReference(storeId, tokenHash, utr, statusLink = null) {
+      return rpcOutcome('submit_payment_reference', { p_store_id: requireStoreId(storeId), p_token_hash: tokenHash, p_utr: utr, p_status_link: statusLink });
     },
 
     /** Owner only: outcome is paid or not_received. The owner id must own the store (checked inside the function). */

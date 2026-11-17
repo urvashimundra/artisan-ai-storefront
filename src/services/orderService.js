@@ -176,9 +176,12 @@ export function buildOwnerWhatsappLink(order, shopName) {
  * client sends only the product id, quantity and contact details: store, price, title, payee and totals are resolved here.
  * @param {{ orders: ReturnType<import('../repositories/orderRepository.js').createOrderRepository>,
  *   shops: { findShopBySlug: Function, findPublished: Function }, logger: { info: Function, warn: Function },
- *   newToken?: () => string, now?: () => number }} deps. `now` is the server clock (epoch ms), injectable for tests.
+ *   newToken?: () => string, now?: () => number, baseUrl?: string | null }} deps. `now` is the server clock (epoch ms), injectable for
+ *   tests. `baseUrl` builds the private order link that goes into the order emails (without it the link is left out).
  */
-export function createOrderService({ orders, shops, logger, newToken = generateStatusToken, now = Date.now }) {
+export function createOrderService({ orders, shops, logger, newToken = generateStatusToken, now = Date.now, baseUrl = null }) {
+  const statusLinkFor = (token) => (baseUrl ? new URL(`/o/${token}`, baseUrl).toString() : null);
+
   /** A product at stock 0 may only be held by overdue orders: release those first so it is not shown as sold out. */
   async function findFreshProduct(storeId, productId) {
     const product = await shops.findPublished(storeId, productId);
@@ -286,6 +289,7 @@ export function createOrderService({ orders, shops, logger, newToken = generateS
           deliveryAddress: form.address,
           language,
           totalPaise,
+          statusLink: statusLinkFor(token),
           lines: lines.map((line) => ({ ...line, title: title.text, titleLang: title.lang })),
         }),
       );
@@ -306,7 +310,7 @@ export function createOrderService({ orders, shops, logger, newToken = generateS
       const { order, tokenHash } = await requireOrder(token);
       const { utr } = utrSchema.parse(body ?? {});
       if (order.status === STATUS.CANCELLED && order.cancelReason === 'expired') throw REASON_ERRORS.expired();
-      ensureOk(await orders.submitPaymentReference(order.storeId, tokenHash, utr));
+      ensureOk(await orders.submitPaymentReference(order.storeId, tokenHash, utr, statusLinkFor(token)));
       logger.info('payment reference submitted', { storeId: order.storeId, orderId: order.id });
     },
 

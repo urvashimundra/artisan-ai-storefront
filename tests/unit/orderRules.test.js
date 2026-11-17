@@ -5,7 +5,7 @@ import {
   ACTORS, MAX_ADDRESS_LENGTH, MAX_QUANTITY, ORDER_STATUSES, STATUS, canTransition, checkoutSchema, customerActions, normalizeIndianMobile, ownerActions, priceOrder, utrSchema,
 } from '../../src/domain/orderRules.js';
 
-const goodForm = { quantity: '2', name: ' Test  Buyer ', phone: '98765 43210', email: '', address: '12 Test Lane' };
+const goodForm = { quantity: '2', name: ' Test  Buyer ', phone: '98765 43210', email: 'buyer@example.test', address: '12 Test Lane' };
 const product = (overrides = {}) => ({ id: 'p1', status: 'published', pricePaise: 25000, stock: null, ...overrides });
 
 describe('phone normalisation', () => {
@@ -24,7 +24,7 @@ describe('phone normalisation', () => {
 
 describe('checkoutSchema', () => {
   it('cleans and normalises a valid form', () => {
-    assert.deepEqual(checkoutSchema.parse(goodForm), { quantity: 2, name: 'Test Buyer', phone: '919876543210', email: null, address: '12 Test Lane' });
+    assert.deepEqual(checkoutSchema.parse(goodForm), { quantity: 2, name: 'Test Buyer', phone: '919876543210', email: 'buyer@example.test', address: '12 Test Lane' });
   });
 
   it('enforces the quantity bounds 1 to 20 and whole numbers', () => {
@@ -54,6 +54,9 @@ describe('checkoutSchema', () => {
     assert.equal(checkoutSchema.safeParse({ ...goodForm, name: 'x'.repeat(81) }).success, false);
     assert.equal(checkoutSchema.safeParse({ ...goodForm, phone: '123' }).success, false);
     assert.equal(checkoutSchema.safeParse({ ...goodForm, email: 'not-an-email' }).success, false);
+    for (const missing of ['', '   ']) assert.equal(checkoutSchema.safeParse({ ...goodForm, email: missing }).success, false, 'the email is required');
+    assert.equal(checkoutSchema.safeParse({ phone: goodForm.phone, quantity: '1', name: 'A', address: 'B' }).success, false, 'a missing email key is refused');
+    assert.equal(checkoutSchema.safeParse({ ...goodForm, email: 'a@b.co\r\nBcc: x@y.co' }).success, false, 'CR and LF are refused');
     assert.equal(checkoutSchema.parse({ ...goodForm, email: 'a@b.co' }).email, 'a@b.co');
     assert.equal(checkoutSchema.safeParse({ ...goodForm, address: 'x'.repeat(301) }).success, false);
     assert.equal(checkoutSchema.parse({ ...goodForm, address: 'x'.repeat(MAX_ADDRESS_LENGTH) }).address.length, MAX_ADDRESS_LENGTH);

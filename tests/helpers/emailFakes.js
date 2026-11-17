@@ -29,6 +29,11 @@ export function createFakeOutbox({ clock }) {
     failNextEnqueue: false,
     async enqueue(email) {
       if (outbox.failNextEnqueue) throw new Error('outbox down');
+      return outbox.enqueueNow(email);
+    },
+
+    /** The synchronous core of enqueue, used by the fake order repository inside its "transaction". */
+    enqueueNow(email) {
       if (rows.some((r) => r.dedupeKey === email.dedupeKey)) return 'duplicate';
       const reason = limitReason(email.kind, email.toEmail);
       if (reason) return reason;
@@ -44,7 +49,7 @@ export function createFakeOutbox({ clock }) {
     enqueueForOrder({ order, shop, ownerEmail, kind, suffix = null, link = null }) {
       const to = isSeller(kind) ? ownerEmail : order.customerEmail;
       if (!to) return 'skipped';
-      return outbox.enqueue({
+      return outbox.enqueueNow({
         storeId: order.storeId, kind, toEmail: to, language: isSeller(kind) ? 'en' : order.language, subject: '', body: '',
         payload: { reference: order.reference, shop: shop.name, slug: shop.slug, link }, dedupeKey: `${kind}:${order.id}${suffix === null ? '' : `:${suffix}`}`,
       });

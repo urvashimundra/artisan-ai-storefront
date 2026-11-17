@@ -10,10 +10,11 @@ const EXIT_FORCED = 1;
  *   logger: { info: Function, error: Function },
  *   exit?: (code: number) => void,
  *   timeoutMs?: number,
+ *   onShutdown?: () => Promise<void> | void,
  * }} deps
  * @returns {(signal: string) => void}
  */
-export function createShutdownHandler({ server, logger, exit = process.exit, timeoutMs = SHUTDOWN_TIMEOUT_MS }) {
+export function createShutdownHandler({ server, logger, exit = process.exit, timeoutMs = SHUTDOWN_TIMEOUT_MS, onShutdown }) {
   let shuttingDown = false;
   return (signal) => {
     if (shuttingDown) return;
@@ -27,7 +28,12 @@ export function createShutdownHandler({ server, logger, exit = process.exit, tim
     server.close((error) => {
       clearTimeout(forceTimer);
       if (error) logger.error('shutdown error', { err: error });
-      exit(error ? EXIT_FORCED : EXIT_OK);
+      const code = error ? EXIT_FORCED : EXIT_OK;
+      if (!onShutdown) return exit(code);
+      Promise.resolve()
+        .then(onShutdown)
+        .catch((stopError) => logger.error('shutdown hook failed', { err: stopError }))
+        .finally(() => exit(code));
     });
     server.closeIdleConnections();
   };

@@ -26,6 +26,22 @@ describe('shutdown handler', () => {
     assert.equal(server.listening, false);
   });
 
+  it('runs the onShutdown hook (the email worker stop) before exiting, and still exits if it fails', async () => {
+    const order = [];
+    const server = await listen();
+    const code = await new Promise((resolve) => {
+      const onShutdown = async () => { order.push('hook'); };
+      createShutdownHandler({ server, logger: silentLogger, exit: (value) => { order.push('exit'); resolve(value); }, onShutdown })('SIGTERM');
+    });
+    assert.equal(code, 0);
+    assert.deepEqual(order, ['hook', 'exit']);
+    const failing = await listen();
+    const failedCode = await new Promise((resolve) => {
+      createShutdownHandler({ server: failing, logger: silentLogger, exit: resolve, onShutdown: async () => { throw new Error('stop failed'); } })('SIGTERM');
+    });
+    assert.equal(failedCode, 0);
+  });
+
   it('is idempotent when signalled twice', async () => {
     const server = await listen();
     const exits = [];

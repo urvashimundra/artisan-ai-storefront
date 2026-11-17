@@ -1,9 +1,11 @@
 import { randomUUID } from 'node:crypto';
+import { EMAIL_KINDS } from '../../src/domain/emailRules.js';
 import { MAX_UTR_SUBMISSIONS, ORDER_EXPIRY_MINUTES, ORDER_RESUBMIT_MINUTES, STATUS, canTransition } from '../../src/domain/orderRules.js';
 import { requireStoreId } from '../../src/repositories/requireStoreId.js';
 import { createOrderService } from '../../src/services/orderService.js';
 import { createLogCollector } from './productFakes.js';
-import { createFakePublicRepo, startPublicApp } from './publicFakes.js';
+import { createFakeOutbox } from './emailFakes.js';
+import { PUBLIC_BASE_URL, createFakePublicRepo, startPublicApp } from './publicFakes.js';
 
 const MS_PER_MINUTE = 60_000;
 const fail = (reason) => ({ ok: false, reason, already: false, orderId: null, reference: null, expiresAt: null });
@@ -13,10 +15,13 @@ const done = (extra = {}) => ({ ok: true, reason: null, already: false, orderId:
  * In-memory order repository with the real repository's interface and the rules of the migration 008 functions (the SQL
  * itself is verified by db/test, not here). Every method needs the store id; a token hash is the only customer key.
  * Raw tokens are never seen: only hashes are stored.
+ * When an `outbox` is given, every successful transition queues its email in the same step, exactly where the migration 010
+ * functions do (and a refused transition queues nothing). `ownerEmailOf(storeId)` is the owner's ACCOUNT email.
  * @param {{ publicRepo: ReturnType<typeof createFakePublicRepo>, ownsStore: (storeId: string, ownerId: string) => boolean,
- *   clock: { now: number } }} deps
+ *   clock: { now: number }, outbox?: ReturnType<import('./emailFakes.js').createFakeOutbox> | null,
+ *   ownerEmailOf?: (storeId: string) => string | null }} deps
  */
-export function createFakeOrderRepo({ publicRepo, ownsStore, clock }) {
+export function createFakeOrderRepo({ publicRepo, ownsStore, clock, outbox = null, ownerEmailOf = () => null }) {
   const orders = [];
   const counters = new Map();
   const calls = [];
@@ -26,6 +31,11 @@ export function createFakeOrderRepo({ publicRepo, ownsStore, clock }) {
   const windowEnd = (minutes = ORDER_EXPIRY_MINUTES) => new Date(clock.now + minutes * MS_PER_MINUTE).toISOString();
   const isOverdue = (order) => order.expiresAt !== null && Date.parse(order.expiresAt) <= clock.now;
 
+  function queueEmail(order, kind, { suffix = null, link = null } = {}) {
+    const shop = publicRepo.shops.find((s) => s.id === order.storeId);
+    outbox?.enqueueForOrder({ order, shop, ownerEmail: ownerEmailOf(order.storeId), kind, suffix, link });
+  }
+
   function cancelLocked(order, reason) {
     if (order.stockRestoredAt || [STATUS.PAID, STATUS.CANCELLED].includes(order.status)) return false;
     Object.assign(order, { status: STATUS.CANCELLED, cancelReason: reason, expiresAt: null, stockRestoredAt: new Date(clock.now).toISOString() });
@@ -33,6 +43,7 @@ export function createFakeOrderRepo({ publicRepo, ownsStore, clock }) {
       const product = productOf(order.storeId, item.productId);
       if (product && product.stock !== null) product.stock += item.quantity;
     }
+    queueEmail(order, reason === 'expired' ? EMAIL_KINDS.ORDER_EXPIRED : EMAIL_KINDS.ORDER_CANCELLED);
     return true;
   }
 
@@ -83,10 +94,11 @@ export function createFakeOrderRepo({ publicRepo, ownsStore, clock }) {
       };
       for (const item of order.items.filter((line) => line.stockReserved)) productOf(storeId, item.productId).stock -= item.quantity;
       orders.push(order);
+      queueEmail(order, EMAIL_KINDS.ORDER_PLACED, { link: input.statusLink ?? null });
       return done({ orderId: order.id, reference: order.reference, expiresAt: order.expiresAt });
     },
 
-    async submitPaymentReference(storeId, tokenHash, utr) {
+    async submitPaymentReference(storeId, tokenHash, utr, statusLink = null) {
       calls.push('submitPaymentReference');
       const order = inStore(storeId).find((o) => o.tokenHash === tokenHash);
       if (!order) return fail('not_found');
@@ -97,6 +109,8 @@ export function createFakeOrderRepo({ publicRepo, ownsStore, clock }) {
       if (attemptsInStore(storeId, utr)) return fail('utr_in_use');
       order.attempts.push({ utr, createdAt: new Date(clock.now).toISOString() });
       Object.assign(order, { status: STATUS.PAYMENT_SUBMITTED, utr, utrSubmissions: order.utrSubmissions + 1, expiresAt: null });
+      queueEmail(order, EMAIL_KINDS.ORDER_PAYMENT_RECEIVED, { suffix: order.utrSubmissions, link: statusLink });
+      queueEmail(order, EMAIL_KINDS.SELLER_PAYMENT_SUBMITTED, { suffix: order.utrSubmissions });
       return done();
     },
 
@@ -109,6 +123,8 @@ export function createFakeOrderRepo({ publicRepo, ownsStore, clock }) {
       Object.assign(order, outcome === STATUS.PAID
         ? { status: STATUS.PAID, paidAt: new Date(clock.now).toISOString(), expiresAt: null }
         : { status: STATUS.NOT_RECEIVED, expiresAt: windowEnd(ORDER_RESUBMIT_MINUTES) });
+      if (outcome === STATUS.PAID) queueEmail(order, EMAIL_KINDS.ORDER_CONFIRMED);
+      else queueEmail(order, EMAIL_KINDS.ORDER_PAYMENT_NOT_FOUND, { suffix: order.utrSubmissions });
       return done();
     },
 
@@ -153,13 +169,18 @@ export function createFakeOrderRepo({ publicRepo, ownsStore, clock }) {
  * helpers plus the fake order repository, the public fake repository and a mutable clock.
  */
 export async function startOrderApp({ config = {}, appOptions = {}, tokens = null } = {}) {
+  const outbox = createFakeOutbox({ clock: { get now() { return clock.now; } } });
   const repo = createFakePublicRepo();
   const clock = { now: Date.parse('2026-11-16T10:00:00Z') };
   const logs = createLogCollector();
   let app;
   const ownsStore = (storeId, ownerId) => app.storesRepo.rows.some((row) => row.id === storeId && row.ownerId === ownerId);
-  const orderRepo = createFakeOrderRepo({ publicRepo: repo, ownsStore, clock });
-  const orders = createOrderService({ orders: orderRepo, shops: repo, logger: logs, now: () => clock.now, ...(tokens ? { newToken: tokens } : {}) });
+  const ownerEmailOf = (storeId) => {
+    const ownerId = app.storesRepo.rows.find((row) => row.id === storeId)?.ownerId;
+    return app.ownersRepo.rows.find((row) => row.id === ownerId)?.email ?? null;
+  };
+  const orderRepo = createFakeOrderRepo({ publicRepo: repo, ownsStore, clock, outbox, ownerEmailOf });
+  const orders = createOrderService({ orders: orderRepo, shops: repo, logger: logs, now: () => clock.now, baseUrl: PUBLIC_BASE_URL, ...(tokens ? { newToken: tokens } : {}) });
   app = await startPublicApp({ config, appOptions, repo, extraServices: { orders } });
-  return { ...app, orderRepo, orders, orderClock: clock, orderLogs: logs };
+  return { ...app, orderRepo, orders, orderClock: clock, orderLogs: logs, outbox };
 }

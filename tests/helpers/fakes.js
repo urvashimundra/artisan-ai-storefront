@@ -26,7 +26,7 @@ export function createFakeOwners({ precheckBarrier = 0 } = {}) {
   let arrivals = 0;
   let open;
   const gate = new Promise((resolve) => (open = resolve));
-  const view = (row) => (row ? { id: row.id, passwordHash: row.passwordHash, isDemo: row.isDemo } : null);
+  const view = (row) => (row ? { id: row.id, email: row.email, passwordHash: row.passwordHash, isDemo: row.isDemo } : null);
   return {
     rows,
     calls,

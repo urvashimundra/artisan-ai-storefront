@@ -126,7 +126,7 @@ $$;
 
 -- email_enqueue_order --------------------------------------------------------------------------
 -- Queues the email for one order event, inside the caller's transaction. Customer kinds go to orders.customer_email in the order's
--- language (an order without an email address queues nothing). seller_* kinds go to the owner's ACCOUNT email, in English.
+-- language (an order without a usable email address queues nothing). seller_* kinds go to the owner's ACCOUNT email, in English.
 -- p_suffix makes the dedupe key unique for a state that can repeat (for example the payment attempt number).
 -- p_link is the customer's private order link, known only to the app, passed on by place_order and submit_payment_reference.
 CREATE OR REPLACE FUNCTION public.email_enqueue_order(p_order_id uuid, p_kind text, p_suffix text, p_link text) RETURNS text
@@ -145,7 +145,7 @@ BEGIN
   SELECT s.name AS name, s.slug AS slug, ow.email AS owner_email INTO v_shop
     FROM public.stores s JOIN public.owners ow ON ow.id = s.owner_id WHERE s.id = v_order.store_id;
   v_to := CASE WHEN v_seller THEN v_shop.owner_email ELSE v_order.customer_email END;
-  IF v_to IS NULL THEN
+  IF v_to IS NULL OR char_length(v_to) > 254 OR v_to !~ '^[^@[:space:]]+@[^@[:space:]]+$' THEN
     RETURN 'skipped';
   END IF;
   RETURN public.email_enqueue(

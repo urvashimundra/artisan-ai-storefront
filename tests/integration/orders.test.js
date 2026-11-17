@@ -3,43 +3,16 @@ import { describe, it } from 'node:test';
 import { PUBLIC_STRINGS } from '../../src/domain/publicStrings.js';
 import { hashStatusToken } from '../../src/lib/statusToken.js';
 import { STORE_FORM, signupAndLogin } from '../helpers/appHarness.js';
-import { startOrderApp } from '../helpers/orderFakes.js';
+import { FORM, setup } from '../helpers/orderApp.js';
 
 const EN = PUBLIC_STRINGS.en;
 const GU = PUBLIC_STRINGS.gu;
-const FORM = { quantity: '2', name: 'Test Buyer', phone: '98765 43210', email: '', address: '12 Test Lane, Ahmedabad' };
 const UTR1 = '123456789012';
 const UTR2 = '210987654321';
 const UTR3 = '111111111111';
 const UTR4 = '222222222222';
 const EVIL_ORIGIN = 'http://evil.example';
 const OWNER_PRIVACY = ['Test Buyer', '919876543210', '98765 43210', 'test-address-line'];
-
-/** An app with one owner (logged in), one shop with a UPI ID and WhatsApp, and one product (stock 5, Rs 250). */
-async function setup(options = {}) {
-  const app = await startOrderApp(options);
-  const cookie = await signupAndLogin(app);
-  await app.request('/store/new', { method: 'POST', cookie, form: STORE_FORM });
-  const store = app.storesRepo.rows[0];
-  const shop = app.repo.addShop({
-    id: store.id, ownerId: store.ownerId, slug: store.slug, name: store.name, defaultLanguage: 'en', upiId: 'clay@okbank',
-    whatsappNumber: '919123456780', whatsappEnabled: true, ...options.shop,
-  });
-  const product = app.repo.addProduct(shop, { pricePaise: 25000, stock: 5 });
-  const buyPath = (target = product, query = '') => `/s/${shop.slug}/p/${target.id}/buy${query}`;
-  const buy = (form = FORM, extra = {}) => app.request(buyPath(), { method: 'POST', form, ...extra });
-  const place = async (form = FORM) => {
-    const res = await buy(form);
-    assert.equal(res.status, 303, res.text.slice(0, 200));
-    return res.location.slice('/o/'.length);
-  };
-  const status = (token, extra = {}) => app.request(`/o/${token}`, extra);
-  const postTo = (token, action, form = {}, extra = {}) => app.request(`/o/${token}/${action}`, { method: 'POST', form, ...extra });
-  const orderIdOf = (token) => app.orderRepo.orders.find((o) => o.tokenHash === hashStatusToken(token)).id;
-  const owner = (path, extra = {}) => app.request(path, { cookie, ...extra });
-  const ownerPost = (token, action) => owner(`/orders/${orderIdOf(token)}/${action}`, { method: 'POST' });
-  return { ...app, cookie, store, shop, product, buyPath, buy, place, status, postTo, orderIdOf, owner, ownerPost };
-}
 
 describe('buy now and placing an order', () => {
   it('shows Buy now only when the store has a valid UPI ID and the product is in stock', async () => {

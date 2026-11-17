@@ -303,3 +303,14 @@ describe('retention', () => {
     assert.deepEqual(outbox.rows.map((r) => r.id), [youngSent.id], 'repeated the next day (the old queued row was due, sent, then purged)');
   });
 });
+
+describe('worker lifecycle wiring', () => {
+  it('only the server entry starts the worker, and the composition only builds it', async () => {
+    const { readdirSync, readFileSync } = await import('node:fs');
+    const { fileURLToPath } = await import('node:url');
+    const root = fileURLToPath(new URL('../../src/', import.meta.url));
+    const files = readdirSync(root, { recursive: true }).filter((file) => file.endsWith('.js'));
+    const starters = files.filter((file) => /[wW]orker\??\.start\(/.test(readFileSync(`${root}${file}`, 'utf8')));
+    assert.deepEqual(starters, ['server.js']);
+  });
+});

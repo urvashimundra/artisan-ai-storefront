@@ -20,12 +20,13 @@ function loadConfigOrExit() {
 async function start() {
   const config = loadConfigOrExit();
   const logger = createLogger({ level: config.nodeEnv === 'test' ? 'silent' : 'info' });
-  const { diagnostics, services } = await buildDependencies(config);
+  const { diagnostics, services, emailWorker } = await buildDependencies(config);
   const app = createApp({ config, logger, diagnostics, services });
   const server = app.listen(config.port, () => {
     logger.info('server listening', { port: config.port, nodeEnv: config.nodeEnv });
   });
-  const shutdown = createShutdownHandler({ server, logger });
+  emailWorker?.start();
+  const shutdown = createShutdownHandler({ server, logger, onShutdown: () => emailWorker?.stop() });
   for (const signal of SHUTDOWN_SIGNALS) process.on(signal, () => shutdown(signal));
 }
 

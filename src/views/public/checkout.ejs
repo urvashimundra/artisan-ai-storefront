@@ -48,8 +48,9 @@
 <% if (checkout.errors.phone) { %>              <p id="phone-error" class="field-error"><%= checkout.errors.phone %></p>
 <% } %>            </div>
             <div class="field field-wide">
-              <label for="email"><%= strings.yourEmail %> <span class="optional"><%= strings.optionalField %></span></label>
-              <input type="email" id="email" name="email" maxlength="254" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" value="<%= checkout.values.email || '' %>"<% if (checkout.errors.email) { %> aria-invalid="true" aria-describedby="email-error"<% } %>>
+              <label for="email"><%= strings.yourEmail %></label>
+              <input type="email" id="email" name="email" maxlength="254" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" required value="<%= checkout.values.email || '' %>" aria-describedby="email-hint<%= checkout.errors.email ? ' email-error' : '' %>"<% if (checkout.errors.email) { %> aria-invalid="true"<% } %>>
+              <p id="email-hint" class="hint"><%= strings.emailHint %></p>
 <% if (checkout.errors.email) { %>              <p id="email-error" class="field-error"><%= checkout.errors.email %></p>
 <% } %>            </div>
           </div>
