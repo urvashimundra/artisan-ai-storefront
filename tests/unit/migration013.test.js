@@ -53,6 +53,7 @@ describe('migration 013 text', () => {
     assert.match(migration, /UNIQUE \(store_id, start_key\)/);
     const sql = code(migration);
     for (const match of sql.matchAll(/FROM public\.conversations\s+WHERE ([^;]*?)(FOR UPDATE|;|\n\s*IF)/g)) {
+      if (match[1].includes('v_cutoff')) continue; // the retention purge is the one deliberately cross-store job
       assert.match(match[1], /store_id = /, `unscoped conversations lookup: ${match[1]}`);
     }
   });
