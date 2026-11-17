@@ -112,3 +112,30 @@ export const EMAIL_INDEXES = Object.freeze([
 ]);
 
 export const EMAIL_FUNCTIONS = Object.freeze(['email_enqueue', 'email_enqueue_order', 'claim_due_emails', 'finish_email']);
+
+/** Module 6 (migration 012) constraint, index and table names. Mirrored in db/migrations/012_assistant.sql. */
+export const ASSISTANT_CONSTRAINTS = Object.freeze({
+  knowledgePkey: 'store_knowledge_pkey',
+  knowledgeStoreFkey: 'store_knowledge_store_fkey',
+  knowledgeContent: 'store_knowledge_content_length_check',
+  knowledgeBulkRules: 'store_knowledge_bulk_rules_check',
+  enquiryPkey: 'enquiries_pkey',
+  enquiryStoreFkey: 'enquiries_store_fkey',
+  enquiryProductFkey: 'enquiries_product_fkey',
+  enquiryTokenHash: 'enquiries_token_hash_key',
+  enquiryLanguage: 'enquiries_language_check',
+  enquiryCustomerName: 'enquiries_customer_name_check',
+  enquiryCustomerPhone: 'enquiries_customer_phone_check',
+  enquiryQuestion: 'enquiries_question_check',
+  enquiryStatus: 'enquiries_status_check',
+  enquiryAnswerText: 'enquiries_answer_text_check',
+  enquiryAnsweredHasAnswer: 'enquiries_answered_has_answer_check',
+  enquiryFlagReason: 'enquiries_flag_reason_check',
+  enquiryTrace: 'enquiries_trace_check',
+  enquirySellerReply: 'enquiries_seller_reply_check',
+  enquiryReplyPair: 'enquiries_reply_pair_check',
+  enquiryTokenHashFormat: 'enquiries_token_hash_format_check',
+  enquiryTokenEnc: 'enquiries_token_enc_check',
+});
+
+export const ASSISTANT_INDEXES = Object.freeze(['enquiries_store_status_created_idx', 'enquiries_store_phone_created_idx']);
