@@ -40,6 +40,13 @@
       <h2 id="contact-heading">Contact and payments</h2>
 <%- include('partials/contact-fields') %>
     </section>
+    <section class="stack" aria-labelledby="notify-heading">
+      <h2 id="notify-heading">Email notifications</h2>
+      <div class="field">
+        <label for="notifyEnquiryEmail"><input type="checkbox" id="notifyEnquiryEmail" name="notifyEnquiryEmail" value="on"<%= values.notifyEnquiryEmail ? ' checked' : '' %> aria-describedby="notifyEnquiryEmail-hint"> Email me when a customer enquiry needs me</label>
+        <p id="notifyEnquiryEmail-hint" class="hint">We send it to your account email address. You always get an email when a customer sends a payment reference.</p>
+      </div>
+    </section>
       <div><button type="submit" class="button">Save settings</button> <a href="/dashboard">Back to dashboard</a></div>
     </form>
     <section class="stack" aria-labelledby="translations-heading">

@@ -2,7 +2,7 @@ import { throwIfError } from './pgErrors.js';
 import { requireStoreId } from './requireStoreId.js';
 
 const STORE_COLUMNS =
-  'id, owner_id, slug, name, default_language, story, contact_email, tagline, accent_key, whatsapp_number, whatsapp_enabled, instagram_handle, upi_id, created_at, updated_at';
+  'id, owner_id, slug, name, default_language, story, contact_email, tagline, accent_key, whatsapp_number, whatsapp_enabled, instagram_handle, upi_id, notify_enquiry_email, created_at, updated_at';
 
 const toStore = (row) =>
   row
@@ -20,6 +20,7 @@ const toStore = (row) =>
         whatsappEnabled: row.whatsapp_enabled,
         instagramHandle: row.instagram_handle,
         upiId: row.upi_id,
+        notifyEnquiryEmail: row.notify_enquiry_email,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
       }
@@ -54,7 +55,7 @@ export function createStoreRepository({ client }) {
      * Single UPDATE of the storefront settings, scoped by the store id the caller resolved from the session.
      * @param {string} storeId
      * @param {{ tagline: string, story: string, accentKey: string, whatsappNumber: string | null, whatsappEnabled: boolean,
-     *   instagramHandle: string | null, upiId: string | null }} settings Already validated.
+     *   instagramHandle: string | null, upiId: string | null, notifyEnquiryEmail: boolean }} settings Already validated.
      * @returns {Promise<ReturnType<typeof toStore>>} null when the store no longer exists.
      */
     async updateSettings(storeId, settings) {
@@ -67,6 +68,7 @@ export function createStoreRepository({ client }) {
         whatsapp_enabled: settings.whatsappEnabled,
         instagram_handle: settings.instagramHandle,
         upi_id: settings.upiId,
+        notify_enquiry_email: settings.notifyEnquiryEmail,
         updated_at: new Date().toISOString(),
       };
       const query = client.from('stores').update(changes).eq('id', storeId).select(STORE_COLUMNS);

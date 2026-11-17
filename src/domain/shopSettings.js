@@ -19,10 +19,11 @@ const story = z
 
 /**
  * Owner shop-settings form. Strict: unknown keys (including store_id) are rejected. Output is camelCase and ready to
- * store: whatsappNumber is digits or null, instagramHandle has no @, empty optional fields are null.
+ * store: whatsappNumber is digits or null, instagramHandle has no @, empty optional fields are null. notifyEnquiryEmail is the
+ * "email me when a customer enquiry needs me" checkbox (an absent checkbox means false).
  */
 export const shopSettingsSchema = requireNumberForWhatsapp(
-  z.object({ tagline, story, accentKey: z.enum(ACCENT_KEYS), ...contactFields }).strict(),
+  z.object({ tagline, story, accentKey: z.enum(ACCENT_KEYS), ...contactFields, notifyEnquiryEmail: checkbox }).strict(),
 );
 
 /**

@@ -186,16 +186,16 @@ describe('seo helpers', () => {
 });
 
 describe('shopSettingsSchema', () => {
-  const valid = { tagline: ' Handmade  clay ', story: ' Our story.\r\nSecond line. ', accentKey: 'teal', whatsappNumber: '98765 43210', whatsappEnabled: 'on', instagramHandle: '@mati.rang', upiId: ' asha@okhdfc ' };
+  const valid = { tagline: ' Handmade  clay ', story: ' Our story.\r\nSecond line. ', accentKey: 'teal', whatsappNumber: '98765 43210', whatsappEnabled: 'on', instagramHandle: '@mati.rang', upiId: ' asha@okhdfc ', notifyEnquiryEmail: 'on' };
   it('normalises valid input', () => {
     assert.deepEqual(shopSettingsSchema.parse(valid), {
       tagline: 'Handmade clay', story: 'Our story.\nSecond line.', accentKey: 'teal', whatsappNumber: '919876543210', whatsappEnabled: true,
-      instagramHandle: 'mati.rang', upiId: 'asha@okhdfc',
+      instagramHandle: 'mati.rang', upiId: 'asha@okhdfc', notifyEnquiryEmail: true,
     });
   });
   it('turns empty optionals into null and an absent checkbox into false', () => {
     const out = shopSettingsSchema.parse({ tagline: '', story: 's', accentKey: 'plum', whatsappNumber: '', instagramHandle: '', upiId: '' });
-    assert.deepEqual(out, { tagline: '', story: 's', accentKey: 'plum', whatsappNumber: null, whatsappEnabled: false, instagramHandle: null, upiId: null });
+    assert.deepEqual(out, { tagline: '', story: 's', accentKey: 'plum', whatsappNumber: null, whatsappEnabled: false, instagramHandle: null, upiId: null, notifyEnquiryEmail: false });
   });
   it('rejects unknown keys, including store_id', () => {
     assert.equal(shopSettingsSchema.safeParse({ ...valid, store_id: 'x' }).success, false);

@@ -97,7 +97,7 @@ export function createFakeStores() {
       if (rows.some((row) => row.slug === slug)) throw new UniqueViolation(STORES_SLUG_KEY);
       const row = {
         id: randomUUID(), ownerId, slug, name, defaultLanguage, story, contactEmail: null, tagline, accentKey,
-        whatsappNumber: null, whatsappEnabled: false, instagramHandle: null, upiId: null, updatedAt: new Date().toISOString(),
+        whatsappNumber: null, whatsappEnabled: false, instagramHandle: null, upiId: null, notifyEnquiryEmail: true, updatedAt: new Date().toISOString(),
       };
       rows.push(row);
       return row;

@@ -28,6 +28,7 @@ export const CONTACT_TEXT_FIELDS = ['whatsappNumber', 'instagramHandle', 'upiId'
 
 /** Contact form values from a stored shop. */
 export const contactValuesFromStore = (store) => ({
+  notifyEnquiryEmail: store.notifyEnquiryEmail,
   whatsappNumber: store.whatsappNumber ?? '',
   whatsappEnabled: store.whatsappEnabled,
   instagramHandle: store.instagramHandle ?? '',
@@ -38,4 +39,5 @@ export const contactValuesFromStore = (store) => ({
 export const contactValuesFromBody = (body) => ({
   ...echoValues(body, CONTACT_TEXT_FIELDS, MAX_ECHO_LENGTH),
   whatsappEnabled: body?.whatsappEnabled === 'on',
+  notifyEnquiryEmail: body?.notifyEnquiryEmail === 'on',
 });

@@ -74,7 +74,9 @@ export function createStoreService({ stores, translations }) {
       const contact = contactSchema.parse(rawInput);
       const store = await stores.findByOwnerId(ownerId);
       if (!store) throw notFound('Store not found');
-      return applySettings(store, { tagline: store.tagline, story: store.story, accentKey: store.accentKey, ...contact });
+      return applySettings(store, {
+        tagline: store.tagline, story: store.story, accentKey: store.accentKey, notifyEnquiryEmail: store.notifyEnquiryEmail, ...contact,
+      });
     },
   };
 }

@@ -120,3 +120,54 @@ describe('shop settings page', () => {
     });
   });
 });
+
+describe('enquiry email setting', () => {
+  it('is a labelled checkbox, ticked by default, described by a hint', async () => {
+    await withOwners(async ({ app, cookieA }) => {
+      const page = await app.request('/store/settings', { cookie: cookieA });
+      assert.match(page.text, /<label for="notifyEnquiryEmail"><input type="checkbox" id="notifyEnquiryEmail" name="notifyEnquiryEmail" value="on" checked aria-describedby="notifyEnquiryEmail-hint"> Email me when a customer enquiry needs me<\/label>/);
+      assert.match(page.text, /id="notifyEnquiryEmail-hint" class="hint">/);
+    });
+  });
+
+  it('saves on and off for the session store only, as part of the one settings update', async () => {
+    await withOwners(async ({ app, cookieA, storeA, storeB }) => {
+      assert.equal((await post(app, cookieA, VALID)).status, 303);
+      assert.equal(storeA.notifyEnquiryEmail, false, 'an unticked box is saved as off');
+      assert.equal(storeB.notifyEnquiryEmail, true, 'the other store is untouched');
+      const page = await app.request('/store/settings', { cookie: cookieA });
+      assert.doesNotMatch(page.text, /name="notifyEnquiryEmail" value="on" checked/);
+      assert.equal((await post(app, cookieA, { ...VALID, notifyEnquiryEmail: 'on' })).status, 303);
+      assert.equal(storeA.notifyEnquiryEmail, true);
+    });
+  });
+
+  it('rejects values other than on, and a smuggled store id, without changing anything', async () => {
+    await withOwners(async ({ app, cookieA, storeA, storeB }) => {
+      assert.equal((await post(app, cookieA, { ...VALID, notifyEnquiryEmail: 'yes' })).status, 400);
+      assert.equal((await post(app, cookieA, { ...VALID, notifyEnquiryEmail: 'on', store_id: storeB.id })).status, 400);
+      assert.equal(storeA.notifyEnquiryEmail, true);
+      assert.equal(storeB.notifyEnquiryEmail, true);
+    });
+  });
+
+  it('keeps what the owner ticked when another field fails validation', async () => {
+    await withOwners(async ({ app, cookieA }) => {
+      const res = await post(app, cookieA, { ...VALID, upiId: 'bad upi' });
+      assert.equal(res.status, 400);
+      assert.doesNotMatch(res.text, /name="notifyEnquiryEmail" value="on" checked/);
+    });
+  });
+});
+
+describe('enquiry email setting and onboarding step 2', () => {
+  it('saving the contact step leaves the owner choice as it was', async () => {
+    await withOwners(async ({ app, cookieA, storeA }) => {
+      await post(app, cookieA, VALID);
+      assert.equal(storeA.notifyEnquiryEmail, false);
+      const res = await app.request('/store/new/contact', { method: 'POST', cookie: cookieA, form: { whatsappNumber: '', instagramHandle: '', upiId: '' } });
+      assert.equal(res.status, 303);
+      assert.equal(storeA.notifyEnquiryEmail, false);
+    });
+  });
+});
