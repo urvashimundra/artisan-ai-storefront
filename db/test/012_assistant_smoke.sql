@@ -118,8 +118,8 @@ BEGIN
 
   -- trace: array of at most 12 strings ----------------------------------------------------------------------------
   PERFORM pg_temp.accepts(format(v_upd, 'trace = ''["a","b"]''::jsonb'), 'trace two strings');
-  PERFORM pg_temp.accepts(format(v_upd, 'trace = (SELECT jsonb_agg(''s'') FROM generate_series(1, 12))'), 'trace 12 items');
-  PERFORM pg_temp.rejects(format(v_upd, 'trace = (SELECT jsonb_agg(''s'') FROM generate_series(1, 13))'), 'enquiries_trace_check', 'trace 13 items');
+ PERFORM pg_temp.accepts(format(v_upd, 'trace = (SELECT jsonb_agg(''s''::text) FROM generate_series(1, 12))'), 'trace 12 items');
+  PERFORM pg_temp.rejects(format(v_upd, 'trace = (SELECT jsonb_agg(''s''::text) FROM generate_series(1, 13))'), 'enquiries_trace_check', 'trace 13 items');
   PERFORM pg_temp.rejects(format(v_upd, 'trace = ''{"a":1}''::jsonb'), 'enquiries_trace_check', 'trace object');
   PERFORM pg_temp.rejects(format(v_upd, 'trace = ''["a", 2]''::jsonb'), 'enquiries_trace_check', 'trace with a number');
   PERFORM pg_temp.rejects(format(v_upd, 'trace = NULL'), 'trace', 'trace null');
