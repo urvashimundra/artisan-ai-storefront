@@ -3,6 +3,7 @@ import {
   WORKER_INTERVAL_MS, WORKER_LEASE_SECONDS, orderPayloadSchema,
 } from '../domain/emailRules.js';
 import { renderEmail } from '../domain/emailTemplates.js';
+import { absoluteUrl } from '../domain/seo.js';
 import { RELAY_REFUSED, RelayError } from './relayClient.js';
 
 const HTTP_SERVER_ERROR = 500;
@@ -29,7 +30,7 @@ export function retryDelaySeconds(attempts) {
 /** The customer's private order link, or null when there is no key or the stored value does not decrypt (older orders). */
 function privateLink(encrypted, baseUrl, linkCipher) {
   const token = encrypted && linkCipher ? linkCipher.decrypt(encrypted) : null;
-  return token ? new URL(`/o/${token}`, baseUrl).toString() : null;
+  return token ? absoluteUrl(baseUrl, `/o/${token}`) : null;
 }
 
 /** Rows queued by the order functions carry no text: it is rendered here, at send time, from the payload and the language. */

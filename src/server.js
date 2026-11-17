@@ -20,6 +20,7 @@ function loadConfigOrExit() {
 async function start() {
   const config = loadConfigOrExit();
   const logger = createLogger({ level: config.nodeEnv === 'test' ? 'silent' : 'info' });
+  logger.info('base url configured', { baseHost: new URL(config.baseUrl).host });
   const { diagnostics, services, emailWorker } = await buildDependencies(config);
   const app = createApp({ config, logger, diagnostics, services });
   const server = app.listen(config.port, () => {

@@ -8,7 +8,7 @@
  */
 import { ORDER_EXPIRY_MINUTES, ORDER_RESUBMIT_MINUTES } from './orderRules.js';
 import { EMAIL_KINDS, MAX_BODY_LENGTH, MAX_SUBJECT_LENGTH } from './emailRules.js';
-import { shopPath } from './seo.js';
+import { absoluteUrl, shopPath } from './seo.js';
 
 /** When false every subject is written in English (a fallback if a mail client mangles non-ASCII subjects). */
 export const LOCALIZE_SUBJECTS = true;
@@ -120,7 +120,7 @@ function customerLines({ kind, language, facts, baseUrl }) {
   const common = COMMON[language];
   const values = { shop: oneLine(facts.shop), ref: oneLine(facts.reference), minutes: String(MINUTES_BY_KIND[kind] ?? ''), status: copy.status };
   const privateUrl = facts.link ? oneLine(facts.link) : null;
-  const shopUrl = new URL(shopPath(facts.slug), baseUrl).toString();
+  const shopUrl = absoluteUrl(baseUrl, shopPath(facts.slug));
   const lines = [fill(common.greeting, values), '', fill(common.orderNumber, values), fill(common.status, values), '', fill(copy.note, values), ''];
   if (privateUrl) lines.push(fill(common.privateLink, { url: privateUrl }));
   else if (!FIRST_EMAIL_KINDS.has(kind)) lines.push(common.earlierLink);
@@ -138,13 +138,13 @@ function sellerCopy(kind, facts, baseUrl) {
         `A customer sent a payment reference for order ${ref} in ${shop}.`,
         'Please check your bank app to see whether the money has arrived, then mark the order as paid or not received.',
         '',
-        `Your orders: ${new URL(OWNER_ORDERS_PATH, baseUrl).toString()}`,
+        `Your orders: ${absoluteUrl(baseUrl, OWNER_ORDERS_PATH)}`,
       ],
     };
   }
   return {
     subject: `A customer enquiry needs you: ${shop}`,
-    lines: [`A customer enquiry in ${shop} needs your reply.`, '', `Your dashboard: ${new URL(OWNER_DASHBOARD_PATH, baseUrl).toString()}`],
+    lines: [`A customer enquiry in ${shop} needs your reply.`, '', `Your dashboard: ${absoluteUrl(baseUrl, OWNER_DASHBOARD_PATH)}`],
   };
 }
 

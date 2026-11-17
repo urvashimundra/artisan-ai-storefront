@@ -55,7 +55,7 @@ describe('loadEnv', () => {
   });
 
   it('does not fail on an unknown NODE_ENV and treats it as production', () => {
-    assert.equal(loadEnv({ ...MINIMAL, NODE_ENV: 'staging' }).nodeEnv, 'production');
+    assert.equal(loadEnv({ ...MINIMAL, NODE_ENV: 'staging', BASE_URL: 'https://shop.example.test' }).nodeEnv, 'production');
     assert.equal(loadEnv({ ...MINIMAL, NODE_ENV: 'development' }).nodeEnv, 'development');
     assert.equal(loadEnv(MINIMAL).nodeEnv, 'test');
   });
@@ -139,8 +139,14 @@ describe('loadEnv', () => {
   it('derives cookie settings from BASE_URL, not NODE_ENV', () => {
     const https = loadEnv({ ...MINIMAL, NODE_ENV: 'development', BASE_URL: 'https://example.test' });
     assert.deepEqual(https.cookie, { name: '__Host-session', secure: true });
-    const http = loadEnv({ ...MINIMAL, NODE_ENV: 'production', BASE_URL: 'http://localhost:3000' });
+    const http = loadEnv({ ...MINIMAL, NODE_ENV: 'development', BASE_URL: 'http://localhost:3000' });
     assert.deepEqual(http.cookie, { name: 'session', secure: false });
+  });
+
+  it('production refuses an http BASE_URL, even on localhost, because emails and links are built from it', () => {
+    assert.deepEqual(failureOf({ ...MINIMAL, NODE_ENV: 'production', BASE_URL: 'http://localhost:3000' }).variables, ['BASE_URL']);
+    assert.deepEqual(failureOf({ ...MINIMAL, NODE_ENV: 'staging', BASE_URL: 'http://127.0.0.1:3000' }).variables, ['BASE_URL']);
+    assert.equal(loadEnv({ ...MINIMAL, NODE_ENV: 'production', BASE_URL: 'https://shop.example.test' }).baseUrl, 'https://shop.example.test');
   });
 
   it('server process exits non-zero printing names only when env is missing', async () => {

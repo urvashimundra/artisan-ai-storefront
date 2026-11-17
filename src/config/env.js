@@ -11,6 +11,7 @@ const MIN_INVITE_CODE_LENGTH = 16;
 const DEFAULT_CLAUDE_MODEL = 'claude-haiku-5-5';
 const KNOWN_NODE_ENVS = ['development', 'test', 'production'];
 const FALLBACK_NODE_ENV = 'production';
+const PRODUCTION_NODE_ENV = 'production';
 const LOCAL_HTTP_HOSTS = ['localhost', '127.0.0.1'];
 const DEFAULT_OWNER_BUDGET_USD = '1.00';
 const DEFAULT_DEMO_BUDGET_USD = '0.50';
@@ -164,6 +165,16 @@ function failingNames(result) {
   return [...new Set(result.error.issues.map((issue) => String(issue.path[0])))];
 }
 
+/**
+ * Emails and links are built from BASE_URL, so a production process must not start with an http BASE_URL.
+ * @param {{ success: boolean, data?: { NODE_ENV: string, BASE_URL: string } }} result The parsed core group.
+ * @returns {string[]} ['BASE_URL'] when production runs with a non-https BASE_URL, else [].
+ */
+function productionBaseUrlFailures(result) {
+  if (!result.success || result.data.NODE_ENV !== PRODUCTION_NODE_ENV) return [];
+  return new URL(result.data.BASE_URL).protocol === 'https:' ? [] : ['BASE_URL'];
+}
+
 function parseGroup(schema, source, keys, failures) {
   const present = pickPresent(source, keys);
   if (Object.keys(present).length === 0) return null;
@@ -187,7 +198,7 @@ function buildAllowedOrigins(core) {
  * member is set, and are then fully required. The three AI budget variables are optional with defaults (1.00 / 0.50
  * / 5.00 USD) and independent of the ai group. Cookie settings derive from BASE_URL, never NODE_ENV.
  * @param {Record<string, string | undefined>} [source] Defaults to process.env.
- * BASE_URL must be https (http only for localhost and 127.0.0.1); SUPABASE_URL must be https. An unknown NODE_ENV
+ * BASE_URL must be https (http only for localhost and 127.0.0.1, and never in production); SUPABASE_URL must be https. An unknown NODE_ENV
  * does not fail boot: it is treated as "production" (only the logger level reads it).
  * CONTACT_INBOX_EMAIL (optional) receives the contact form (OWNER_NOTIFY_EMAIL, also optional, is the fallback and the relay test address); EMAIL_WORKER_ENABLED (default true) switches the outbox worker.
  * EMAIL_RELAY_URL must be a bare http://localhost or http://127.0.0.1 origin (default http://127.0.0.1:2525).
@@ -201,7 +212,7 @@ function buildAllowedOrigins(core) {
 export function loadEnv(source = process.env) {
   const failures = [];
   const core = coreSchema.safeParse(pickPresent(source, CORE_KEYS));
-  failures.push(...failingNames(core));
+  failures.push(...failingNames(core), ...productionBaseUrlFailures(core));
   const groups = buildGroups(source, failures);
   if (failures.length > 0) throw new EnvValidationError([...new Set(failures)]);
   return {
