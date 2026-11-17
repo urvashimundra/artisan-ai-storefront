@@ -94,8 +94,11 @@ export function createEnquiryAgent({ config, createClient = (options) => new Ant
     const parsed = finalAnswerSchema.safeParse(block.input);
     if (!parsed.success) return { retry: true };
     const { outcome, text } = parsed.data;
-    const allowedPercents = await state.tools.confirmedPercents();
-    const money = resolveMoney(text, { refs: state.tools.refs, allowedPercents, maxLength: MAX_ANSWER_LENGTH - quoteNote.length - 2 });
+    const [allowedPercents, allowedNumbers] = await Promise.all([state.tools.allowedPercents(), state.tools.verifiedNumbers()]);
+    const money = resolveMoney(text, { refs: state.tools.refs, allowedPercents, allowedNumbers, maxLength: MAX_ANSWER_LENGTH - quoteNote.length - 2 });
+    if (state.tools.hasStockShortage()) {
+      return { result: { ok: true, outcome: OUTCOMES.NEEDS_SELLER, text: null, trace: finishTrace(state), steps: state.steps, charged: state.charged } };
+    }
     if (outcome === OUTCOMES.NEEDS_SELLER) {
       return { result: { ok: true, outcome, text: money.ok ? money.text : null, trace: finishTrace(state), steps: state.steps, charged: state.charged } };
     }

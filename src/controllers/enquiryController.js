@@ -1,6 +1,6 @@
 import { ZodError } from 'zod';
 import { INBOX_FILTERS, MAX_REPLY_LENGTH } from '../domain/enquiryRules.js';
-import { echoValues, fieldErrors } from './formErrors.js';
+import { echoValues } from './formErrors.js';
 import { STATUS_LABELS } from '../services/enquiryInboxService.js';
 
 const SEE_OTHER = 303;
@@ -49,7 +49,6 @@ export function createEnquiryController({ enquiries }) {
       } catch (error) {
         if (error?.httpStatus === HTTP_NOT_FOUND) return notFound(req, res);
         if (!(error instanceof ZodError)) throw error;
-        fieldErrors(error, {});
         const replyValue = echoValues(req.body, ['reply'], MAX_REPLY_LENGTH * RAW_FIELD_FACTOR).reply ?? '';
         return detailPage(req, res, HTTP_BAD_REQUEST, { replyValue, replyError: REPLY_ERROR });
       }

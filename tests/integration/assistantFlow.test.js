@@ -43,12 +43,12 @@ describe('ask the seller: saving first, then the private page', () => {
     assert.equal(row(t).status, 'pending');
   }));
 
-  it('sends the private-page headers: no-store, noindex and Referrer-Policy no-referrer', () => run({}, async (t) => {
+  it('sends the private-page headers: no-store, noindex and Referrer-Policy same-origin (never no-referrer on a page with a form)', () => run({}, async (t) => {
     const token = t.tokenOf(await t.ask());
     for (const res of [await t.page(token), await t.page(`${token.slice(0, -1)}!`)]) {
       assert.equal(res.headers.get('cache-control'), 'no-store');
       assert.match(res.headers.get('x-robots-tag'), /noindex/);
-      assert.equal(res.headers.get('referrer-policy'), 'no-referrer');
+      assert.equal(res.headers.get('referrer-policy'), 'same-origin');
     }
   }));
 
@@ -188,6 +188,7 @@ describe('ask the seller: failures keep the question and point to the seller', (
 describe('ask the seller: quotes and money through the whole app', () => {
   it('shows server-substituted amounts and the estimate line, never model-typed numbers', () => run({
     tiers: TIERS,
+    stock: 100,
     script: [
       (request) => turn(call('calculate_quote', { productId: request.messages[0].content.match(/id ([0-9a-f-]{36})/)?.[1] ?? 'p1', quantity: 10 })),
       finalAnswer('answered', 'For 10 pieces you get 5% off. Your total is {{q1.total}}.'),
@@ -200,6 +201,19 @@ describe('ask the seller: quotes and money through the whole app', () => {
     assert.match(page.text, /Your total is ₹2,375\.00\./);
     assert.match(page.text, /This is an estimate\. The seller will confirm\./);
     assert.deepEqual(row(t).trace, ['Calculated a quote: 10 x Clay diya, 5% bulk discount']);
+  }));
+
+  it('a quote above the stock goes to needs_you with no answer text, even if the model says it is available', () => run({
+    tiers: TIERS,
+    script: [
+      (request) => turn(call('calculate_quote', { productId: request.messages[0].content.match(/id ([0-9a-f-]{36})/)?.[1] ?? 'p1', quantity: 10 })),
+      finalAnswer('answered', 'Yes, 10 pieces are available. Your total is {{q1.total}}.'),
+    ],
+  }, async (t) => {
+    const token = t.tokenOf(await t.ask({ ...ASK, productId: t.product.id }));
+    await t.answer(token);
+    assert.deepEqual([row(t).status, row(t).answerText], ['needs_you', null]);
+    assert.doesNotMatch((await t.page(token)).text, /are available/);
   }));
 
   it('a typed amount discards the answer: needs_you with unverified_amount and nothing of it shown', () => run({ script: [finalAnswer('answered', 'It costs Rs 100 only!')] }, async (t) => {
@@ -269,7 +283,15 @@ describe('ask the seller: limits, trap, validation', () => {
     const ok = await t.answer(token, { origin: 'http://localhost', headers: { 'sec-fetch-site': 'same-origin' } });
     assert.equal(ok.status, 303);
     assert.equal(row(t).status, 'answered');
-    assert.equal((await t.page(token)).headers.get('referrer-policy'), 'no-referrer');
+    assert.equal((await t.page(token)).headers.get('referrer-policy'), 'same-origin');
+  }));
+
+  it('still rejects a literal Origin: null on both POSTs, so the Origin check is not weakened', () => run({}, async (t) => {
+    const nullOrigin = { origin: 'null', headers: { 'sec-fetch-site': 'same-origin' } };
+    assert.equal((await t.ask(ASK, nullOrigin)).status, 403);
+    const token = t.tokenOf(await t.ask());
+    assert.equal((await t.answer(token, nullOrigin)).status, 403);
+    assert.equal(row(t).status, 'pending');
   }));
 
   it('applies the Origin check to both POSTs', () => run({}, async (t) => {

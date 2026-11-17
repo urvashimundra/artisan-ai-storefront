@@ -13,11 +13,18 @@ export const ASSISTANT_LIMITS = Object.freeze({
 });
 
 /**
- * Privacy headers for every private enquiry response: nothing may cache or index the link, and no Referer is ever sent from it.
+ * `same-origin`, not `no-referrer`: the private page holds a form, and with `no-referrer` Chrome and Firefox send `Origin: null` on that
+ * page's own POST (decisions 38 and 52, seen in a real browser), which the Origin check correctly rejects. `same-origin` sends no Referer
+ * to any other site, so the private link cannot leak; it only lets the page's own server see the Referer, and the logger redacts `/q/<token>`.
+ */
+export const PRIVATE_PAGE_REFERRER_POLICY = 'same-origin';
+
+/**
+ * Privacy headers for every private enquiry response: nothing may cache or index the link, and no Referer is sent to another site.
  * @type {import('express').RequestHandler}
  */
 export function privacyHeaders(_req, res, next) {
-  res.set({ 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow', 'Referrer-Policy': 'no-referrer' });
+  res.set({ 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex, nofollow', 'Referrer-Policy': PRIVATE_PAGE_REFERRER_POLICY });
   res.vary('Cookie').vary('Accept-Language');
   next();
 }
@@ -25,8 +32,8 @@ export function privacyHeaders(_req, res, next) {
 /**
  * Customer "ask the seller" routes. No session and no owner code. Mounted BEFORE the global limiter with their own per-IP limiters
  * (asking, answering and viewing are counted separately). Every POST passes the Origin check BEFORE the limiter and the handler.
- * Every response carries the privacy headers: no-store, noindex and `Referrer-Policy: no-referrer`, so the private link never leaks in a
- * Referer header. The Origin check is unchanged and is not weakened to suit the referrer policy.
+ * Every response carries the privacy headers (no-store, noindex, Referrer-Policy same-origin). The Origin check is unchanged and is not
+ * weakened to suit the referrer policy.
  * @param {{ config: { allowedOrigins: string[] }, assistant: object, logger: object,
  *   rateLimits?: { page?: object, ask?: object, answer?: object } }} deps
  * @returns {import('express').Router}

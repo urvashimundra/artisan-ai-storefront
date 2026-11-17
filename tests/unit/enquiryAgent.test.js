@@ -17,10 +17,10 @@ const turn = (...content) => ({ content, stop_reason: 'tool_use' });
 const final = (outcome, text) => turn(use('final_answer', { outcome, text }));
 
 /** A shop with one product (Rs 250, stock 5), a second shop with its own product, a draft product, and a scripted fake model. */
-async function harness({ script, tiers = [], document = 'Delivery in 5 days.', language = 'en', question = 'Hello?', wallClockMs, now, send } = {}) {
+async function harness({ script, tiers = [], document = 'Delivery in 5 days.', language = 'en', question = 'Hello?', wallClockMs, now, send, stock = 5 } = {}) {
   const repo = createFakePublicRepo();
   const shop = repo.addShop({ defaultLanguage: 'en', name: 'Clay Works' });
-  const product = repo.addProduct(shop, { pricePaise: 25000, stock: 5, translations: { en: translation('Clay diya', 'A hand made diya.', 'alt') } });
+  const product = repo.addProduct(shop, { pricePaise: 25000, stock, translations: { en: translation('Clay diya', 'A hand made diya.', 'alt') } });
   const draft = repo.addProduct(shop, { status: 'draft', translations: { en: translation('Secret draft', 'x', 'alt') } });
   const otherShop = repo.addShop({ slug: 'other', name: 'Other' });
   const foreign = repo.addProduct(otherShop, { pricePaise: 100, translations: { en: translation('Foreign pot', 'x', 'alt') } });
@@ -180,9 +180,9 @@ describe('enquiry agent: quotes use only confirmed tiers, with integer math', ()
 });
 
 describe('enquiry agent: the final answer', () => {
-  async function runQuote(text, { tiers = TIERS, language = 'en' } = {}) {
-    const h = await harness({ tiers, language });
-    const script = [turn(use('calculate_quote', { productId: h.product.id, quantity: 10 })), final('answered', text)];
+  async function runQuote(text, { tiers = TIERS, language = 'en', quantity = 10, stock = 100 } = {}) {
+    const h = await harness({ tiers, language, stock });
+    const script = [turn(use('calculate_quote', { productId: h.product.id, quantity })), final('answered', text)];
     const agent = createEnquiryAgent({ config: { apiKey: 'k', model: 'm' }, send: async () => ({ response: script.shift(), usage: { inputTokens: 1, outputTokens: 1 } }) });
     return agent.run({ shopName: 'Clay Works', language, question: 'q', productId: null, tools: h.tools, quoteNote: NOTE, budgetedCall: createBudgetedCall({ budgets: createFakeBudgets() }), owner: OWNER });
   }
@@ -229,6 +229,35 @@ describe('enquiry agent: the final answer', () => {
       assert.equal((await runQuote(text)).reason, 'unverified_amount', text);
     }
     assert.equal((await runQuote('You get 5% off.', { tiers: [] })).reason, 'unverified_amount');
+  });
+
+  it('refuses a bare amount with no currency marker, but keeps legitimate quantities and tool values', async () => {
+    for (const text of ['10 pieces, total 1200', 'Price 450 per piece.', '12 pieces, 1200', 'Total is 1,200', 'કુલ ૧૨૦૦', 'कुल 1200 होगा', '1200 total', 'Pay 99 now']) {
+      const result = await runQuote(text, { language: text.match(/[઀-૿]/) ? 'gu' : text.match(/[ऀ-ॿ]/) ? 'hi' : 'en' });
+      assert.deepEqual([result.ok, result.reason], [false, 'unverified_amount'], text);
+    }
+    for (const text of ['We ship in 5 days.', 'Total 10 pieces, 5% off. {{q1.total}}', 'Delivery takes 10 to 14 days.', 'Orders of 25 or more get 10% off.']) {
+      assert.equal((await runQuote(text)).ok, true, text);
+    }
+    assert.equal((await runQuote('That is 1000 pieces, 1000 in stock.', { quantity: 1000, stock: 1000 })).ok, true);
+    assert.equal((await runQuote('A bare 1200 is refused even as a quantity claim.')).reason, 'unverified_amount');
+  });
+
+  it('a bare amount in a needs_seller draft is dropped, not shown', async () => {
+    const h = await harness({ script: [final('needs_seller', '12 pieces, total 1200')] });
+    assert.equal((await h.run()).text, null);
+  });
+
+  it('states a tier percentage only when it fits the quoted quantity (applied tier or the next one)', async () => {
+    const ok = (text, quantity) => runQuote(text, { quantity }).then((result) => result.ok);
+    assert.equal(await ok('For 9 pieces buy 10 and get 5% off.', 9), true);
+    assert.equal(await ok('For 9 pieces you get 10% off.', 9), false);
+    assert.equal(await ok('For 10 pieces you get 5% off.', 10), true);
+    assert.equal(await ok('Buy 25 and get 10% off.', 10), true);
+    assert.equal(await ok('For 24 pieces you get 5% off.', 24), true);
+    assert.equal(await ok('For 25 pieces you get 10% off.', 25), true);
+    assert.equal(await ok('For 25 pieces you get 5% off.', 25), false);
+    assert.equal(await ok('For 26 pieces you get 5% off.', 26), false);
   });
 
   it('needs_seller stays needs_seller whatever the text says, and drops text that is not safe to show', async () => {
@@ -288,5 +317,32 @@ describe('enquiry agent: the final answer', () => {
     assert.equal((first.match(/<\/customer_question>/g) ?? []).length, 1);
     assert.match(h.requests[0].system, /DATA/);
     assert.match(h.requests[0].system, /never type an amount/i);
+  });
+});
+
+describe('enquiry agent: stock shortage', () => {
+  async function runShortQuote(outcome, text) {
+    const h = await harness({ tiers: TIERS, stock: 5 });
+    const script = [turn(use('calculate_quote', { productId: h.product.id, quantity: 6 })), final(outcome, text)];
+    const agent = createEnquiryAgent({ config: { apiKey: 'k', model: 'm' }, send: async () => ({ response: script.shift(), usage: { inputTokens: 1, outputTokens: 1 } }) });
+    return agent.run({ shopName: 'S', language: 'en', question: 'q', productId: null, tools: h.tools, quoteNote: NOTE, budgetedCall: createBudgetedCall({ budgets: createFakeBudgets() }), owner: OWNER });
+  }
+
+  it('turns an answer that quotes more than the stock into needs_seller with no text', async () => {
+    const result = await runShortQuote('answered', 'Yes, 6 pieces are available. Total {{q1.total}}.');
+    assert.deepEqual([result.ok, result.outcome, result.text], [true, 'needs_seller', null]);
+  });
+
+  it('keeps needs_seller and never shows a draft after a shortage', async () => {
+    const result = await runShortQuote('needs_seller', 'We have plenty!');
+    assert.deepEqual([result.outcome, result.text], ['needs_seller', null]);
+  });
+
+  it('answers normally when the stock covers the quantity or is not tracked', async () => {
+    const covered = await harness({ stock: 6, script: [turn(use('check_product', { productId: 'p1' })), final('answered', 'We ship in 5 days.')] });
+    assert.equal((await covered.run()).outcome, 'answered');
+    const untracked = await harness({ stock: null });
+    assert.equal((await untracked.tools.run('calculate_quote', { productId: untracked.product.id, quantity: 500 })).content.stock_covers_quantity, true);
+    assert.equal(untracked.tools.hasStockShortage(), false);
   });
 });

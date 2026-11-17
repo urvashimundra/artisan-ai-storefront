@@ -26,6 +26,8 @@ export function createEnquiryTools({ storeId, shop, language, shops, knowledge }
   const refs = new Map();
   const trace = [];
   const productNumbers = new Map();
+  const quotes = [];
+  const seenNumbers = new Set();
   let quoteCount = 0;
   let knowledgeRow;
 
@@ -54,9 +56,10 @@ export function createEnquiryTools({ storeId, shop, language, shops, knowledge }
     return id ? shops.findPublished(storeId, id) : null;
   }
 
-  const productView = (product, ref, title) => ({
-    ref, product_id: product.id, title, stock: stockLabel(product.stock), ...(product.pricePaise === null ? {} : { price: `{{${ref}.price}}` }),
-  });
+  function productView(product, ref, title) {
+    if (product.stock !== null) seenNumbers.add(product.stock);
+    return { ref, product_id: product.id, title, stock: stockLabel(product.stock), ...(product.pricePaise === null ? {} : { price: `{{${ref}.price}}` }) };
+  }
 
   const handlers = {
     async get_shop_info() {
@@ -99,6 +102,8 @@ export function createEnquiryTools({ storeId, shop, language, shops, knowledge }
       const { bulkRules } = await loadKnowledge();
       const quote = calculateQuote({ unitPricePaise: product.pricePaise, quantity, tiers: bulkRules, stock: product.stock });
       quoteCount += 1;
+      quotes.push({ quantity, discountPercent: quote.discountPercent, nextTier: quote.nextTier, stockCovers: quote.stockCovers });
+      seenNumbers.add(quantity);
       const ref = `q${quoteCount}`;
       for (const [field, paise] of Object.entries({ unit_price: quote.unitPricePaise, subtotal: quote.subtotalPaise, discount: quote.discountPaise, total: quote.totalPaise })) {
         refs.set(`${ref}.${field}`, paise);
@@ -117,9 +122,27 @@ export function createEnquiryTools({ storeId, shop, language, shops, knowledge }
     refs,
     trace,
 
-    /** @returns {Promise<number[]>} The percentages of the CONFIRMED tiers: the only percentages an answer may state. */
-    async confirmedPercents() {
-      return (await loadKnowledge()).bulkRules.map((tier) => tier.percentOff);
+    /**
+     * The only percentages an answer may state. Before any quote: the CONFIRMED tier percentages. Once a quote exists: only the percentage
+     * that quote applied and the next tier it points to, so a confirmed percentage that does not fit the quoted quantity is refused.
+     * The percentage always comes from the confirmed tiers through the quote, never from the model.
+     * @returns {Promise<number[]>}
+     */
+    async allowedPercents() {
+      const { bulkRules } = await loadKnowledge();
+      if (quotes.length === 0) return bulkRules.map((tier) => tier.percentOff);
+      return quotes.flatMap((quote) => [quote.discountPercent, quote.nextTier?.percentOff ?? quote.discountPercent]).filter((percent) => percent > 0);
+    },
+
+    /** @returns {Promise<number[]>} Plain numbers a tool really returned: quoted quantities, stock figures and the confirmed tier minimums. */
+    async verifiedNumbers() {
+      const { bulkRules } = await loadKnowledge();
+      return [...seenNumbers, ...bulkRules.map((tier) => tier.minQty)];
+    },
+
+    /** @returns {boolean} True when any quote this run asked for more items than the shop has in stock. */
+    hasStockShortage() {
+      return quotes.some((quote) => !quote.stockCovers);
     },
 
     /**

@@ -94,9 +94,9 @@ export const finalAnswer = (outcome, text) => turn(call('final_answer', { outcom
 /**
  * The real app with the real assistant, inbox and knowledge services over in-memory repositories and a scripted fake model. One owner
  * (logged in) with one shop (WhatsApp on) and one published product (Rs 250, stock 5).
- * @param {{ script?: object[], send?: Function, tiers?: object[], document?: string, shop?: object, appDeps?: object, withAgent?: boolean, wallClockMs?: number }} [options]
+ * @param {{ script?: object[], send?: Function, tiers?: object[], document?: string, shop?: object, appDeps?: object, withAgent?: boolean, wallClockMs?: number, stock?: number | null }} [options]
  */
-export async function startAssistantApp({ script = [], send, tiers = [], document = 'We ship across India in 5 days.', shop = {}, appDeps = {}, withAgent = true, wallClockMs } = {}) {
+export async function startAssistantApp({ script = [], send, tiers = [], document = 'We ship across India in 5 days.', shop = {}, appDeps = {}, withAgent = true, wallClockMs, stock = 5 } = {}) {
   const clock = { now: Date.parse('2026-11-16T10:00:00Z') };
   const repo = createFakePublicRepo();
   const logs = createLogCollector();
@@ -135,7 +135,7 @@ export async function startAssistantApp({ script = [], send, tiers = [], documen
   const store = app.storesRepo.rows[0];
   const fakeShop = repo.addShop({ id: store.id, ownerId: store.ownerId, slug: store.slug, name: store.name, defaultLanguage: 'en',
     whatsappNumber: '919123456780', whatsappEnabled: true, ...shop });
-  const product = repo.addProduct(fakeShop, { pricePaise: 25000, stock: 5, translations: { en: translation('Clay diya', 'A hand made diya.', 'A diya.') } });
+  const product = repo.addProduct(fakeShop, { pricePaise: 25000, stock, translations: { en: translation('Clay diya', 'A hand made diya.', 'A diya.') } });
   await knowledgeRepo.replaceContent(store.id, document, 'now');
   await knowledgeRepo.saveRules(store.id, tiers, 'now');
   const ask = (form = ASK, extra = {}) => app.request(`/s/${store.slug}/ask`, { method: 'POST', form, ...extra });

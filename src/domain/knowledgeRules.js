@@ -62,12 +62,12 @@ export const tierRowNumbers = () => [...TIER_ROWS];
 
 /** @returns {{ minQty: number, percentOff: number } | null} The highest tier whose minimum the quantity reaches. */
 export function bestTier(tiers, quantity) {
-  return tiers.filter((tier) => tier.minQty <= quantity).at(-1) ?? null;
+  return tiers.filter((tier) => tier.minQty <= quantity).reduce((best, tier) => (best === null || tier.minQty > best.minQty ? tier : best), null);
 }
 
 /** @returns {{ minQty: number, percentOff: number } | null} The first tier above the quantity (what buying more would unlock). */
 export function nextTier(tiers, quantity) {
-  return tiers.find((tier) => tier.minQty > quantity) ?? null;
+  return tiers.filter((tier) => tier.minQty > quantity).reduce((next, tier) => (next === null || tier.minQty < next.minQty ? tier : next), null);
 }
 
 /**

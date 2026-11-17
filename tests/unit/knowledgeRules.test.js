@@ -81,3 +81,28 @@ describe('quote arithmetic (integer paise)', () => {
     assert.throws(() => calculateQuote({ unitPricePaise: 1.5, quantity: 2, tiers: [], stock: null }), RangeError);
   });
 });
+
+describe('quote tiers at every threshold', () => {
+  const percentAt = (quantity, tiers = TIERS) => calculateQuote({ unitPricePaise: 25000, quantity, tiers, stock: null }).discountPercent;
+
+  it('gives the right percentage immediately below, at and above each threshold', () => {
+    const expected = [[1, 0], [9, 0], [10, 5], [11, 5], [24, 5], [25, 10], [26, 10], [1000, 10]];
+    for (const [quantity, percent] of expected) assert.equal(percentAt(quantity), percent, `quantity ${quantity}`);
+  });
+
+  it('does not depend on the order of the tiers', () => {
+    const shuffled = [TIERS[1], TIERS[0]];
+    for (const quantity of [9, 10, 24, 25, 26]) assert.equal(percentAt(quantity, shuffled), percentAt(quantity), `quantity ${quantity}`);
+    assert.equal(nextTier(shuffled, 9).minQty, 10);
+    assert.equal(nextTier(shuffled, 10).minQty, 25);
+  });
+
+  it('keeps integer paise and rounds down at each threshold', () => {
+    for (const quantity of [9, 10, 24, 25, 26]) {
+      const quote = calculateQuote({ unitPricePaise: 333, quantity, tiers: TIERS, stock: null });
+      assert.equal(quote.subtotalPaise - quote.discountPaise, quote.totalPaise);
+      assert.ok(Number.isInteger(quote.discountPaise) && Number.isInteger(quote.totalPaise));
+      assert.equal(quote.discountPaise, Math.floor((333 * quantity * quote.discountPercent) / 100));
+    }
+  });
+});
