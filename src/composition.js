@@ -1,6 +1,8 @@
 import { createClaudeProbe } from './ai/claudeProbe.js';
 import { createListingGenerator } from './ai/listingGenerator.js';
 import { createTranslationGenerator } from './ai/translationGenerator.js';
+import { createRelayClient } from './email/relayClient.js';
+import { createRelayProbe } from './email/relayProbe.js';
 import { createSmtpProbe } from './email/smtpProbe.js';
 import { createLogger } from './lib/logger.js';
 import { createPasswordService } from './lib/password.js';
@@ -93,10 +95,12 @@ function buildOrderService({ client, logger }) {
  */
 export async function buildDependencies(config) {
   const smtp = config.smtp && createSmtpProbe({ config: config.smtp });
+  const relay = createRelayClient({ relayUrl: config.emailRelayUrl });
   const probes = {
     supabase: createSupabaseProbe({ config: config.supabase }),
     claude: config.ai && createClaudeProbe({ config: config.ai }),
     'smtp-verify': smtp?.verify,
+    'relay-send': createRelayProbe({ send: relay.send, ownerNotifyEmail: config.smtp?.ownerNotifyEmail }),
   };
   const client = createSupabaseClient(config.supabase);
   const owners = createOwnerRepository({ client });

@@ -14,6 +14,7 @@ const LOCAL_HTTP_HOSTS = ['localhost', '127.0.0.1'];
 const DEFAULT_OWNER_BUDGET_USD = '1.00';
 const DEFAULT_DEMO_BUDGET_USD = '0.50';
 const DEFAULT_GLOBAL_BUDGET_USD = '5.00';
+const DEFAULT_EMAIL_RELAY_URL = 'http://127.0.0.1:2525';
 
 const GROUP_KEYS = {
   ai: ['ANTHROPIC_API_KEY', 'CLAUDE_MODEL'],
@@ -32,6 +33,7 @@ const CORE_KEYS = [
   'AI_DAILY_BUDGET_USD',
   'AI_DEMO_DAILY_BUDGET_USD',
   'AI_GLOBAL_DAILY_BUDGET_USD',
+  'EMAIL_RELAY_URL',
 ];
 
 const nonEmpty = z.string().min(1);
@@ -75,6 +77,23 @@ function isHttpsOrLocalHttp(value) {
   return url.protocol === 'https:' || (url.protocol === 'http:' && LOCAL_HTTP_HOSTS.includes(url.hostname));
 }
 
+/**
+ * @param {string} value
+ * @returns {boolean} True only for a bare http: origin on localhost or 127.0.0.1 (no path, query, fragment or credentials).
+ */
+function isLoopbackHttpOrigin(value) {
+  const url = parseUrl(value);
+  return (
+    url?.protocol === 'http:' &&
+    LOCAL_HTTP_HOSTS.includes(url.hostname) &&
+    url.pathname === '/' &&
+    url.search === '' &&
+    url.hash === '' &&
+    url.username === '' &&
+    url.password === ''
+  );
+}
+
 /** Optional decimal USD string with a default, parsed to integer micro-USD without floating point. */
 const usdBudget = (fallback) =>
   z
@@ -105,6 +124,7 @@ const coreSchema = z.object({
   AI_DAILY_BUDGET_USD: usdBudget(DEFAULT_OWNER_BUDGET_USD),
   AI_DEMO_DAILY_BUDGET_USD: usdBudget(DEFAULT_DEMO_BUDGET_USD),
   AI_GLOBAL_DAILY_BUDGET_USD: usdBudget(DEFAULT_GLOBAL_BUDGET_USD),
+  EMAIL_RELAY_URL: z.string().refine(isLoopbackHttpOrigin).default(DEFAULT_EMAIL_RELAY_URL),
 });
 
 const aiSchema = z.object({
@@ -181,11 +201,12 @@ function buildAllowedOrigins(core) {
  * @param {Record<string, string | undefined>} [source] Defaults to process.env.
  * BASE_URL must be https (http only for localhost and 127.0.0.1); SUPABASE_URL must be https. An unknown NODE_ENV
  * does not fail boot: it is treated as "production" (only the logger level reads it).
+ * EMAIL_RELAY_URL must be a bare http://localhost or http://127.0.0.1 origin (default http://127.0.0.1:2525).
  * @returns {{ nodeEnv: string, port: number, baseUrl: string, trustProxy: number,
  *   diagnosticsToken: string | undefined, supabase: { url: string, serviceRoleKey: string },
  *   signupInviteCode: string | undefined, allowedOrigins: string[], cookie: { name: string, secure: boolean },
  *   aiBudget: { ownerDailyMicroUsd: number, demoDailyMicroUsd: number, globalDailyMicroUsd: number },
- *   ai: object | null, smtp: object | null }}
+ *   emailRelayUrl: string, ai: object | null, smtp: object | null }}
  * @throws {EnvValidationError} Listing variable names only.
  */
 export function loadEnv(source = process.env) {
@@ -209,6 +230,7 @@ export function loadEnv(source = process.env) {
       demoDailyMicroUsd: core.data.AI_DEMO_DAILY_BUDGET_USD,
       globalDailyMicroUsd: core.data.AI_GLOBAL_DAILY_BUDGET_USD,
     },
+    emailRelayUrl: core.data.EMAIL_RELAY_URL,
     ...groups,
   };
 }

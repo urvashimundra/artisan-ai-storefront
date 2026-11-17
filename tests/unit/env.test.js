@@ -192,3 +192,34 @@ describe('AI budget variables', () => {
     }
   });
 });
+
+describe('EMAIL_RELAY_URL', () => {
+  it('defaults to the hosting relay on loopback', () => {
+    assert.equal(loadEnv(MINIMAL).emailRelayUrl, 'http://127.0.0.1:2525');
+    assert.equal(loadEnv({ ...MINIMAL, EMAIL_RELAY_URL: '  ' }).emailRelayUrl, 'http://127.0.0.1:2525');
+  });
+
+  it('accepts a bare http origin on localhost or 127.0.0.1', () => {
+    for (const url of ['http://localhost:2525', 'http://127.0.0.1:9000', 'http://127.0.0.1:2525/']) {
+      assert.equal(loadEnv({ ...MINIMAL, EMAIL_RELAY_URL: url }).emailRelayUrl, url);
+    }
+  });
+
+  it('rejects anything that is not http on localhost or 127.0.0.1, naming the variable only', () => {
+    const invalid = [
+      'https://127.0.0.1:2525',
+      'http://relay.example.test:2525',
+      'http://localhost.evil.test:2525',
+      'http://[::1]:2525',
+      'http://127.0.0.1:2525/api/email/send',
+      'http://127.0.0.1:2525?x=1',
+      'http://127.0.0.1:2525#frag',
+      'http://user:pass@127.0.0.1:2525',
+      'ftp://127.0.0.1',
+      'not a url',
+    ];
+    for (const url of invalid) {
+      assert.deepEqual(failureOf({ ...MINIMAL, EMAIL_RELAY_URL: url }).variables, ['EMAIL_RELAY_URL'], url);
+    }
+  });
+});
