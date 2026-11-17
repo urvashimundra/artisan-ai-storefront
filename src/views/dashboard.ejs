@@ -26,6 +26,7 @@
       <button type="button" class="button" data-share data-share-url="<%= shopUrl %>" data-share-title="<%= store.name %>" data-copied="Link copied" hidden>Copy shop link</button>
       <a class="button" href="/store/settings">Shop settings</a>
       <% if (locals.productsEnabled) { %><a class="button" href="/products">Manage products</a><% } %>
+      <% if (locals.enquiriesEnabled) { %><a class="button" href="/enquiries">Enquiries<% if (locals.needsYouEnquiries) { %> <span class="badge"><%= needsYouEnquiries %> need you</span><% } %></a><% } %>
       <% if (locals.knowledgeEnabled) { %><a class="button" href="/store/knowledge">Shop notes</a><% } %>
       <% if (locals.ordersEnabled) { %><a class="button" href="/orders">Orders<% if (locals.pendingPayments) { %> <span class="badge"><%= pendingPayments %> to check</span><% } %></a><% } %>
     </div>

@@ -84,6 +84,7 @@ describe('shop notes page (owner)', () => {
       const res = await save(app, cookieA, { content: 'x'.repeat(20_001) });
       assert.equal(res.status, 400);
       assert.match(res.text, /role="alert"/);
+      assert.match(res.text, /aria-invalid="true"/);
       assert.equal(repo.rows.has(storeA.id), false);
     });
   });

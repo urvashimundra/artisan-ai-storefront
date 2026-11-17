@@ -30,6 +30,7 @@ import { createAssistantService } from './services/assistantService.js';
 import { createAuthService } from './services/authService.js';
 import { createDiagnosticsService } from './services/diagnosticsService.js';
 import { createContactService } from './services/contactService.js';
+import { createEnquiryInboxService } from './services/enquiryInboxService.js';
 import { createKnowledgeService } from './services/knowledgeService.js';
 import { createListingService } from './services/listingService.js';
 import { createOrderService } from './services/orderService.js';
@@ -168,6 +169,7 @@ export async function buildDependencies(config) {
       logger,
     }),
     knowledge: buildKnowledgeService({ config, client, logger }),
+    enquiries: createEnquiryInboxService({ enquiries: createEnquiryRepository({ client }), logger, linkCipher, baseUrl: config.baseUrl }),
     assistant: buildAssistantService({ config, client, logger, linkCipher, emails: email.emails }),
     ...buildTranslationServices({ config, client, logger, translations }),
     ...buildProductServices({ config, client, logger }),

@@ -13,7 +13,7 @@
       <form method="post" action="/store/knowledge<%= stepSuffix %>" class="stack">
         <div class="field">
           <label for="knowledge-content">Notes (any language)</label>
-          <textarea id="knowledge-content" name="content" rows="14" maxlength="<%= maxLength %>" data-counter="knowledge-count" aria-describedby="knowledge-hint knowledge-count<%= documentError ? ' notes-error' : '' %>"<%= documentError ? ' aria-invalid="true"' : '' %>><%= content %></textarea>
+          <textarea id="knowledge-content" name="content" rows="14" maxlength="<%= maxLength %>" data-counter="knowledge-count" aria-describedby="knowledge-hint knowledge-count<%= documentError ? ' notes-error' : '' %>"<% if (documentError) { %> aria-invalid="true"<% } %>><%= content %></textarea>
           <p id="knowledge-hint" class="hint">Up to <%= maxLength %> characters. Saving new notes clears your confirmed bulk discounts, so you can check them again.</p>
           <p id="knowledge-count" class="hint" aria-live="polite"></p>
         </div>

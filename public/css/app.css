@@ -309,3 +309,11 @@ textarea { overflow-wrap: anywhere; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
+
+/* Enquiries (Module 6): the same status badge, with text always shown. Long Unicode wraps instead of overflowing. */
+.status-needs_you { border-color: var(--error); color: var(--error); background: var(--error-soft); }
+.status-answered { border-color: var(--link); color: #0b3d6b; background: var(--link-soft); }
+.status-handled { border-color: var(--success); color: var(--success); background: var(--success-soft); }
+.status-pending, .status-answering { border-color: var(--muted); border-style: dashed; color: #3d3d3d; background: #ececec; }
+.detail-side { display: grid; gap: 1rem; align-content: start; min-width: 0; }
+.detail-main .pre-line, .detail-side .pre-line { overflow-wrap: anywhere; }

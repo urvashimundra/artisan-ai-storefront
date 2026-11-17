@@ -113,9 +113,9 @@ describe('seller and contact templates', () => {
     assert.ok(!text.includes('499900'));
   });
 
-  it('the enquiry alert names the shop and links to the dashboard', () => {
+  it('the enquiry alert names the shop and links to the enquiries inbox', () => {
     const { subject, text } = render(EMAIL_KINDS.SELLER_ENQUIRY_NEEDS_YOU, 'en', { shop: 'Kala Ghar' });
-    assert.ok(subject.includes('Kala Ghar') && text.includes(`${BASE_URL}/dashboard`));
+    assert.ok(subject.includes('Kala Ghar') && text.includes(`${BASE_URL}/enquiries`));
   });
 
   it('the contact email strips CR and LF from the subject, name and address but keeps the message lines', () => {

@@ -1,0 +1,54 @@
+<%- include('partials/header') %>
+    <div class="page-head">
+      <h1>Enquiries</h1>
+      <p class="page-count" id="enquiry-count"><%= rows.length %> <%= rows.length === 1 ? 'enquiry' : 'enquiries' %><%= filter ? ' with this status' : ' in total' %></p>
+    </div>
+    <nav aria-label="Filter enquiries by status">
+      <ul class="status-summary">
+        <% filters.forEach((item) => { %><li><a class="summary-chip"<% if (item.current) { %> aria-current="page"<% } %> href="<%= item.href %>"><%= item.label %><%= item.current ? ' (selected)' : '' %></a></li><% }) %>
+      </ul>
+    </nav>
+    <% if (rows.length === 0) { %>
+    <div class="empty-state">
+      <h2>No enquiries to show</h2>
+      <p><%= filter ? 'No enquiry has this status. Try another status, or show all enquiries.' : 'When a customer asks a question on your shop, it will appear here. The assistant answers what it can from your shop notes. You answer the rest.' %></p>
+      <p><% if (filter) { %><a class="button" href="/enquiries">Show all enquiries</a><% } else { %><a class="button" href="/dashboard">Back to dashboard</a><% } %></p>
+    </div>
+    <% } else { %>
+    <div id="enquiry-results">
+      <div class="table-wrap order-table-wrap">
+        <table class="data-table order-table" aria-describedby="enquiry-count">
+          <caption class="visually-hidden">Enquiries, newest first</caption>
+          <thead>
+            <tr><th scope="col">Customer</th><th scope="col">Question</th><th scope="col">Date and time</th><th scope="col">Status</th><th scope="col"><span class="visually-hidden">Action</span></th></tr>
+          </thead>
+          <tbody>
+            <% rows.forEach((row) => { %>
+            <tr>
+              <th scope="row" class="cell-name"><a href="/enquiries/<%= row.id %>"><%= row.customerName %><span class="visually-hidden">, view enquiry</span></a></th>
+              <td class="cell-items"><span class="clamp" title="<%= row.preview %>"><%= row.preview %></span></td>
+              <td class="cell-nowrap"><%= row.createdAt %></td>
+              <td><span class="status-badge status-<%= row.status %>"><%= row.statusLabel %></span></td>
+              <td class="cell-action"><a class="button button-small button-secondary" href="/enquiries/<%= row.id %>">Open<span class="visually-hidden"> enquiry from <%= row.customerName %></span></a></td>
+            </tr>
+            <% }) %>
+          </tbody>
+        </table>
+      </div>
+      <ul class="order-cards plain" aria-label="Enquiries, newest first">
+        <% rows.forEach((row) => { %>
+        <li class="order-card">
+          <div class="order-card-top">
+            <a class="order-ref" href="/enquiries/<%= row.id %>"><%= row.customerName %></a>
+            <span class="status-badge status-<%= row.status %>"><%= row.statusLabel %></span>
+          </div>
+          <p class="order-card-name"><%= row.preview %></p>
+          <p class="meta"><%= row.createdAt %></p>
+          <a class="button button-secondary order-card-action" href="/enquiries/<%= row.id %>">Open<span class="visually-hidden"> enquiry from <%= row.customerName %></span></a>
+        </li>
+        <% }) %>
+      </ul>
+    </div>
+    <% } %>
+    <p><a href="/dashboard">Back to dashboard</a></p>
+<%- include('partials/footer') %>

@@ -105,9 +105,10 @@ export function createEnquiryInboxService({ enquiries, logger, linkCipher = null
       logger.info('enquiry replied', { storeId: store.id, enquiryId: id });
     },
 
-    /** @throws {AppError} 404 when the enquiry is not in this store or is not waiting for the seller. */
+    /** Repeating it is harmless. @throws {AppError} 404 when the enquiry is not in this store, or is still being answered. */
     async markHandled(store, id) {
-      if (!isProductId(id) || !(await enquiries.markHandled(store.id, id, nowIso()))) throw notFound('Enquiry not found');
+      if (!isProductId(id)) throw notFound('Enquiry not found');
+      if (!(await enquiries.markHandled(store.id, id, nowIso())) && (await enquiries.findForOwner(store.id, id))?.status !== ENQUIRY_STATUS.HANDLED) throw notFound('Enquiry not found');
       logger.info('enquiry handled', { storeId: store.id, enquiryId: id });
     },
 

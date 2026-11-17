@@ -14,6 +14,7 @@ import { absoluteUrl, shopPath } from './seo.js';
 export const LOCALIZE_SUBJECTS = true;
 export const OWNER_ORDERS_PATH = '/orders';
 export const OWNER_DASHBOARD_PATH = '/dashboard';
+export const OWNER_ENQUIRIES_PATH = '/enquiries';
 
 const CONTROL_CHARACTERS = /[\u0000-\u001f\u007f\u2028\u2029]/g;
 const LINE_BREAKS = /[\r\n]+/g;
@@ -144,7 +145,7 @@ function sellerCopy(kind, facts, baseUrl) {
   }
   return {
     subject: `A customer enquiry needs you: ${shop}`,
-    lines: [`A customer enquiry in ${shop} needs your reply.`, '', `Your dashboard: ${absoluteUrl(baseUrl, OWNER_DASHBOARD_PATH)}`],
+    lines: [`A customer enquiry in ${shop} needs your reply.`, '', `Your enquiries: ${absoluteUrl(baseUrl, OWNER_ENQUIRIES_PATH)}`],
   };
 }
 
