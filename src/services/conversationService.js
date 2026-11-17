@@ -93,7 +93,7 @@ export function createConversationService({
     const [messages, document] = await Promise.all([conversations.recentMessages(shop.id, conversation.id, MAX_CONTEXT_MESSAGES), knowledge.get(shop.id)]);
     const tools = createEnquiryTools({ storeId: shop.id, shop, language, shops, knowledge });
     return agent.run({
-      shop, language, messages, knowledge: document ?? { content: '', bulkRules: [] }, tools, budgetedCall, owner: { id: context.ownerId, isDemo: context.isDemo },
+      shop, language, messages, knowledge: document ?? { content: '', bulkRules: [] }, productId: conversation.productId ?? null, quoteNote: stringsFor(language).quoteEstimateNote, tools, budgetedCall, owner: { id: context.ownerId, isDemo: context.isDemo },
       context: { correlationId, storeId: shop.id, conversationId: conversation.id }, now, wallClockMs: agentWallClockMs,
     });
   }
@@ -196,7 +196,7 @@ export function createConversationService({
         await alertSeller(shop.id, started.conversationId, started.escalationCount);
         return { trap: false, token, slug: shop.slug, language, outcome: 'store_limit', duplicate: false };
       }
-      const conversation = { id: started.conversationId };
+      const conversation = { id: started.conversationId, productId };
       const outcome = await runAssistant({ shop, conversation, runId: started.runId, language, correlationId });
       return { trap: false, token, slug: shop.slug, language, outcome, duplicate: false };
     },
