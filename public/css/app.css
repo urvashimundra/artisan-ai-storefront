@@ -292,3 +292,20 @@ input[type="file"] { width: 100%; padding: 0.5rem 0; font: inherit; }
 @media (prefers-reduced-motion: reduce) {
   .button { transition: none; }
 }
+
+/* Main-site footer and contact form (Module 5). */
+.site-footer { max-width: 44rem; margin: 0 auto; padding: 0.5rem 1rem 1.5rem; border-top: 1px solid var(--line); }
+.site-footer nav { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; }
+.site-footer a { display: inline-flex; align-items: center; min-height: 2.75rem; }
+.main-wide + .site-footer { max-width: 82rem; }
+.contact-form { max-width: 32rem; }
+.contact-form .error-text, .error-summary a { overflow-wrap: anywhere; }
+.error-summary ul { margin: 0.25rem 0 0; padding-left: 1.25rem; }
+.char-count { white-space: nowrap; }
+.status-word { font-weight: 700; }
+/* The bot trap: out of sight and out of the tab order for people, still present in the page for bots. */
+.contact-trap { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+textarea { overflow-wrap: anywhere; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}

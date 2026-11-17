@@ -8,6 +8,7 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler.js';
 import { createRateLimiter } from './middleware/rateLimit.js';
 import { requestLogger } from './middleware/requestLogger.js';
 import { createBrowserRouter } from './routes/browser.js';
+import { createContactRouter } from './routes/contact.js';
 import { createHealthRouter } from './routes/health.js';
 import { createInternalRouter } from './routes/internal.js';
 import { createOrderRouter } from './routes/orders.js';
@@ -16,7 +17,7 @@ import { createPublicRouter } from './routes/public.js';
 export const JSON_BODY_LIMIT = '100kb';
 export const FORM_BODY_LIMIT = '10kb';
 /** These routes parse their own (larger) forms after authentication: Gujarati text is 9 bytes per character URL-encoded. */
-const LARGE_FORM_PATH_PREFIXES = Object.freeze(['/products', '/store/settings', '/store/new']);
+const LARGE_FORM_PATH_PREFIXES = Object.freeze(['/products', '/store/settings', '/store/new', '/contact']);
 const VIEWS_DIR = fileURLToPath(new URL('./views', import.meta.url));
 const PUBLIC_DIR = fileURLToPath(new URL('../public', import.meta.url));
 export const GLOBAL_RATE_WINDOW_MS = 60_000;
@@ -44,7 +45,9 @@ const noDiagnostics = { run: async () => ({ ok: false, checks: [] }) };
  *   config: ReturnType<import('./config/env.js').loadEnv>,
  *   logger?: ReturnType<typeof createLogger>,
  *   diagnostics?: { run: (names: string[]) => Promise<object> },
- *   services?: { auth: object, sessions: object, stores: object, products?: object, listings?: object, publicShop?: object, orders?: object },
+ *   services?: { auth: object, sessions: object, stores: object, products?: object, listings?: object, publicShop?: object, orders?: object,
+ *     contact?: object },
+ *   contactRateLimits?: { ip?: object },
  *   publicRateLimits?: { pages?: object, image?: object },
  *   orderRateLimits?: { page?: object, create?: object, utr?: object, status?: object },
  *   productRateLimits?: { upload?: object, generate?: object },
@@ -63,6 +66,7 @@ export function createApp({
   productRateLimits,
   publicRateLimits,
   orderRateLimits,
+  contactRateLimits,
   version,
   globalRateLimit,
 }) {
@@ -91,6 +95,7 @@ export function createApp({
 
   app.use(createHealthRouter({ version: version ?? readVersion() }));
   app.use(createInternalRouter({ diagnosticsToken: config.diagnosticsToken, diagnostics }));
+  if (services?.contact) app.use(createContactRouter({ config, contact: services.contact, rateLimits: contactRateLimits }));
   if (services) app.use(createBrowserRouter({ config, services, authRateLimits, productRateLimits }));
 
   app.use(notFoundHandler());

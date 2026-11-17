@@ -24,6 +24,7 @@ import { createSupabaseProbe } from './repositories/supabaseProbe.js';
 import { createAiBudgetService } from './services/aiBudgetService.js';
 import { createAuthService } from './services/authService.js';
 import { createDiagnosticsService } from './services/diagnosticsService.js';
+import { createContactService } from './services/contactService.js';
 import { createListingService } from './services/listingService.js';
 import { createOrderService } from './services/orderService.js';
 import { createProductService } from './services/productService.js';
@@ -133,6 +134,12 @@ export async function buildDependencies(config) {
     publicShop: buildPublicShopService({ config, client, logger }),
     orders: buildOrderService({ config, client, logger }),
     emails: email.emails,
+    contact: createContactService({
+      contacts: email.contacts,
+      emails: email.emails,
+      inboxEmail: config.contactInboxEmail ?? config.smtp?.ownerNotifyEmail ?? null,
+      logger,
+    }),
     ...buildTranslationServices({ config, client, logger, translations }),
     ...buildProductServices({ config, client, logger }),
   };

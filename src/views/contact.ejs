@@ -1,0 +1,38 @@
+<%- include('partials/header') %>
+    <h1>Contact us</h1>
+    <p>Questions about The Artisan Story? Send us a message and we will reply by email.</p>
+<% const values = locals.values || {}; const errors = locals.errors || {}; const failed = fieldOrder.filter((field) => errors[field]); %>
+<% if (failed.length > 0) { %>
+    <div class="alert error-summary" role="alert" id="error-summary">
+      <p class="error-text">Please fix the following:</p>
+      <ul>
+<% failed.forEach((field) => { %>        <li><a href="#<%= field %>"><%= errors[field] %></a></li>
+<% }) %>      </ul>
+    </div>
+<% } %>
+    <form method="post" action="/contact" class="stack contact-form" novalidate>
+      <div class="field">
+        <label for="name">Your name</label>
+        <input type="text" id="name" name="name" autocomplete="name" required maxlength="<%= limits.name %>" value="<%= values.name || '' %>"<% if (errors.name) { %> aria-invalid="true" aria-describedby="name-error"<% } %>>
+<% if (errors.name) { %>        <p id="name-error" class="error-text"><span class="status-word">Error:</span> <%= errors.name %></p>
+<% } %>      </div>
+      <div class="field">
+        <label for="email">Your email address</label>
+        <input type="email" id="email" name="email" autocomplete="email" inputmode="email" autocapitalize="none" spellcheck="false" required maxlength="<%= limits.email %>" value="<%= values.email || '' %>" aria-describedby="email-hint<%= errors.email ? ' email-error' : '' %>"<% if (errors.email) { %> aria-invalid="true"<% } %>>
+        <p id="email-hint" class="hint">We reply to this address. We do not share it.</p>
+<% if (errors.email) { %>        <p id="email-error" class="error-text"><span class="status-word">Error:</span> <%= errors.email %></p>
+<% } %>      </div>
+      <div class="field">
+        <label for="message">Your message</label>
+        <textarea id="message" name="message" rows="7" required maxlength="<%= limits.message %>" data-counter="message-count" aria-describedby="message-hint<%= errors.message ? ' message-error' : '' %>"<% if (errors.message) { %> aria-invalid="true"<% } %>><%= values.message || '' %></textarea>
+        <p id="message-hint" class="hint">Up to <%= limits.message %> characters. <span id="message-count" class="char-count"></span></p>
+<% if (errors.message) { %>        <p id="message-error" class="error-text"><span class="status-word">Error:</span> <%= errors.message %></p>
+<% } %>      </div>
+      <div class="contact-trap" aria-hidden="true">
+        <label for="website">Leave this field empty</label>
+        <input type="text" id="website" name="website" tabindex="-1" autocomplete="off" value="">
+      </div>
+      <div><button type="submit" class="button">Send message</button></div>
+    </form>
+    <script src="/js/char-counter.js" defer></script>
+<%- include('partials/footer') %>
