@@ -22,7 +22,8 @@ export function createKnowledgeRepository({ client }) {
   return {
     /** @returns {Promise<{ content: string, bulkRules: object[], updatedAt: string } | null>} */
     async get(storeId) {
-      const { data, error } = await client.from('store_knowledge').select(COLUMNS).eq('store_id', requireStoreId(storeId)).maybeSingle();
+      requireStoreId(storeId);
+      const { data, error } = await client.from('store_knowledge').select(COLUMNS).eq('store_id', storeId).maybeSingle();
       throwIfError(error);
       return data ? parse(data, 'knowledge.get') : null;
     },
