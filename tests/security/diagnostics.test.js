@@ -3,7 +3,7 @@ import { describe, it } from 'node:test';
 import { createClaudeProbe } from '../../src/ai/claudeProbe.js';
 import { createSmtpProbe } from '../../src/email/smtpProbe.js';
 import { createSupabaseProbe } from '../../src/repositories/supabaseProbe.js';
-import { createDiagnosticsService } from '../../src/services/diagnosticsService.js';
+import { CHECK_NAMES, DEFAULT_CHECKS, createDiagnosticsService } from '../../src/services/diagnosticsService.js';
 import { TEST_TOKEN, createFakeDiagnostics, startTestApp } from '../helpers/testApp.js';
 
 const URL_PATH = '/internal/diagnostics';
@@ -151,5 +151,39 @@ describe('diagnostics service and probes (fakes only)', () => {
     assert.ok(!('detail' in checks[0]));
     assert.deepEqual(Object.keys(checks[0]).sort(), ['durationMs', 'name', 'ok', 'reason']);
     assert.doesNotMatch(JSON.stringify(checks), /hunter2|me@x.test|10.0.0.1/);
+  });
+});
+
+describe('relay-send check is opt-in', () => {
+  it('is never in the default set and runs only when requested by name', async () => {
+    const diagnostics = createFakeDiagnostics();
+    const app = await startTestApp({ config: { diagnosticsToken: TEST_TOKEN }, diagnostics });
+    try {
+      const relay = await fetch(`${app.url}${URL_PATH}?checks=relay-send`, withToken(TEST_TOKEN));
+      assert.equal(relay.status, 200);
+      assert.deepEqual(diagnostics.calls, [['relay-send']]);
+      assert.ok(!DEFAULT_CHECKS.includes('relay-send'));
+      assert.ok(CHECK_NAMES.includes('relay-send'));
+    } finally {
+      await app.close();
+    }
+  });
+
+  it('keeps only allow-listed, type-checked detail fields from a probe result', async () => {
+    const probes = {
+      'relay-send': async () => ({ messageId: 'm-1', replyToAccepted: false, httpStatus: 200, body: 'raw provider text' }),
+    };
+    const service = createDiagnosticsService({ probes });
+    const { checks } = await service.run(['relay-send']);
+    assert.deepEqual(Object.keys(checks[0]).sort(), ['durationMs', 'httpStatus', 'messageId', 'name', 'ok', 'replyToAccepted']);
+    assert.doesNotMatch(JSON.stringify(checks), /raw provider text/);
+  });
+
+  it('drops detail fields with the wrong type or range', async () => {
+    const probes = {
+      'relay-send': async () => ({ messageId: 42, replyToAccepted: 'yes', httpStatus: 999 }),
+    };
+    const { checks } = await createDiagnosticsService({ probes }).run(['relay-send']);
+    assert.deepEqual(Object.keys(checks[0]).sort(), ['durationMs', 'name', 'ok']);
   });
 });
