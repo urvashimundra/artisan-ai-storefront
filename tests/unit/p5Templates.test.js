@@ -37,3 +37,23 @@ describe('T14 order detail', () => {
     assert.match(styles, /\.detail-layout > \.detail-side \{ grid-column: 2; grid-row: 1; \}/);
   });
 });
+
+describe('T15 conversations', () => {
+  it('list keeps links, badges and labels', () => {
+    hasAll(view('conversations'), ['class="convo-list plain"', 'class="convo-link"', 'status-badge status-<%= row.state %>', 'aria-label="Filter conversations"', 'aria-current="page"', 'Open conversation with', 'class="empty-state"']);
+  });
+
+  it('detail keeps the sender labels, forms, hidden fields and hooks', () => {
+    const page = view('conversation-detail');
+    hasAll(page, ["'AI assistant'", "'You'", 'thread-<%= m.role %>', 'thread-who', 'thread-time', 'action="/enquiries/<%= conversation.id %>/reply"', 'name="messageId" value="<%= replyId %>"', 'name="reply"', 'data-counter="reply-count"', 'id="reply-count" class="hint" aria-live="polite"', 'Send reply', 'action="/enquiries/<%= conversation.id %>/handled"', 'Mark as handled', 'action="/enquiries/<%= conversation.id %>/delete"', 'name="confirm" value="yes"', 'data-confirm="Delete this conversation', '/js/char-counter.js', '/js/confirm-submit.js']);
+  });
+
+  it('tells senders apart by layout and wraps long text, without sticky bars', () => {
+    const styles = css('app');
+    assert.match(styles, /\.thread-customer \{ justify-content: flex-start; \}/);
+    assert.match(styles, /\.thread-assistant, \.thread-seller \{ justify-content: flex-end; \}/);
+    assert.match(styles, /\.thread-assistant \.thread-bubble \{[^}]*border-inline-start/);
+    assert.match(styles, /\.thread-bubble \{[^}]*overflow-wrap: anywhere/);
+    assert.doesNotMatch(styles.slice(styles.indexOf('.thread {'), styles.indexOf('.conflict {')), /sticky/);
+  });
+});
