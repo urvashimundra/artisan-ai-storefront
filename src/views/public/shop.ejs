@@ -6,7 +6,7 @@
 <% } %><% if (products.length > 0) { %>      <p class="hero-actions"><a class="button button-primary button-large" href="#products"><%= strings.products %></a></p>
 <% } %>    </section>
 <% if (products.length === 0) { %>
-    <section class="section" aria-labelledby="soon-heading">
+    <section class="section empty-state" aria-labelledby="soon-heading">
       <h2 id="soon-heading"><%= strings.comingSoonTitle %></h2>
       <p><%= strings.comingSoonBody %></p>
     </section>

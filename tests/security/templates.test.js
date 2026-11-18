@@ -5,7 +5,7 @@ import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const VIEWS_DIR = fileURLToPath(new URL('../../src/views', import.meta.url));
-const ALLOWED_RAW_OUTPUT = /^<%- include\('[a-z0-9/_-]+'\) %>$/;
+const ALLOWED_RAW_OUTPUT = /^<%- include\('(?:\.\.\/)*[a-z0-9/_-]+'\) %>$/;
 
 /** The only script allowed: an external, self-hosted file under /js (the CSP blocks everything else). */
 const ALLOWED_SCRIPT_TAG = /<script src="\/js\/[a-z-]+\.js" defer><\/script>/g;

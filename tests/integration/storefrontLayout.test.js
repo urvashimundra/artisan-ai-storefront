@@ -74,7 +74,7 @@ describe('shop page structure', () => {
       const chatLink = /<a class="button button-primary" href="([^"]+)" target="_blank" rel="noopener noreferrer" data-contact="chat">/.exec(shop);
       assert.ok(chatLink);
       assert.equal(chatLink[1], '/s/clay-works/chat?lang=en');
-      assert.match(shop, /data-contact="chat">Ask AI assistant<span class="visually-hidden"> \(opens in a new tab\)<\/span>/);
+      assert.match(shop, /data-contact="chat"><svg class="icon"[^>]*aria-hidden="true"[^>]*>(?:(?!<\/svg>)[\s\S])*<\/svg>\s*Ask AI assistant<span class="visually-hidden"> \(opens in a new tab\)<\/span>/);
       const product = (await app.request(`/s/clay-works/p/${app.product.id}`)).text;
       assert.ok(product.includes(`href="/s/clay-works/chat?lang=en&amp;product=${app.product.id}"`));
       for (const tag of [...shop.matchAll(/<a [^>]*target="_blank"[^>]*>/g)]) assert.match(tag[0], /rel="noopener noreferrer"/);
