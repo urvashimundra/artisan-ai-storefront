@@ -56,7 +56,7 @@ body {
 }
 
 main { max-width: var(--owner-width); margin: 0 auto; padding: var(--space-4) var(--gutter); }
-.measure-form, main > form.stack, main > section > form.stack { max-width: var(--measure-form); }
+.measure-form, main > form.stack, main > section > form.stack, main > section > details > form.stack { max-width: var(--measure-form); }
 main:focus { outline: none; }
 
 h1 { font-size: 1.6rem; line-height: 1.25; margin: var(--space-4) 0; }
@@ -295,6 +295,10 @@ input[type="file"] { width: 100%; padding: var(--space-2) 0; font: inherit; }
 .action-stack form { margin: 0; }
 .danger-zone { margin-top: var(--space-5); padding: 0 var(--space-4); border: 2px solid var(--error); border-radius: var(--radius); background: var(--error-soft); }
 .danger-zone[open] { padding-bottom: var(--space-4); }
+.language-block { border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); padding: 0 var(--space-4); }
+.language-block > summary { cursor: pointer; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); min-height: 2.75rem; font-weight: 700; }
+.language-block[open] > summary { margin-bottom: var(--space-3); }
+.language-block > form.stack { padding-bottom: var(--space-4); }
 .danger-zone summary { cursor: pointer; display: flex; align-items: center; min-height: 2.75rem; color: var(--error); font-weight: 700; }
 .danger-zone p { margin-top: 0; }
 @media (min-width: 40rem) {

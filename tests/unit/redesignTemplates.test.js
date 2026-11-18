@@ -32,3 +32,16 @@ describe('T7 shop notes hooks', () => {
     hasAll(page, ['name="minQty<%= row %>"', 'name="percentOff<%= row %>"', 'class="field-row"']);
   });
 });
+
+describe('T8 shop settings hooks', () => {
+  it('keeps one settings form, every field, the approval forms and the back link', () => {
+    const page = view('shop-settings');
+    hasAll(page, ['action="/store/settings"', 'name="tagline"', 'name="story"', 'name="accentKey"', 'name="notifyEnquiryEmail"', 'partials/contact-fields', 'action="/store/settings/translations"', 'action="/store/settings/translations/draft"', 'name="language"', 'name="approved"', 'Back to dashboard', 'class="alert" role="alert"']);
+    assert.equal(page.split('action="/store/settings"').length, 2);
+    hasAll(page, ['<details class="language-block"', 'id="tr-<%= row.language %>-heading"']);
+  });
+
+  it('keeps the form measure selector for forms nested in a language block', () => {
+    assert.match(readFileSync(new URL('../../public/css/app.css', import.meta.url), 'utf8'), /main > section > details > form\.stack/);
+  });
+});

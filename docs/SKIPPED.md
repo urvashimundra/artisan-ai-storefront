@@ -6,3 +6,4 @@
 | T4 | aria-current="page" | No current-page local or request data is passed to the views; needs a controller or middleware change. |
 | All | @layer | Out of scope for this pass. |
 | T6 | city + state pair | No city or state fields exist in the T6 templates; WhatsApp + Instagram paired instead. |
+| T8 | Translation error handling | Needs controller change; skipped as instructed. Form widths at 1280 not measured in a browser (preview server cannot mount /store/settings); covered by a selector test instead. |

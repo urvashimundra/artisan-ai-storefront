@@ -9,7 +9,7 @@
     <% } %>
     <p><a href="/s/<%= shopSlug %>" target="_blank" rel="noopener noreferrer">View your shop (opens in a new tab)</a></p>
     <form method="post" action="/store/settings" class="stack" novalidate>
-    <section class="stack" aria-labelledby="identity-heading">
+    <section class="stack card" aria-labelledby="identity-heading">
       <h2 id="identity-heading">Shop identity</h2>
       <div class="field">
         <label for="tagline">Tagline</label>
@@ -36,11 +36,11 @@
         <% if (errors.accentKey) { %><p id="accentKey-error" class="error-text"><%= errors.accentKey %></p><% } %>
       </div>
     </section>
-    <section class="stack" aria-labelledby="contact-heading">
+    <section class="stack card" aria-labelledby="contact-heading">
       <h2 id="contact-heading">Contact and payments</h2>
 <%- include('partials/contact-fields') %>
     </section>
-    <section class="stack" aria-labelledby="notify-heading">
+    <section class="stack card" aria-labelledby="notify-heading">
       <h2 id="notify-heading">Email notifications</h2>
       <div class="field">
         <label for="notifyEnquiryEmail"><input type="checkbox" id="notifyEnquiryEmail" name="notifyEnquiryEmail" value="on"<%= values.notifyEnquiryEmail ? ' checked' : '' %> aria-describedby="notifyEnquiryEmail-hint"> Email me when a customer enquiry needs me</label>
@@ -62,8 +62,10 @@
         <p class="hint">Claude reads only your tagline and story, and writes a draft in each other language. It replaces the text below for those languages and unapproves them. You always review before anything is public.</p>
         <div><button type="submit" class="button">Draft translations with Claude</button></div>
       </form>
-<% } %><% translationRows.forEach((row) => { %>      <form method="post" action="/store/settings/translations" class="stack" novalidate>
-        <h3 id="tr-<%= row.language %>-heading"><%= row.name %></h3>
+<% } %><% translationRows.forEach((row) => { %>      <details class="language-block"<%= translationErrors[row.language] ? ' open' : '' %>>
+      <summary><%= row.name %> <span class="chip<%= row.approved ? ' chip-approved' : '' %>"><%= row.approved ? 'Approved' : 'Draft' %></span></summary>
+      <form method="post" action="/store/settings/translations" class="stack" novalidate>
+        <h3 id="tr-<%= row.language %>-heading" class="visually-hidden"><%= row.name %></h3>
         <input type="hidden" name="language" value="<%= row.language %>">
         <p><span class="chip<%= row.approved ? ' chip-approved' : '' %>"><%= row.approved ? 'Approved' : 'Draft' %></span> <% if (row.source === 'ai' && (row.tagline || row.story)) { %>Written by Claude<% } else if (row.tagline || row.story) { %>Written by you<% } %></p>
         <div class="field">
@@ -80,5 +82,6 @@
         </div>
         <div><button type="submit" class="button">Save <%= row.name %></button></div>
       </form>
+      </details>
 <% }) %>    </section>
 <%- include('partials/footer') %>
