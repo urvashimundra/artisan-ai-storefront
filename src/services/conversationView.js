@@ -1,6 +1,7 @@
 import { MAX_MESSAGE_LENGTH, MAX_NAME_LENGTH, POLL_INTERVAL_MS, isAiRunning } from '../domain/conversationRules.js';
 import { TRANSLATION_REVIEW } from '../domain/conversationStrings.js';
 import { LANGUAGE_NAMES } from '../domain/language.js';
+import { detectIndicLanguage } from '../ai/scriptCheck.js';
 import { themeClass } from '../domain/palette.js';
 import { fillTemplate, stringsFor } from '../domain/publicStrings.js';
 import { absoluteUrl, shopPath, withLang } from '../domain/seo.js';
@@ -34,10 +35,11 @@ export function formatMessageTime(isoTime, language, nowMs) {
  * The text is plain (EJS and the page script both escape it).
  */
 export function buildMessageView(message, { strings, language, nowMs }) {
-  const labels = [...new Set((message.sources ?? []).map((source) => SOURCE_STRING_KEYS[source.label]).filter(Boolean))].map((key) => strings[key]);
+  const sourceStrings = message.role === 'assistant' ? stringsFor(detectIndicLanguage(message.body ?? '') ?? 'en') : strings;
+  const labels = [...new Set((message.sources ?? []).map((source) => SOURCE_STRING_KEYS[source.label]).filter(Boolean))].map((key) => sourceStrings[key]);
   return {
     id: message.id, seq: message.seq, role: message.role, kind: message.kind, text: message.body, speaker: strings[SPEAKER_KEYS[message.role]],
-    time: message.createdAt, timeLabel: formatMessageTime(message.createdAt, language, nowMs), sources: labels,
+    time: message.createdAt, timeLabel: formatMessageTime(message.createdAt, language, nowMs), sources: labels, sourcesLabel: sourceStrings.chatSourcesLabel,
     escalated: message.kind === 'escalation' || message.kind === 'conflict' || message.kind === 'notice',
   };
 }

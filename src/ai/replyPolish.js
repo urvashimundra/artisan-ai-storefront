@@ -42,3 +42,61 @@ export function withDescriptionSource(sources, reply, descriptions) {
   const used = descriptions.find((description) => sharesWordRun(reply, description, MIN_DESCRIPTION_OVERLAP_WORDS));
   return used ? [...sources, { label: 'product_description', excerpt: Array.from(used).slice(0, MAX_EXCERPT_LENGTH).join('') }] : sources;
 }
+
+const SENTENCES = /((?<=[.!?।])[ \t]+|\n+)/u;
+const ANY_DIGIT = /[0-9\u0966-\u096F\u0AE6-\u0AEF₹]/u;
+const ESTIMATE_WORD = { en: /\b(?:estimates?|estimated|approximate(?:ly)?)\b/iu, gu: /અંદાજ|અનુમાન/u, hi: /अनुमान|अंदाज|अन्दाज/u };
+const CONFIRM_WORD = { en: /\b(?:confirm\w*|final\w*|verif\w*)\b/iu, gu: /પુષ્ટિ|કન્ફર્મ|અંતિમ|ફાઇનલ/u, hi: /पुष्टि|कन्फ़र्म|कन्फर्म|अंतिम|फ़ाइनल|फाइनल/u };
+const SELLER_WORD = { en: /\b(?:seller|shop ?owner|owner|shop|artisan)\b/iu, gu: /વિક્રેતા|દુકાનદાર|માલિક/u, hi: /विक्रेता|दुकानदार|मालिक/u };
+const MAX_ESTIMATE_SENTENCE_LENGTH = 140;
+const MAX_BARE_ESTIMATE_WORDS = 8;
+const MAX_BARE_CONFIRM_WORDS = 5;
+const EN_BARE_CONFIRM = /^(?:the |our )?(?:seller|shop ?owner|owner|shop)\s+(?:will|shall|would)\s+(?:also\s+)?(?:confirm|finali[sz]e|verify)(?:\s+(?:it|this|that|the (?:final )?(?:amount|total|price|quote)|everything))?(?:\s+(?:later|soon|first|separately))?$/iu;
+const wordCount = (text) => text.split(/\s+/u).filter(Boolean).length;
+
+/** True when a sentence only says the amount is an estimate and/or the seller will confirm it: no figure, no other content (by meaning, not exact text). */
+function isEstimateSentence(sentence, language) {
+  const bare = sentence.trim().replace(/[\s.!?।,;:]+$/u, '');
+  if (bare === '' || ANY_DIGIT.test(bare) || bare.length > MAX_ESTIMATE_SENTENCE_LENGTH) return false;
+  const estimate = ESTIMATE_WORD[language].test(bare);
+  const confirm = CONFIRM_WORD[language].test(bare);
+  const seller = SELLER_WORD[language].test(bare);
+  if (estimate) return confirm || seller || wordCount(bare) <= MAX_BARE_ESTIMATE_WORDS;
+  return language === 'en' ? EN_BARE_CONFIRM.test(bare) : seller && confirm && wordCount(bare) <= MAX_BARE_CONFIRM_WORDS;
+}
+
+/**
+ * Removes the model's own "this is an estimate / the seller will confirm" sentences (matched by meaning, in the reply language) so the server's
+ * one estimate line is the only one. A sentence that carries an amount or any other content is kept.
+ * @param {string} text @param {'en'|'gu'|'hi'} language
+ * @returns {string}
+ */
+export function withoutEstimateSentences(text, language) {
+  if (!ESTIMATE_WORD[language]) return text;
+  const parts = text.split(SENTENCES);
+  const kept = [];
+  for (let index = 0; index < parts.length; index += 2) {
+    if (!isEstimateSentence(parts[index], language)) kept.push(parts[index], parts[index + 1] ?? '');
+  }
+  const result = kept.join('').trim();
+  return result === '' ? text : result;
+}
+
+const QUOTED = /“[^”]*”|"[^"]*"|«[^»]*»|„[^“”]*[“”]/gu;
+const PRIVATE_USE_START = 0xe100;
+const MAX_PROTECTED = 500;
+const REPEATED_WORD = /(?<![\p{L}\p{M}\p{N}])([\p{L}\p{M}]+)(?:[\s,;:-]+\1)+(?![\p{L}\p{M}\p{N}])/giu;
+
+/**
+ * Collapses an immediately repeated word (case and punctuation ignored, Latin, Gujarati and Hindi): "સ્ટોકમાં સ્ટોકમાં 38 છે" becomes "સ્ટોકમાં 38 છે".
+ * Numbers are never collapsed, and product names (`names`) and quoted text are left exactly as written.
+ * @param {string} text @param {string[]} [names] Product titles and names the tools returned.
+ * @returns {string}
+ */
+export function collapseRepeatedWords(text, names = []) {
+  const saved = [];
+  const protect = (span) => (saved.length < MAX_PROTECTED ? String.fromCharCode(PRIVATE_USE_START + saved.push(span) - 1) : span);
+  const named = names.filter((name) => name.trim() !== '').sort((a, b) => b.length - a.length).reduce((rest, name) => rest.replace(new RegExp(escapeRegExp(name.trim()), 'giu'), protect), text);
+  const collapsed = named.replace(QUOTED, protect).replace(REPEATED_WORD, '$1');
+  return collapsed.replace(/[\ue100-\ue2ff]/gu, (mark) => saved[mark.charCodeAt(0) - PRIVATE_USE_START] ?? mark);
+}

@@ -28,7 +28,7 @@
 <% if (m.role !== 'customer') { %>              <p class="msg-speaker"><%= m.speaker %></p>
 <% } else { %>              <p class="visually-hidden"><%= m.speaker %></p>
 <% } %>              <p class="msg-text"><%= m.text %></p>
-<% if (m.sources.length > 0) { %>              <p class="msg-sources"><%= strings.chatSourcesLabel %>: <%= m.sources.join(', ') %></p>
+<% if (m.sources.length > 0) { %>              <p class="msg-sources"><%= m.sourcesLabel %>: <%= m.sources.join(', ') %></p>
 <% } %>              <p class="msg-meta"><time datetime="<%= m.time %>"><%= m.timeLabel %></time></p>
             </div>
           </li>

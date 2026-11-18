@@ -35,6 +35,8 @@ const BARE_NUMBER = /\d+(?:[,.]\d+)*/g;
 /** A bare number with this many integer digits is read as a possible amount unless a tool result gave it. */
 const MIN_AMOUNT_DIGITS = 3;
 const MONEY_CONTEXT_WINDOW = 40;
+/** Opening hours and clock times ("10 am", "7 pm", "10:00", "10 बजे", "10 વાગ્યે"): never an amount, so a money word nearby does not make them one. */
+const CLOCK_TIME = new RegExp(`${DIGIT}{1,2}(?:[:.]${DIGIT}{2})?\\s*(?:[ap]\\.?m\\.?(?![A-Za-z])|बजे|वाजता|વાગ્યે|વાગે)|${DIGIT}{1,2}:${DIGIT}{2}(?!${DIGIT})`, 'giu');
 const MONEY_WORDS = '(?:total|subtotal|sub-total|prices?|priced|costs?|amount|pay|payable|payment|charges?|charged|fees?|worth|bill|rate|mrp|discount|કુલ|કિંમત|ભાવ|રકમ|મૂલ્ય|ચાર્જ|ખર્ચ|कुल|कीमत|दाम|भाव|मूल्य|रकम|राशि|भुगतान|शुल्क)';
 const MONEY_WORD_BEFORE = new RegExp(`${MONEY_WORDS}[^0-9.!?;\\n]*$`, 'iu');
 const MONEY_WORD_AFTER = new RegExp(`^\\s*${MONEY_WORDS}`, 'iu');
@@ -98,7 +100,7 @@ function looksLikeAmount(ascii, start, end) {
  * @param {string} text @param {number[]} allowedNumbers @param {number[]} [descriptiveNumbers] @returns {boolean}
  */
 export function hasUnverifiedNumber(text, allowedNumbers, descriptiveNumbers = []) {
-  const ascii = toAsciiDigits(text);
+  const ascii = toAsciiDigits(text).replace(CLOCK_TIME, (time) => BLANK.repeat(time.length));
   const allowed = new Set(allowedNumbers);
   const descriptive = new Set(descriptiveNumbers);
   return [...ascii.matchAll(BARE_NUMBER)].some((match) => {
