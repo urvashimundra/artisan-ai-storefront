@@ -63,7 +63,7 @@ h1 { font-size: 1.6rem; line-height: 1.25; margin: var(--space-4) 0; }
 
 a { color: var(--link); text-decoration: underline; }
 
-a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
   outline: 3px solid var(--ink);
   outline-offset: 2px;
   box-shadow: 0 0 0 5px var(--paper);

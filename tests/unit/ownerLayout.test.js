@@ -71,3 +71,9 @@ describe('disabled buttons', () => {
     assert.ok(css.indexOf('.button:disabled') > css.indexOf('.button-danger:hover'), 'placed after the hover rules so it wins');
   });
 });
+
+describe('focus ring', () => {
+  it('applies to the mobile menu summary like buttons and links', () => {
+    assert.match(block('a:focus-visible'), /summary:focus-visible/);
+  });
+});
