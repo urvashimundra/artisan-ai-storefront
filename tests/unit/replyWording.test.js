@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { collapseRepeatedWords, withoutEstimateSentences } from '../../src/ai/replyPolish.js';
+import { collapseRepeatedWords, withEstimateLine, withoutEstimateSentences } from '../../src/ai/replyPolish.js';
 import { hasUnverifiedNumber } from '../../src/ai/moneyPlaceholders.js';
 import { CONVERSATION_STRINGS } from '../../src/domain/conversationStrings.js';
 import { buildMessageView } from '../../src/services/conversationView.js';
@@ -19,7 +19,31 @@ describe('withoutEstimateSentences', () => {
       ['અંદાજ ₹100 છે.', 'gu'], ['વિક્રેતા ડિલિવરીની તારીખ આજે સાંજે પુષ્ટિ કરશે.', 'gu'], ['अनुमान ₹100 है।', 'hi'],
     ]) assert.equal(withoutEstimateSentences(text, language), text);
   });
-  it('keeps the text when nothing else would be left', () => assert.equal(withoutEstimateSentences('This is an estimate.', 'en'), 'This is an estimate.'));
+  it('keeps delivery, timeline and availability sentences that merely mention an estimate, and unrelated seller confirmations', () => {
+    for (const [text, language] of [
+      ["The delivery estimate is based on the seller's current schedule.", 'en'], ['Production usually takes about a week, which is only an estimate.', 'en'],
+      ['The seller will confirm delivery dates.', 'en'], ['This lamp is handmade from local clay and is a good gift.', 'en'],
+      ['ડિલિવરીનો અંદાજ વિક્રેતાના હાલના સમયપત્રક પર આધારિત છે.', 'gu'], ['ઉત્પાદનનો સમય માત્ર અંદાજ છે.', 'gu'], ['વિક્રેતા ડિલિવરીની તારીખ પુષ્ટિ કરશે.', 'gu'],
+      ['डिलीवरी का अनुमान विक्रेता के मौजूदा शेड्यूल पर आधारित है।', 'hi'], ['तैयार होने का समय केवल अनुमान है।', 'hi'], ['विक्रेता डिलीवरी की तारीख की पुष्टि करेंगे।', 'hi'],
+    ]) assert.equal(withoutEstimateSentences(text, language), text);
+  });
+  it('removes only the disclaimer sentence when useful sentences surround it', () => {
+    assert.equal(withoutEstimateSentences('The delivery estimate is two weeks. This is an estimate. The seller will confirm.', 'en'), 'The delivery estimate is two weeks.');
+  });
+  it('conservatively keeps estimate sentences that mention a timeline word', () => {
+    const generic = 'The total is an estimate for delivery.';
+    const useful = 'The delivery estimate is two weeks.';
+    assert.equal(withoutEstimateSentences(generic, 'en'), generic);
+    assert.equal(withoutEstimateSentences(useful, 'en'), useful);
+  });
+  it('returns an empty string when the whole reply is only estimate wording, so the server line is the only one', () => {
+    for (const language of ['en', 'gu', 'hi']) {
+      const note = stringsFor(language).quoteEstimateNote;
+      assert.equal(withoutEstimateSentences(note, language), '');
+      assert.equal(withEstimateLine(withoutEstimateSentences(note, language), note), note);
+    }
+    assert.equal(withEstimateLine(withoutEstimateSentences('This is an estimate.', 'en'), 'This is an estimate. The seller will confirm.'), 'This is an estimate. The seller will confirm.');
+  });
 });
 
 describe('collapseRepeatedWords', () => {
