@@ -9,7 +9,7 @@ const HTTP_BAD_GATEWAY = 502;
 const HTTP_GATEWAY_TIMEOUT = 504;
 
 const ERRORS = {
-  empty: () => new AppError('KNOWLEDGE_EMPTY', HTTP_BAD_REQUEST, 'Save your shop notes first, then ask Claude to find the bulk discounts.'),
+  empty: () => new AppError('KNOWLEDGE_EMPTY', HTTP_BAD_REQUEST, 'Add your shop notes and save them first'),
   timeout: () => new AppError('AI_TIMEOUT', HTTP_GATEWAY_TIMEOUT, 'The AI took too long to answer. Please try again, or enter the discounts yourself.'),
   provider: () => new AppError('AI_PROVIDER_ERROR', HTTP_BAD_GATEWAY, 'The AI service is not available right now. Please try again in a few minutes, or enter the discounts yourself.'),
   invalidOutput: () => new AppError('AI_INVALID_OUTPUT', HTTP_BAD_GATEWAY, 'The AI did not produce usable discounts. Please enter them yourself.'),

@@ -56,6 +56,17 @@ describe('shop notes page (owner)', () => {
     });
   });
 
+  it('Save stays on the notes page with a Saved notice, and the Claude search is enabled for the saved notes', async () => {
+    await withApp(async ({ app, cookieA }) => {
+      const saved = await save(app, cookieA, { content: '10 or more: 5% off' });
+      assert.equal(saved.location, '/store/knowledge?saved=document');
+      const page = await app.request(saved.location, { cookie: cookieA });
+      assert.match(page.text, /<p class="notice" role="status" aria-live="polite">Saved\. Your shop notes are up to date\.<\/p>/);
+      assert.match(page.text, /<button type="submit" class="button button-secondary"[^>]*>Find bulk discounts with Claude/);
+      assert.doesNotMatch(page.text, /button-secondary"[^>]*disabled/);
+    });
+  });
+
   it('owner B never sees or changes owner A notes or rules', async () => {
     await withApp(async ({ app, repo, cookieA, cookieB, storeA, storeB }) => {
       await save(app, cookieA, { content: 'Secret policy of A' });
@@ -117,7 +128,11 @@ describe('shop notes page (owner)', () => {
 
   it('the Claude search needs saved notes, and honours the budget guard', async () => {
     await withApp(async ({ app, budgets, extractCalls, cookieA }) => {
-      assert.equal((await save(app, cookieA, {}, '/store/knowledge/rules/find')).status, 400);
+      const noNotes = await save(app, cookieA, {}, '/store/knowledge/rules/find');
+      assert.equal(noNotes.status, 400);
+      assert.match(noNotes.text, /<p class="error-summary" role="alert" tabindex="-1" data-focus-alert id="find-error">Add your shop notes and save them first<\/p>/);
+      assert.match(noNotes.text, /<button type="submit" class="button button-secondary" aria-describedby="find-error">Find bulk discounts with Claude/);
+      assert.equal(extractCalls.length, 0);
       await save(app, cookieA, { content: 'notes' });
       budgets.exhausted = true;
       const res = await save(app, cookieA, {}, '/store/knowledge/rules/find');
