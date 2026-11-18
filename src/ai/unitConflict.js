@@ -11,22 +11,22 @@ import { toAsciiDigits } from './moneyPlaceholders.js';
  */
 
 const UNIT_ALIASES = Object.freeze({
-  ml: ['ml', 'millilitre', 'millilitres', 'milliliter', 'milliliters'],
-  l: ['l', 'litre', 'litres', 'liter', 'liters'],
-  g: ['g', 'gram', 'grams'],
-  kg: ['kg', 'kilogram', 'kilograms'],
-  cm: ['cm'],
-  mm: ['mm'],
-  inch: ['inch', 'inches'],
-  hours: ['hour', 'hours', 'hr', 'hrs'],
-  days: ['day', 'days'],
-  pieces: ['piece', 'pieces', 'pc', 'pcs'],
+  ml: ['ml', 'millilitre', 'millilitres', 'milliliter', 'milliliters', 'મિલીલીટર', 'મિલી', 'मिलीलीटर', 'मिली'],
+  l: ['l', 'litre', 'litres', 'liter', 'liters', 'લિટર', 'लीटर'],
+  g: ['g', 'gram', 'grams', 'ગ્રામ', 'ग्राम'],
+  kg: ['kg', 'kilogram', 'kilograms', 'કિલોગ્રામ', 'કિલો', 'किलोग्राम', 'किलो'],
+  cm: ['cm', 'સેન્ટિમીટર', 'સેમી', 'सेंटीमीटर', 'सेमी'],
+  mm: ['mm', 'મિમી', 'मिमी'],
+  inch: ['inch', 'inches', 'ઇંચ', 'इंच'],
+  hours: ['hour', 'hours', 'hr', 'hrs', 'કલાક', 'घंटे', 'घंटा'],
+  days: ['day', 'days', 'દિવસ', 'दिन'],
+  pieces: ['piece', 'pieces', 'pc', 'pcs', 'નંગ', 'ટુકડા', 'पीस', 'नग', 'टुकड़े'],
 });
 /** Units that are the same quantity at another scale are compared in the smaller one: 0.5 l equals 500 ml. */
 const SCALE_TO_BASE = Object.freeze({ l: ['ml', 1000], kg: ['g', 1000], cm: ['mm', 10] });
 const UNIT_BY_WORD = new Map(Object.entries(UNIT_ALIASES).flatMap(([unit, words]) => words.map((word) => [word, unit])));
 const NUMBER = '(\\d+(?:\\.\\d+)?)';
-const MEASUREMENT = new RegExp(`(?<![\\p{L}\\p{N}.])${NUMBER}(?:\\s*(?:-|–|to)\\s*${NUMBER})?\\s*(${[...UNIT_BY_WORD.keys()].join('|')})(?![\\p{L}\\p{N}])`, 'giu');
+const MEASUREMENT = new RegExp(`(?<![\\p{L}\\p{N}.])${NUMBER}(?:\\s*(?:-|–|to)\\s*${NUMBER})?\\s*(${[...UNIT_BY_WORD.keys()].join('|')})(?![\\p{L}\\p{M}\\p{N}])`, 'giu');
 /** A full stop between digits is a decimal point, not the end of a sentence. */
 const SENTENCE_BREAK = /(?<!\d)\.(?!\d)|[!?\n;\u0964]+/gu;
 const CLAUSE_BOUNDARY = /,|\band\b/giu;
@@ -87,6 +87,19 @@ function measurementsOf(text, context) {
 const sameAttribute = (a, b) => a.attributes.size === 0 || b.attributes.size === 0 || [...a.attributes].some((word) => b.attributes.has(word));
 const sameValues = (a, b) => a.values.length === b.values.length && a.values.every((value, index) => value === b.values[index]);
 const clip = (text) => Array.from(text).slice(0, MAX_SNIPPET_LENGTH).join('');
+
+/**
+ * Every measurement (number and unit) stated in a text, in base units: 0.5 l is 500 ml. English, Gujarati and Hindi unit words and digits.
+ * @param {string} text
+ * @returns {{ unit: string, value: number }[]}
+ */
+export function extractMeasurements(text) {
+  return [...toAsciiDigits(text).matchAll(MEASUREMENT)].flatMap((match) => {
+    const unit = UNIT_BY_WORD.get(match[3].toLowerCase());
+    const base = SCALE_TO_BASE[unit]?.[0] ?? unit;
+    return [match[1], match[2]].filter(Boolean).map((figure) => ({ unit: base, value: toBase(Number(figure), unit) }));
+  });
+}
 
 /**
  * @param {string} answer The final answer text (money already substituted).

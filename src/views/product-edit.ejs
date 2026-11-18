@@ -24,7 +24,7 @@
       <% if (product.status === 'published') { %>
       <p class="hint">This product is published, so AI cannot rewrite it. You can still edit the text below.</p>
       <% } else { %>
-      <form id="generate-form" method="post" action="/products/<%= product.id %>/generate" class="stack">
+      <form id="generate-form" data-progress="generate-progress" method="post" action="/products/<%= product.id %>/generate" class="stack">
         <div class="field">
           <label for="gen-story">Your story about this product</label>
           <textarea id="gen-story" name="story" required maxlength="1500"><%= values.story %></textarea>
@@ -35,6 +35,14 @@
       </form>
       <% } %>
     </section>
+
+    <% if (canTranslate) { %>
+    <section aria-labelledby="update-languages-heading">
+      <h2 id="update-languages-heading">Other languages</h2>
+      <p class="hint">Changed the <%= defaultLanguageName %> text? Let the AI rewrite the other languages from your saved <%= defaultLanguageName %> title and description.</p>
+      <p><a class="button button-secondary" href="/products/<%= product.id %>/update-languages">Update other languages from my edits</a></p>
+    </section>
+    <% } %>
 
     <form method="post" action="/products/<%= product.id %>/save" class="stack" novalidate>
       <input type="hidden" name="story" value="<%= values.story %>">

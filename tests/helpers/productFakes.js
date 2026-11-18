@@ -76,6 +76,25 @@ export function createFakeProducts({ defaultLanguageOf = () => 'en', now = Date.
       draftRows.push({ id: draftId, storeId, productId, model, tokensIn, tokensOut, costMicroUsd });
       return { ok: true, draftId };
     },
+    async saveTranslationDrafts(storeId, productId, translations) {
+      maybeFail('saveTranslationDrafts');
+      const row = find(storeId, productId);
+      if (!row) return { ok: false, reason: 'not_found' };
+      if (row.aiStatus === 'generating' && Date.parse(row.aiStartedAt ?? '') > now() - STALE_MS) return { ok: false, reason: 'generating' };
+      const saved = [];
+      const skipped = [];
+      for (const [language, t] of Object.entries(translations)) {
+        const old = row.translations.find((entry) => entry.language === language);
+        if (language === defaultLanguageOf(storeId)) return { ok: false, reason: 'invalid' };
+        if (old?.approved && old.source === 'owner') {
+          skipped.push(language);
+        } else {
+          row.translations = [...row.translations.filter((entry) => entry.language !== language), { language, title: t.title, description: t.description, altText: old?.altText ?? '', source: 'ai', approved: false }];
+          saved.push(language);
+        }
+      }
+      return { ok: true, saved, skipped };
+    },
     async saveReview(storeId, productId, { story, stock, pricePaise, translations, approvedLanguages, publish }) {
       maybeFail('saveReview');
       const row = find(storeId, productId);

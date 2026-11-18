@@ -169,7 +169,7 @@ describe('prompt', () => {
   const system = buildListingSystemPrompt();
 
   it('is versioned and free of user data', () => {
-    assert.equal(LISTING_PROMPT_VERSION, 'listing-v2');
+    assert.equal(LISTING_PROMPT_VERSION, 'listing-v3');
     assert.equal(buildListingSystemPrompt(), system);
   });
 
