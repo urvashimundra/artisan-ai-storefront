@@ -2,7 +2,7 @@
     <h1>Your store</h1>
     <% if (locals.welcome) { %><p class="notice" role="status">Your shop is ready. <a href="/s/<%= store.slug %>" target="_blank" rel="noopener noreferrer">View your shop (opens in a new tab)</a></p><% } %>
     <% if (!progress.complete) { %>
-    <section class="stack" aria-labelledby="progress-heading">
+    <section class="stack card" aria-labelledby="progress-heading">
       <h2 id="progress-heading">Finish setting up</h2>
       <ul class="checklist">
         <% progress.steps.forEach((step) => { %>
@@ -11,7 +11,7 @@
       </ul>
     </section>
     <% } %>
-    <dl class="details">
+    <dl class="details card">
       <dt>Store name</dt>
       <dd><%= store.name %></dd>
       <dt>Store address</dt>
@@ -23,12 +23,12 @@
     </dl>
     <div class="actions">
       <a class="button" href="/s/<%= store.slug %>" target="_blank" rel="noopener noreferrer">View your shop</a>
-      <button type="button" class="button" data-share data-share-url="<%= shopUrl %>" data-share-title="<%= store.name %>" data-copied="Link copied" hidden>Copy shop link</button>
-      <a class="button" href="/store/settings">Shop settings</a>
-      <% if (locals.productsEnabled) { %><a class="button" href="/products">Manage products</a><% } %>
-      <% if (locals.enquiriesEnabled) { %><a class="button" href="/enquiries">Conversations<% if (locals.needsYouEnquiries) { %> <span class="badge"><%= needsYouEnquiries %> need you</span><% } %></a><% } %>
-      <% if (locals.knowledgeEnabled) { %><a class="button" href="/store/knowledge">Shop notes</a><% } %>
-      <% if (locals.ordersEnabled) { %><a class="button" href="/orders">Orders<% if (locals.pendingPayments) { %> <span class="badge"><%= pendingPayments %> to check</span><% } %></a><% } %>
+      <button type="button" class="button button-secondary" data-share data-share-url="<%= shopUrl %>" data-share-title="<%= store.name %>" data-copied="Link copied" hidden>Copy shop link</button>
+      <a class="button button-secondary" href="/store/settings">Shop settings</a>
+      <% if (locals.productsEnabled) { %><a class="button button-secondary" href="/products">Manage products</a><% } %>
+      <% if (locals.enquiriesEnabled) { %><a class="button button-secondary" href="/enquiries">Conversations<% if (locals.needsYouEnquiries) { %> <span class="badge"><%= needsYouEnquiries %> need you</span><% } %></a><% } %>
+      <% if (locals.knowledgeEnabled) { %><a class="button button-secondary" href="/store/knowledge">Shop notes</a><% } %>
+      <% if (locals.ordersEnabled) { %><a class="button button-secondary" href="/orders">Orders<% if (locals.pendingPayments) { %> <span class="badge"><%= pendingPayments %> to check</span><% } %></a><% } %>
     </div>
     <p class="hint" role="status" aria-live="polite" data-share-status></p>
     <script src="/js/share.js" defer></script>
