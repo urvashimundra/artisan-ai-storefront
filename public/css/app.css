@@ -56,7 +56,7 @@ body {
 }
 
 main { max-width: var(--owner-width); margin: 0 auto; padding: var(--space-4) var(--gutter); }
-.measure-form, main > form.stack { max-width: var(--measure-form); }
+.measure-form, main > form.stack, main > section > form.stack { max-width: var(--measure-form); }
 main:focus { outline: none; }
 
 h1 { font-size: 1.6rem; line-height: 1.25; margin: var(--space-4) 0; }

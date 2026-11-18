@@ -20,6 +20,7 @@ describe('owner layout width', () => {
     assert.match(css, /--owner-width: 80rem/);
     assert.match(css, /--measure-form: 40rem/);
     assert.match(block('.measure-form'), /max-width: var\(--measure-form\)/);
+    assert.match(block('.measure-form'), /main > section > form\.stack/);
   });
 
   it('header, main and footer share the width token and the gutter', () => {
