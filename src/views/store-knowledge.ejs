@@ -29,7 +29,14 @@
       <p>The assistant only uses the discounts you confirm here. It never makes up a discount. Leave a row empty if you do not need it.</p>
 <% if (confirmedRules.length > 0) { %>      <p class="hint">Confirmed now: <%= confirmedRules.map((tier) => tier.minQty + ' or more: ' + tier.percentOff + '% off').join('; ') %>.</p>
 <% } else { %>      <p class="hint">No bulk discount is confirmed yet.</p>
-<% } %><% if (rulesError) { %>      <p class="error-summary" role="alert" id="rules-error"><%= rulesError %></p>
+<% } %><% if (canExtract) { %>      <form method="post" action="/store/knowledge/rules/find<%= stepSuffix %>" class="stack" data-progress="find-progress">
+        <p class="hint">Claude can read your saved notes and suggest the discounts. It only fills the boxes below. Check them, then save.</p>
+<% if (aiError) { %>        <p class="error-summary" role="alert" tabindex="-1" data-focus-alert id="find-error"><%= aiError %></p>
+<% } %>        <div><button type="submit" class="button button-secondary"<% if (aiError) { %> aria-describedby="find-error"<% } %>>Find bulk discounts with Claude</button></div>
+        <p id="find-progress" class="notice" role="status" aria-live="polite" hidden>Claude is reading your notes. This can take up to a minute.</p>
+      </form>
+<% } %>
+<% if (rulesError) { %>      <p class="error-summary" role="alert" id="rules-error"><%= rulesError %></p>
 <% } %>      <form method="post" action="/store/knowledge/rules<%= stepSuffix %>" class="stack">
         <ol class="plain stack" aria-label="Bulk discount rows">
 <% ruleRows.forEach((row) => { %>          <li class="field-row">
@@ -46,14 +53,10 @@
         <p class="hint">Example: 10 items, 5 percent. Items go up from row to row, from 2 to 1000. Percent is from 1 to 50.</p>
         <div><button type="submit" class="button">Save bulk discounts</button></div>
       </form>
-<% if (canExtract) { %>      <form method="post" action="/store/knowledge/rules/find<%= stepSuffix %>" class="stack">
-        <p class="hint">Claude can read your saved notes and suggest the discounts. It only fills the boxes above. Check them, then save.</p>
-<% if (aiError) { %>        <p class="error-summary" role="alert" tabindex="-1" data-focus-alert id="find-error"><%= aiError %></p>
-<% } %>        <div><button type="submit" class="button button-secondary"<% if (aiError) { %> aria-describedby="find-error"<% } %>>Find bulk discounts with Claude</button></div>
-      </form>
-<% } %>    </section>
+    </section>
     <p><a href="/dashboard">Back to dashboard</a></p>
     <script src="/js/char-counter.js" defer></script>
     <script src="/js/knowledge-file.js" defer></script>
     <script src="/js/focus-alert.js" defer></script>
+    <script src="/js/product-generate.js" defer></script>
 <%- include('partials/footer') %>

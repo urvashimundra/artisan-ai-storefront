@@ -23,3 +23,12 @@ describe('T6 dashboard and onboarding hooks', () => {
     assert.ok(row.includes('name="whatsappNumber"') && row.includes('name="instagramHandle"'));
   });
 });
+
+describe('T7 shop notes hooks', () => {
+  it('puts the Claude form above the save form and keeps every hook', () => {
+    const page = view('store-knowledge');
+    assert.ok(page.indexOf('/store/knowledge/rules/find') < page.indexOf('action="/store/knowledge/rules<%='));
+    hasAll(page, ['data-focus-alert', 'data-progress="find-progress"', 'id="find-progress"', '/js/product-generate.js', 'Saving new notes clears your confirmed bulk discounts', 'name="content"']);
+    hasAll(page, ['name="minQty<%= row %>"', 'name="percentOff<%= row %>"', 'class="field-row"']);
+  });
+});
