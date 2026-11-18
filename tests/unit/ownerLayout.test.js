@@ -44,3 +44,19 @@ describe('visually hidden text', () => {
     assert.match(block('.table-wrap'), /position: relative/);
   });
 });
+
+describe('badge inside a button', () => {
+  const token = (name) => new RegExp(`--${name}: (#[0-9a-fA-F]{6})`).exec(css)[1];
+
+  it('meets text and non-text contrast on the button and its hover colour', async () => {
+    const { contrastRatio, MIN_TEXT_CONTRAST, MIN_UI_CONTRAST } = await import('../../src/domain/contrast.js');
+    const rule = block('.button .badge');
+    assert.match(rule, /color: var\(--ink\)/);
+    assert.match(rule, /background: var\(--paper\)/);
+    assert.match(rule, /border-color: var\(--paper\)/);
+    assert.ok(contrastRatio(token('ink'), token('paper')) >= MIN_TEXT_CONTRAST);
+    for (const accent of ['accent', 'accent-strong']) {
+      assert.ok(contrastRatio(token('paper'), token(accent)) >= MIN_UI_CONTRAST, accent);
+    }
+  });
+});
