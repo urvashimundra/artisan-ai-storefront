@@ -31,6 +31,29 @@ export function truncateText(text, maxCodePoints) {
   return `${out.trimEnd()}${ELLIPSIS}`;
 }
 
+const SENTENCE_END = /^[\s\S]*?[.!?।॥](?=\s|$)/u;
+const LAST_WHITESPACE = /\s(?=\S*$)/u;
+
+/** Cuts at the last space that fits (keeping room for the ellipsis); falls back to a grapheme cut when there is no space. */
+const cutAtWord = (text, maxCodePoints) => {
+  const head = Array.from(text).slice(0, maxCodePoints - codePointCount(ELLIPSIS)).join('');
+  const space = head.search(LAST_WHITESPACE);
+  return space > 0 ? `${head.slice(0, space).trimEnd()}${ELLIPSIS}` : truncateText(text, maxCodePoints);
+};
+
+/**
+ * The first sentence of a story, for a short hero line. A sentence longer than maxCodePoints is cut at a word boundary with an ellipsis.
+ * Sentences end at . ! ? or the Devanagari danda, when followed by a space or the end of the text.
+ * @param {string} text
+ * @param {number} maxCodePoints
+ * @returns {string}
+ */
+export function firstSentence(text, maxCodePoints) {
+  const trimmed = text.trim();
+  const sentence = SENTENCE_END.exec(trimmed)?.[0] ?? trimmed;
+  return codePointCount(sentence) <= maxCodePoints ? sentence : cutAtWord(sentence, maxCodePoints);
+}
+
 /**
  * Meta description: whitespace and newlines collapsed to single spaces, at most 160 code points.
  * @param {string} text

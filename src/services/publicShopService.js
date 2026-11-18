@@ -7,6 +7,7 @@ import {
   MAX_MAKER_EXCERPT_LENGTH,
   absoluteUrl,
   buildMeta,
+  firstSentence,
   buildSitemapXml,
   productImagePath,
   productPath,
@@ -23,8 +24,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const CASE_INSENSITIVE_SLUG = new RegExp(SLUG_PATTERN.source, 'i');
 const EAGER_IMAGE_COUNT = 2;
 export const SITEMAP_MAX_URLS = 5000;
-/** The hero shows only the opening of the maker's story; the full story follows the products. */
-const MAX_HERO_STORY_LENGTH = 180;
+/** The hero shows only the first sentence of the maker's story; the full story follows the products. */
+const MAX_HERO_STORY_LENGTH = 140;
 export const SITEMAP_TTL_MS = 600_000;
 
 /** Plain module variable (no ttlCache): the memoised sitemap XML and when it expires. */
@@ -161,7 +162,7 @@ export function buildShopPage({ shop, products, language, baseUrl }) {
     siteName: shop.name,
   });
   const shown = cards.slice(0, MAX_PUBLIC_PRODUCTS);
-  const heroStory = truncateText(texts.story?.text ?? '', MAX_HERO_STORY_LENGTH);
+  const heroStory = firstSentence(texts.story?.text ?? '', MAX_HERO_STORY_LENGTH);
   return { view: { ...base, kind: 'shop', products: shown, hasMore: cards.length > MAX_PUBLIC_PRODUCTS, heroStory, meta }, skippedIds };
 }
 
