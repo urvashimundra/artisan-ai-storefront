@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { MAX_CONTACT_MESSAGE_LENGTH, MAX_CONTACT_NAME_LENGTH } from './emailRules.js';
 import { MAX_EMAIL_LENGTH } from './orderRules.js';
-import { cleanLine, codePointLength, normalizeParagraph } from './productRules.js';
+import { personNameField } from './personName.js';
+import { codePointLength, normalizeParagraph } from './productRules.js';
 
 const MS_PER_HOUR = 3_600_000;
 const RAW_FIELD_FACTOR = 4;
@@ -19,12 +20,7 @@ export { MAX_CONTACT_MESSAGE_LENGTH, MAX_CONTACT_NAME_LENGTH };
 const withinCodePoints = (limit) => (value) => codePointLength(value) <= limit;
 const noLineBreak = (value) => !LINE_BREAK.test(value);
 
-const nameField = z
-  .string()
-  .max(MAX_CONTACT_NAME_LENGTH * RAW_FIELD_FACTOR)
-  .refine(noLineBreak, { message: 'invalid_name' })
-  .transform(cleanLine)
-  .refine((value) => value.length > 0 && withinCodePoints(MAX_CONTACT_NAME_LENGTH)(value), { message: 'invalid_name' });
+const nameField = z.string().refine(noLineBreak, { message: 'invalid_name' }).pipe(personNameField(MAX_CONTACT_NAME_LENGTH));
 
 const emailField = z
   .string()

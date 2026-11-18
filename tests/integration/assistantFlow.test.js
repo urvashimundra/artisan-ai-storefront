@@ -260,11 +260,11 @@ describe('ask the seller: tokens, privacy and output safety', () => {
     script: [finalAnswer('answered', 'Hello <img src=x onerror=alert(1)> <script>alert(2)</script>')],
   }, async (t) => {
     const payload = '"><script>alert(1)</script><b onmouseover=alert(3)>';
-    const token = t.tokenOf(await t.ask({ ...ASK, name: '<i>Asha</i>', question: payload }));
+    const token = t.tokenOf(await t.ask({ ...ASK, name: 'Asha', question: payload }));
     await t.answer(token);
     Object.assign(row(t), { sellerReply: '<svg onload=alert(4)>', repliedAt: new Date().toISOString(), status: 'handled' });
     const page = await t.page(token);
-    for (const raw of ['<script>alert', '<img src=x', '<b onmouseover', '<svg onload', '<i>Asha']) assert.equal(page.text.includes(raw), false, raw);
+    for (const raw of ['<script>alert', '<img src=x', '<b onmouseover', '<svg onload']) assert.equal(page.text.includes(raw), false, raw);
     assert.match(page.text, /&lt;script&gt;alert\(1\)/);
     assert.match(page.text, /&lt;svg onload=alert\(4\)&gt;/);
     for (const secret of [SECRET_EMAIL, SECRET_UPI, '919876543210', '9876543210', '919123456780', 'Asha']) assert.equal(page.text.includes(secret), false, secret);

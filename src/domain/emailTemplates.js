@@ -6,7 +6,7 @@
  * Privacy rule: a customer email carries only the shop name, order number, status, a deadline (in minutes, taken from the order
  * constants) and a link. Never an amount, address, phone number, UPI ID or payment reference.
  */
-import { ORDER_EXPIRY_MINUTES, ORDER_RESUBMIT_MINUTES } from './orderRules.js';
+import { CANCEL_REASON_UTR_EXHAUSTED, MAX_UTR_SUBMISSIONS, ORDER_EXPIRY_MINUTES, ORDER_RESUBMIT_MINUTES } from './orderRules.js';
 import { EMAIL_KINDS, MAX_BODY_LENGTH, MAX_SUBJECT_LENGTH } from './emailRules.js';
 import { absoluteUrl, shopPath } from './seo.js';
 
@@ -87,6 +87,13 @@ const CUSTOMER_COPY = Object.freeze({
   },
 });
 
+/** Replaces the generic cancellation note when the order was cancelled after the last allowed payment reference was rejected. {attempts} is MAX_UTR_SUBMISSIONS. */
+const UTR_EXHAUSTED_NOTE = Object.freeze({
+  en: 'This order was cancelled because the payment could not be verified after {attempts} attempts. The items are available again. You can place a new order in the shop.',
+  gu: '{attempts} પ્રયાસો પછી પણ ચુકવણીની ખાતરી થઈ શકી નથી, તેથી આ ઓર્ડર રદ કરવામાં આવ્યો છે. વસ્તુઓ ફરી ઉપલબ્ધ છે. તમે દુકાનમાં નવો ઓર્ડર આપી શકો છો.',
+  hi: '{attempts} प्रयासों के बाद भी भुगतान की पुष्टि नहीं हो सकी, इसलिए यह ऑर्डर रद्द कर दिया गया है। सामान फिर से उपलब्ध है। आप दुकान में नया ऑर्डर कर सकते हैं।',
+});
+
 /** Minutes quoted in each customer email, from the order constants (never typed here). */
 const MINUTES_BY_KIND = Object.freeze({
   [EMAIL_KINDS.ORDER_PLACED]: ORDER_EXPIRY_MINUTES,
@@ -117,9 +124,11 @@ export function safeSubject(subject) {
 const safeBody = (text) => clip(text, MAX_BODY_LENGTH, SUBJECT_ELLIPSIS);
 
 function customerLines({ kind, language, facts, baseUrl }) {
-  const copy = CUSTOMER_COPY[kind][language];
+  const base = CUSTOMER_COPY[kind][language];
+  const exhausted = kind === EMAIL_KINDS.ORDER_CANCELLED && facts.cancel_reason === CANCEL_REASON_UTR_EXHAUSTED;
+  const copy = exhausted ? { ...base, note: UTR_EXHAUSTED_NOTE[language] } : base;
   const common = COMMON[language];
-  const values = { shop: oneLine(facts.shop), ref: oneLine(facts.reference), minutes: String(MINUTES_BY_KIND[kind] ?? ''), status: copy.status };
+  const values = { shop: oneLine(facts.shop), ref: oneLine(facts.reference), minutes: String(MINUTES_BY_KIND[kind] ?? ''), status: copy.status, attempts: String(MAX_UTR_SUBMISSIONS) };
   const privateUrl = facts.link ? oneLine(facts.link) : null;
   const shopUrl = absoluteUrl(baseUrl, shopPath(facts.slug));
   const lines = [fill(common.greeting, values), '', fill(common.orderNumber, values), fill(common.status, values), '', fill(copy.note, values), ''];

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { AppError } from '../lib/errors.js';
 import { MAX_CUSTOMER_NAME_LENGTH } from './orderRules.js';
+import { personNameField } from './personName.js';
 import { cleanLine, codePointLength, normalizeParagraph } from './productRules.js';
 import { normalizeWhatsappNumber } from './whatsapp.js';
 
@@ -90,7 +91,7 @@ const messageText = paragraph(MAX_MESSAGE_LENGTH);
 /** Starting a conversation. Strict. `startKey` and `messageId` are the idempotency keys; `website` is the hidden trap field. */
 export const startSchema = z
   .object({
-    name: line(MAX_NAME_LENGTH),
+    name: personNameField(MAX_NAME_LENGTH),
     phone: z.string().max(MAX_PHONE_INPUT_LENGTH).transform(normalizeWhatsappNumber).refine((value) => value !== null),
     message: messageText,
     startKey: z.uuid(),

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { AppError } from '../lib/errors.js';
-import { cleanLine, codePointLength, normalizeParagraph } from './productRules.js';
+import { personNameField } from './personName.js';
+import { codePointLength, normalizeParagraph } from './productRules.js';
 
 /** Limits. Mirrored in db/migrations/008_orders.sql (a unit test compares them). */
 export const MIN_QUANTITY = 1;
@@ -25,7 +26,8 @@ export const STATUS = Object.freeze({
   CANCELLED: 'cancelled',
 });
 export const ORDER_STATUSES = Object.freeze(Object.values(STATUS));
-export const CANCEL_REASONS = Object.freeze(['expired', 'customer', 'owner']);
+export const CANCEL_REASON_UTR_EXHAUSTED = 'utr_attempts_exhausted';
+export const CANCEL_REASONS = Object.freeze(['expired', 'customer', 'owner', CANCEL_REASON_UTR_EXHAUSTED]);
 export const ACTORS = Object.freeze({ CUSTOMER: 'customer', OWNER: 'owner', SYSTEM: 'system' });
 
 const HTTP_BAD_REQUEST = 400;
@@ -111,6 +113,25 @@ export function isPastDeadline(order, nowMs) {
 }
 
 /**
+ * Minutes the customer is told the item is held, for the order's current status: the short window while awaiting the first
+ * payment, the longer resubmission window after the seller said the money was not received.
+ * @param {string} status
+ * @returns {number}
+ */
+export function holdMinutes(status) {
+  return status === STATUS.NOT_RECEIVED ? ORDER_RESUBMIT_MINUTES : ORDER_EXPIRY_MINUTES;
+}
+
+/**
+ * True when marking this order's payment "not received" would use the last allowed attempt and so cancel the order.
+ * @param {{ utrSubmissions: number }} order
+ * @returns {boolean}
+ */
+export function lastAttemptUsed(order) {
+  return order.utrSubmissions >= MAX_UTR_SUBMISSIONS;
+}
+
+/**
  * Deadline of an awaiting_payment order: ten minutes after creation. Used to explain legacy orders (migration 009 moves
  * their stored deadline to this value).
  * @param {string} createdAt ISO timestamp
@@ -174,7 +195,7 @@ const addressField = z
 export const checkoutSchema = z
   .object({
     quantity: quantityField,
-    name: z.string().max(rawLimit(MAX_CUSTOMER_NAME_LENGTH)).transform(cleanLine).refine((v) => v.length > 0 && withinCodePoints(MAX_CUSTOMER_NAME_LENGTH)(v), { message: 'invalid_name' }),
+    name: personNameField(MAX_CUSTOMER_NAME_LENGTH),
     phone: phoneField,
     email: emailField,
     address: addressField,

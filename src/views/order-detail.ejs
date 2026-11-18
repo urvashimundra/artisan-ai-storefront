@@ -55,7 +55,7 @@
             <% if (order.paidAt) { %><div><dt>Marked paid</dt><dd><%= order.paidAt %></dd></div><% } %>
             <% if (order.expiresAt) { %><div><dt>Pay-by time</dt><dd><%= order.expiresAt %></dd></div><% } %>
             <div><dt>Payee UPI ID (when ordered)</dt><dd><%= order.payeeVpa %></dd></div>
-            <div><dt>UTR submissions</dt><dd><%= order.utrSubmissions %> of 3</dd></div>
+            <div><dt>UTR submissions</dt><dd><%= order.utrSubmissions %> of <%= maxAttempts %></dd></div>
           </dl>
           <% if (order.attempts.length > 0) { %>
           <h3>UTR history</h3>
@@ -71,14 +71,16 @@
           <% if (!actions.canMarkPaid && !actions.canMarkNotReceived && !actions.canCancel) { %><p class="meta">No actions are available for this order.</p><% } %>
           <div class="action-stack">
             <% if (actions.canMarkPaid) { %><form method="post" action="/orders/<%= order.id %>/paid"><button type="submit" class="button button-block">Mark as paid</button></form><% } %>
-            <% if (actions.canMarkNotReceived) { %><form method="post" action="/orders/<%= order.id %>/not-received" data-confirm="Mark this payment as not received? The customer will be able to send a new UTR."><button type="submit" class="button button-secondary button-block">Payment not received</button></form><% } %>
+            <% if (actions.canMarkNotReceived && lastAttempt) { %><p class="callout" role="note">This was the customer's last allowed attempt (<%= maxAttempts %> of <%= maxAttempts %>). Choosing Payment not received will cancel this order and email the customer.</p>
+            <form method="post" action="/orders/<%= order.id %>/not-received" data-confirm="This was attempt <%= maxAttempts %> of <%= maxAttempts %>. Marking it not received will CANCEL this order. Continue?"><button type="submit" class="button button-secondary button-block">Payment not received: cancel order</button></form>
+            <% } else if (actions.canMarkNotReceived) { %><form method="post" action="/orders/<%= order.id %>/not-received" data-confirm="Mark this payment as not received? The customer will be able to send a new UTR."><button type="submit" class="button button-secondary button-block">Payment not received</button></form><% } %>
             <a class="button button-secondary button-block" href="<%= whatsappUrl %>" target="_blank" rel="noopener noreferrer">Message customer on WhatsApp<span class="visually-hidden"> (opens in a new tab)</span></a>
           </div>
           <% if (actions.canCancel) { %>
           <details class="danger-zone">
             <summary>Cancel this order</summary>
             <p>Cancelling puts the reserved stock back and cannot be undone.</p>
-            <form method="post" action="/orders/<%= order.id %>/cancel" data-confirm="Cancel this order? This cannot be undone."><button type="submit" class="button button-danger button-block">Cancel order</button></form>
+            <p><a class="button button-danger button-block" href="/orders/<%= order.id %>/cancel">Cancel order</a></p>
           </details>
           <% } %>
         </section>

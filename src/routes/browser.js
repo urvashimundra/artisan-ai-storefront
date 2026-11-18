@@ -115,6 +115,7 @@ function mountOrderRoutes(router, { storeGuard, orders }) {
   router.get('/orders/:id', ...storeGuard, controller.detail);
   router.post('/orders/:id/paid', ...storeGuard, controller.markPaid);
   router.post('/orders/:id/not-received', ...storeGuard, controller.markNotReceived);
+  router.get('/orders/:id/cancel', ...storeGuard, controller.confirmCancel);
   router.post('/orders/:id/cancel', ...storeGuard, controller.cancel);
 }
 
