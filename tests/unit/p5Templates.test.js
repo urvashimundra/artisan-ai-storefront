@@ -57,3 +57,23 @@ describe('T15 conversations', () => {
     assert.doesNotMatch(styles.slice(styles.indexOf('.thread {'), styles.indexOf('.conflict {')), /sticky/);
   });
 });
+
+describe('T16 public chatbot', () => {
+  const chat = view('public/chat');
+  const styles = css('public');
+
+  it('keeps every chat hook, live region, hidden field and the send label', () => {
+    hasAll(chat, ['data-chat ', 'data-poll-url', 'data-last-seq', 'data-running', 'data-str-sending', 'id="chat-log" role="log" aria-live="polite"', 'id="chat-typing" role="status"', 'id="chat-error" role="alert"', 'data-chat-status', 'data-needs-seller', 'data-share', 'data-share-status', 'id="composer"', 'name="messageId"', 'id="composer-text"', 'name="message"', 'class="composer-send"', 'composer-send-label', '<%= strings.chatSend %>', 'data-seq="<%= m.seq %>"', 'data-role="<%= m.role %>"']);
+  });
+
+  it('keeps the start button label', () => {
+    assert.match(view('public/chat-start'), /<button type="submit" class="button button-large"><%= strings\.chatStartButton %><\/button>/);
+  });
+
+  it('styles the disabled send button in public tokens and keeps a 44px target and focus ring', () => {
+    assert.match(styles, /\.composer-send:disabled \{[^}]*background: var\(--surface\)[^}]*color: var\(--muted\)/);
+    assert.match(styles, /\.composer-send \{[^}]*min-height: 2\.75rem/);
+    assert.match(styles, /\.composer-send:focus-visible/);
+    assert.match(styles, /\.msg-text \{[^}]*overflow-wrap: anywhere/);
+  });
+});

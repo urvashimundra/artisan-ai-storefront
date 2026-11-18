@@ -359,10 +359,10 @@ input:not([type="checkbox"], [type="radio"], [type="file"], [type="submit"], [ty
 
 .chat-log { flex: 1 1 0; min-height: 6rem; padding: 1rem; overflow-y: auto; overscroll-behavior: contain; scroll-behavior: smooth; }
 .chat-log:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
-.chat-messages { display: flex; flex-direction: column; gap: 0.65rem; margin: 0; padding: 0; list-style: none; }
+.chat-messages { display: flex; flex-direction: column; gap: 0.85rem; margin: 0; padding: 0; list-style: none; }
 .msg { display: flex; }
 .msg-customer { justify-content: flex-end; }
-.msg-bubble { max-width: min(88%, 32rem); padding: 0.6rem 0.9rem; border: 1px solid var(--hairline); border-radius: 1.1rem; background: var(--surface); box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 8%, transparent); }
+.msg-bubble { max-width: min(88%, 32rem); padding: 0.7rem 1rem; border: 1px solid var(--hairline); border-radius: 0.5rem; line-height: 1.5; background: var(--surface); box-shadow: 0 1px 2px color-mix(in srgb, var(--text) 8%, transparent); }
 .msg-customer .msg-bubble { border-color: var(--accent); border-bottom-right-radius: 0.3rem; background: var(--accent); color: var(--on-accent); }
 .msg-assistant .msg-bubble { border-bottom-left-radius: 0.3rem; }
 .msg-seller .msg-bubble { border-color: color-mix(in srgb, var(--accent) 45%, var(--surface)); border-bottom-left-radius: 0.3rem; background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
@@ -389,9 +389,9 @@ input:not([type="checkbox"], [type="radio"], [type="file"], [type="submit"], [ty
 .chat-error { margin: 0 1rem 0.5rem; padding: 0.5rem 0.75rem; border-left: 0.35rem solid var(--accent); background: var(--surface); font-weight: 600; }
 
 .composer { display: flex; align-items: flex-end; gap: 0.5rem; padding: 0.7rem 1rem calc(0.7rem + env(safe-area-inset-bottom)); border-top: 1px solid var(--hairline); background: var(--surface); }
-.composer textarea { flex: 1; max-width: none; min-height: 2.75rem; max-height: 10rem; padding: 0.65rem 1rem; border-radius: 1.4rem; resize: none; line-height: 1.4; }
-.composer-send { flex: none; min-width: 2.75rem; min-height: 2.75rem; padding: 0 1.2rem; border: 2px solid var(--accent); border-radius: 1.4rem; background: var(--accent); color: var(--on-accent); font: inherit; font-weight: 600; cursor: pointer; }
-.composer-send:disabled { cursor: progress; }
+.composer textarea { flex: 1; max-width: none; min-height: 2.75rem; max-height: 10rem; padding: 0.65rem 1rem; border-radius: 0.5rem; resize: none; line-height: 1.4; }
+.composer-send { flex: none; min-width: 2.75rem; min-height: 2.75rem; padding: 0 1.2rem; border: 2px solid var(--accent); border-radius: 0.5rem; background: var(--accent); color: var(--on-accent); font: inherit; font-weight: 600; cursor: pointer; }
+.composer-send:disabled { border-color: var(--muted); background: var(--surface); color: var(--muted); cursor: progress; }
 .composer-send:focus-visible, .composer textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
 @media (max-height: 30em) { .chat-notes { display: none; } }
 
