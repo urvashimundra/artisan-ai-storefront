@@ -87,8 +87,11 @@
           <input type="text" id="alt_text_<%= code %>" name="alt_text_<%= code %>" lang="<%= code %>" maxlength="250" value="<%= values['alt_text_' + code] %>">
         </div>
         <div class="check">
-          <input type="checkbox" id="approved_<%= code %>" name="approved_<%= code %>" value="on"<%= values['approved_' + code] ? ' checked' : '' %>>
+<% const refused = locals.approvalRefusal && approvalRefusal.language === code; %>
+          <input type="checkbox" id="approved_<%= code %>" name="approved_<%= code %>" value="on"<%= values['approved_' + code] ? ' checked' : '' %><% if (refused) { %> autofocus aria-invalid="true" aria-describedby="approval-error"<% } %>>
           <label for="approved_<%= code %>">I have read this <%= language.name %> text and approve it</label>
+          <% if (refused) { %><p id="approval-error" class="error-text" role="alert"><%= approvalRefusal.message %></p>
+          <% } %>
         </div>
       </fieldset>
       <% }) %>

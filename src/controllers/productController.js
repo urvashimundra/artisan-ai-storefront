@@ -1,4 +1,5 @@
 import { ZodError } from 'zod';
+import { LANGUAGE_NAMES_ENGLISH } from '../domain/language.js';
 import { REVIEW_INTENTS, formatPriceInput } from '../domain/productForm.js';
 import { productIdParamsSchema } from '../domain/productRules.js';
 import { LANGUAGES } from '../domain/storeRules.js';
@@ -32,7 +33,8 @@ const GENERATION_CODES = new Set([
   'INVALID_IMAGE',
 ]);
 const TRANSLATE_CODES = new Set(['NOTHING_TO_TRANSLATE', 'GENERATION_IN_PROGRESS', 'AI_BUDGET_EXHAUSTED', 'AI_BUDGET_UNAVAILABLE', 'AI_TIMEOUT', 'AI_PROVIDER_ERROR', 'AI_INVALID_OUTPUT']);
-const REVIEW_CODES = new Set(['GENERATION_IN_PROGRESS', 'PRICE_REQUIRED', 'DEFAULT_LANGUAGE_NOT_APPROVED', 'INVALID_PRODUCT']);
+const DEFAULT_LANGUAGE_REFUSAL = 'DEFAULT_LANGUAGE_NOT_APPROVED';
+const REVIEW_CODES = new Set(['GENERATION_IN_PROGRESS', 'PRICE_REQUIRED', DEFAULT_LANGUAGE_REFUSAL, 'INVALID_PRODUCT']);
 
 const namesOf = (codes) => codes.map((code) => LANGUAGE_NAMES[code]).join(', ');
 
@@ -86,7 +88,7 @@ function productTitle(product, defaultLanguage) {
  *   listings: ReturnType<typeof import('../services/listingService.js').createListingService> }} deps
  */
 export function createProductController({ products, listings, translations = null }) {
-  async function renderEdit(req, res, { status = HTTP_OK, body, errors = {}, formError, generateError, notice }) {
+  async function renderEdit(req, res, { status = HTTP_OK, body, errors = {}, formError, generateError, notice, approvalRefusal = null }) {
     const view = await products.getForEdit(req.store.id, parseProductId(req.params));
     return res.status(status).render('product-edit', {
       title: 'Review product',
@@ -99,6 +101,7 @@ export function createProductController({ products, listings, translations = nul
       formError,
       generateError,
       notice,
+      approvalRefusal,
       canTranslate: translations !== null,
     });
   }
@@ -187,10 +190,17 @@ export function createProductController({ products, listings, translations = nul
     return renderEdit(req, res, { status: error.httpStatus, body: req.body, generateError: error.message });
   }
 
+  /** The shop's default language is not approved, so publishing is refused: name that language at the top and next to its approval box. */
+  function defaultLanguageRefusal(req, res, error) {
+    const message = `Approve the ${LANGUAGE_NAMES_ENGLISH[req.store.defaultLanguage]} text before publishing.`;
+    return renderEdit(req, res, { status: error.httpStatus, body: req.body, formError: message, approvalRefusal: { language: req.store.defaultLanguage, message } });
+  }
+
   function reviewFailure(req, res, error) {
     if (error instanceof ZodError) {
       return renderEdit(req, res, { status: HTTP_BAD_REQUEST, body: req.body, errors: reviewFormErrors(error) });
     }
+    if (error.code === DEFAULT_LANGUAGE_REFUSAL) return defaultLanguageRefusal(req, res, error);
     if (!REVIEW_CODES.has(error.code)) throw error;
     return renderEdit(req, res, { status: error.httpStatus, body: req.body, formError: error.message });
   }
