@@ -36,6 +36,7 @@
   --text-sm: 0.95rem;
   --text-lg: 1.15rem;
   --owner-width: 80rem;
+  --sidebar-width: 15rem;
   --measure-form: 40rem;
   --gutter: 1rem;
 }
@@ -378,3 +379,21 @@ textarea { overflow-wrap: anywhere; }
 .conflict blockquote { margin: 0.15rem 0 0; padding-left: 0.6rem; border-left: 3px solid var(--ink); overflow-wrap: anywhere; }
 .field-check { display: flex; align-items: center; gap: 0.6rem; min-height: 2.75rem; }
 .field-check input { width: 1.4rem; height: 1.4rem; }
+
+/* Owner navigation (partials/header.ejs). Below 64rem: a <details> menu. From 64rem: a sidebar. Both lists are
+   in the page, only one is displayed, so assistive technology never sees the links twice. */
+.site-header .nav-sidebar { display: none; }
+.site-header .nav-menu { flex: 1 1 100%; }
+.nav-menu summary { display: flex; align-items: center; min-height: 2.75rem; font-weight: 600; cursor: pointer; }
+.nav-menu nav { display: grid; gap: var(--space-1); padding-bottom: var(--space-2); }
+.nav-menu nav a, .nav-menu .link-button { display: flex; align-items: center; min-height: 2.75rem; }
+@media (min-width: 64rem) {
+  .owner-shell { display: grid; grid-template-columns: var(--sidebar-width) minmax(0, 1fr); grid-template-rows: 1fr auto; min-height: 100vh; }
+  .owner-shell .site-header { grid-column: 1; grid-row: 1 / span 2; flex-direction: column; flex-wrap: nowrap; align-items: stretch; justify-content: flex-start; gap: var(--space-6); padding: var(--space-6) var(--space-4); border-right: 1px solid var(--line); }
+  .owner-shell main { grid-column: 2; grid-row: 1; width: 100%; }
+  .owner-shell .site-footer { grid-column: 2; grid-row: 2; width: 100%; }
+  .site-header .nav-sidebar { display: grid; gap: var(--space-1); align-items: start; }
+  .site-header .nav-menu { display: none; }
+  .nav-sidebar a, .nav-sidebar .link-button { display: flex; align-items: center; min-height: 2.75rem; padding-inline: var(--space-3); border-radius: var(--radius); }
+  .nav-sidebar a:hover { background: var(--paper); }
+}
