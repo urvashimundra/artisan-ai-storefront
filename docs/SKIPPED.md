@@ -10,3 +10,4 @@
 | T9 | e) Generate again confirm | confirm-submit.js supports submit buttons in form[data-confirm], but product-generate.js (data-progress) disables the buttons in its own submit handler without checking defaultPrevented, so a cancelled confirm would leave the form stuck. Needs a JS change. |
 | T9 | Product thumbnails in products.ejs | Needs a service change. products.ejs left unchanged. |
 | T9 | Form width at 1280 | Not measured in a browser (preview server cannot mount /products/:id/edit); template nesting pinned by a test instead. |
+| T10 | .product-photo merge | Equivalent, but tests/unit/storefrontGrid.test.js pins margin-bottom: 1rem from the first (dead) block; existing tests may not be weakened, so the two blocks stay. |
