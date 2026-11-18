@@ -13,11 +13,12 @@
         <% if (errors.name) { %><p id="name-error" class="error-text"><%= errors.name %></p><% } %>
       </div>
       <div class="field">
-        <label for="slug">Store address</label>
+        <label for="slug">Website address</label>
         <input type="text" id="slug" name="slug" required maxlength="40" autocapitalize="none" spellcheck="false"
           value="<%= values.slug || '' %>"
-          aria-describedby="slug-hint<%= errors.slug ? ' slug-error' : '' %>"<% if (errors.slug) { %> aria-invalid="true"<% } %>>
-        <p id="slug-hint" class="hint">Lowercase letters, numbers and hyphens. Your shop will live at /s/your-address.</p>
+          aria-describedby="slug-hint slug-example<%= errors.slug ? ' slug-error' : '' %>"<% if (errors.slug) { %> aria-invalid="true"<% } %>>
+        <p id="slug-hint" class="hint">This is your shop's web address on this site, not a physical location. Use lowercase letters, numbers and hyphens.</p>
+        <p id="slug-example" class="hint"><%= baseHost %>/s/<%= values.slug || 'your-address' %></p>
         <% if (errors.slug) { %><p id="slug-error" class="error-text"><%= errors.slug %></p><% } %>
       </div>
       <div class="field">

@@ -24,6 +24,15 @@ const STORE_MESSAGES = {
   accentKey: ACCENT_MESSAGE,
 };
 
+/** The host part of the configured base URL, shown in the web address preview. Falls back to the raw value if it is not a URL. */
+function hostOf(baseUrl) {
+  try {
+    return new URL(baseUrl).host;
+  } catch {
+    return baseUrl;
+  }
+}
+
 /**
  * Store creation and dashboard handlers. The owner always comes from the session (`req.owner`); the store is
  * resolved from that owner id. A store id is never read from the request.
@@ -33,8 +42,9 @@ const STORE_MESSAGES = {
  *   canDraft?: boolean }} deps
  */
 export function createStoreController({ stores, baseUrl, translations, products, orders, enquiries, canDraft = false }) {
+  const baseHost = hostOf(baseUrl);
   const formPage = (res, status, errors, values) =>
-    res.status(status).render('store-new', { title: 'Create your store', errors, values, accents: ACCENT_OPTIONS });
+    res.status(status).render('store-new', { title: 'Create your store', errors, values, accents: ACCENT_OPTIONS, baseHost });
 
   async function progressFor(store) {
     const translationRows = await translations.listForOwner(store);

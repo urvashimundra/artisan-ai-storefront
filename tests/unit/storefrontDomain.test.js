@@ -14,6 +14,7 @@ import {
   buildMeta,
   metaDescription,
   ogLocale,
+  firstSentence,
   productImagePath,
   truncateText,
   withLang,
@@ -145,6 +146,25 @@ describe('whatsapp', () => {
   });
   it('refuses a malformed stored number', () => {
     assert.throws(() => buildWhatsappLink('+91 1', 'x'), { code: 'INVALID_WHATSAPP_NUMBER' });
+  });
+});
+
+describe('firstSentence (shop hero line)', () => {
+  it('returns the first sentence, ending at . ! ? or a Devanagari danda followed by a space or the end', () => {
+    assert.equal(firstSentence('We are a family of potters in Bhuj. We make pots.', 140), 'We are a family of potters in Bhuj.');
+    assert.equal(firstSentence('  Hand made in Bhuj!  Then more ', 140), 'Hand made in Bhuj!');
+    assert.equal(firstSentence('यह पहला वाक्य है। दूसरा वाक्य।', 140), 'यह पहला वाक्य है।');
+    assert.equal(firstSentence('Only one sentence here', 140), 'Only one sentence here');
+    assert.equal(firstSentence('   ', 140), '');
+  });
+
+  it('cuts a sentence longer than the limit at a word boundary, with an ellipsis, within the limit', () => {
+    const long = `${'word '.repeat(40)}end.`;
+    assert.equal(firstSentence(long, 140), `${'word '.repeat(26)}word…`);
+    const gujarati = 'ક'.repeat(200);
+    const cut = firstSentence(gujarati, 140);
+    assert.ok(Array.from(cut).length <= 140);
+    assert.ok(cut.endsWith('…'));
   });
 });
 

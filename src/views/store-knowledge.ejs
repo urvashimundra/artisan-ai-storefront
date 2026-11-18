@@ -3,8 +3,7 @@
 <% if (onboarding) { %>    <p class="hint">Step 4 of 4. Optional. <a href="/dashboard?welcome=1">Skip, I will do this later</a></p>
 <% } %>    <p>Write what customers often ask: delivery, returns, custom orders, bulk discounts and care. When a customer asks you a question on your shop, an AI assistant answers from these notes and from your products. If the answer is not here, it passes the question to you.</p>
     <p class="callout"><strong>Customers can read what you write here through the assistant's answers.</strong> Do not write bank details, passwords or private information.</p>
-<% if (notice) { %>    <p class="notice" role="status"><%= notice %></p>
-<% } %><% if (aiError) { %>    <p class="alert" role="alert"><%= aiError %></p>
+<% if (notice) { %>    <p class="notice" role="status" aria-live="polite"><%= notice %></p>
 <% } %>
     <section class="stack" aria-labelledby="notes-heading">
       <h2 id="notes-heading">Your notes</h2>
@@ -49,11 +48,12 @@
       </form>
 <% if (canExtract) { %>      <form method="post" action="/store/knowledge/rules/find<%= stepSuffix %>" class="stack">
         <p class="hint">Claude can read your saved notes and suggest the discounts. It only fills the boxes above. Check them, then save.</p>
-        <div><button type="submit" class="button button-secondary"<%= hasDocument ? '' : ' disabled' %>>Find bulk discounts with Claude</button></div>
-<% if (!hasDocument) { %>        <p class="hint">Save your notes first.</p>
-<% } %>      </form>
+<% if (aiError) { %>        <p class="error-summary" role="alert" tabindex="-1" data-focus-alert id="find-error"><%= aiError %></p>
+<% } %>        <div><button type="submit" class="button button-secondary"<% if (aiError) { %> aria-describedby="find-error"<% } %>>Find bulk discounts with Claude</button></div>
+      </form>
 <% } %>    </section>
     <p><a href="/dashboard">Back to dashboard</a></p>
     <script src="/js/char-counter.js" defer></script>
     <script src="/js/knowledge-file.js" defer></script>
+    <script src="/js/focus-alert.js" defer></script>
 <%- include('partials/footer') %>

@@ -27,6 +27,24 @@ describe('shop page structure', () => {
     });
   });
 
+  it('the hero shows only the first sentence of the story, and the full story follows the products', async () => {
+    const story = 'We are a family of potters in Bhuj. We make every pot by hand and fire it in our own kiln.';
+    await withApp({ shop: { story, tagline: 'Handmade pottery' } }, async (app) => {
+      const { text } = await app.request('/s/clay-works');
+      assert.match(text, /class="hero-story"[^>]*>We are a family of potters in Bhuj\.<\/p>/);
+      assert.doesNotMatch(text, /class="hero-story"[^>]*>[^<]*kiln/);
+      assert.match(text, /class="prose"[^>]*>We are a family of potters in Bhuj\. We make every pot by hand and fire it in our own kiln\.<\/p>/);
+    });
+  });
+
+  it('the product page has one link back to all products and no second shop link', async () => {
+    await withApp({ shop: { story: 'We are a family of potters in Bhuj.' } }, async (app) => {
+      const { text } = await app.request(`/s/clay-works/p/${app.product.id}`);
+      assert.equal(text.split('Back to all products').length - 1, 1);
+      assert.doesNotMatch(text, /Visit the shop/);
+    });
+  });
+
   it('has no embedded enquiry form anywhere on the shop or product page', async () => {
     await withApp({}, async (app) => {
       for (const path of ['/s/clay-works', `/s/clay-works/p/${app.product.id}`]) {

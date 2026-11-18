@@ -7,6 +7,20 @@ const SIGNUP = { email: 'maker@example.com', password: PASSWORD, inviteCode: INV
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 describe('owner journey', () => {
+  it('the create-store page calls the slug a website address, with a preview on this site', async () => {
+    const app = await startAuthApp();
+    try {
+      const cookie = await signupAndLogin(app, SIGNUP.email);
+      const page = await app.request('/store/new', { cookie });
+      assert.match(page.text, /<label for="slug">Website address<\/label>/);
+      assert.doesNotMatch(page.text, /Store address/);
+      assert.match(page.text, /This is your shop's web address on this site, not a physical location\. Use lowercase letters, numbers and hyphens\./);
+      assert.match(page.text, /<p id="slug-example" class="hint">[^<]+\/s\/your-address<\/p>/);
+    } finally {
+      await app.close();
+    }
+  });
+
   it('signs up, logs in, creates a store, sees it on the dashboard, and logs out', async () => {
     const app = await startAuthApp();
     try {

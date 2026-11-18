@@ -12,8 +12,8 @@ const ONBOARDING_DONE_PATH = '/dashboard?welcome=1';
 const RAW_FIELD_FACTOR = 4;
 const RULE_FIELDS = tierRowNumbers().flatMap((row) => [`minQty${row}`, `percentOff${row}`]);
 const NOTICES = {
-  document: 'Your shop notes were saved.',
-  documentCleared: 'Your shop notes were saved. Your bulk discounts were cleared because the notes changed. Check them and save them again.',
+  document: 'Saved. Your shop notes are up to date.',
+  documentCleared: 'Saved. Your shop notes are up to date. Your bulk discounts were cleared because the notes changed. Check them and save them again.',
   rules: 'Your bulk discounts were saved. The assistant will use only these.',
 };
 const DOCUMENT_ERROR = `Your notes can be up to ${MAX_KNOWLEDGE_LENGTH} characters.`;
@@ -44,7 +44,6 @@ export function createKnowledgeController({ knowledge }) {
       aiError: view.aiError ?? null,
       notice: view.notice ?? null,
       canExtract: knowledge.canExtract,
-      hasDocument: saved.content.trim() !== '',
       maxLength: MAX_KNOWLEDGE_LENGTH,
     });
   }

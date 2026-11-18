@@ -278,7 +278,9 @@ describe('product routes: generate, review, publish, delete', () => {
     assert.match(noPrice.text, /Enter a price before publishing/);
     const noApproval = await formPost(app, cookie, `/products/${id}/save`, reviewForm({ intent: 'publish', approved_en: undefined }));
     assert.equal(noApproval.status, 422);
-    assert.match(noApproval.text, /Approve your shop's default language|Approve your shop&#39;s default language/);
+    assert.match(noApproval.text, /class="alert" role="alert">Approve the English text before publishing\./);
+    assert.match(noApproval.text, /<input type="checkbox" id="approved_en"[^>]*autofocus[^>]*aria-describedby="approval-error"/);
+    assert.match(noApproval.text, /id="approval-error" class="error-text" role="alert">Approve the English text before publishing\./);
     assert.equal(app.products.rows.find((row) => row.id === id).status, 'draft');
     const incomplete = await formPost(app, cookie, `/products/${id}/save`, reviewForm({ approved_gu: 'on' }));
     assert.equal(incomplete.status, 400);
