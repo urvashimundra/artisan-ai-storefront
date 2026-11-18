@@ -32,3 +32,15 @@ describe('owner layout width', () => {
     assert.match(block('.site-footer {'), /var\(--gutter\)/);
   });
 });
+
+describe('visually hidden text', () => {
+  it('stays in the page but clipped to a 1px absolute box', () => {
+    const rule = block('.visually-hidden');
+    for (const part of [/position: absolute/, /width: 1px/, /height: 1px/, /overflow: hidden/, /clip-path: inset\(50%\)/]) assert.match(rule, part);
+    assert.doesNotMatch(rule, /display: none|visibility: hidden/);
+  });
+
+  it('tables are a containing block so hidden header text cannot widen the page', () => {
+    assert.match(block('.table-wrap'), /position: relative/);
+  });
+});
