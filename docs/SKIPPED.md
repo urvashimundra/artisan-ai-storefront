@@ -7,3 +7,6 @@
 | All | @layer | Out of scope for this pass. |
 | T6 | city + state pair | No city or state fields exist in the T6 templates; WhatsApp + Instagram paired instead. |
 | T8 | Translation error handling | Needs controller change; skipped as instructed. Form widths at 1280 not measured in a browser (preview server cannot mount /store/settings); covered by a selector test instead. |
+| T9 | e) Generate again confirm | confirm-submit.js supports submit buttons in form[data-confirm], but product-generate.js (data-progress) disables the buttons in its own submit handler without checking defaultPrevented, so a cancelled confirm would leave the form stuck. Needs a JS change. |
+| T9 | Product thumbnails in products.ejs | Needs a service change. products.ejs left unchanged. |
+| T9 | Form width at 1280 | Not measured in a browser (preview server cannot mount /products/:id/edit); template nesting pinned by a test instead. |
