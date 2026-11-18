@@ -31,7 +31,20 @@ const GENERATION_CODES = new Set([
   'STORAGE_ERROR',
   'INVALID_IMAGE',
 ]);
+const TRANSLATE_CODES = new Set(['NOTHING_TO_TRANSLATE', 'GENERATION_IN_PROGRESS', 'AI_BUDGET_EXHAUSTED', 'AI_BUDGET_UNAVAILABLE', 'AI_TIMEOUT', 'AI_PROVIDER_ERROR', 'AI_INVALID_OUTPUT']);
 const REVIEW_CODES = new Set(['GENERATION_IN_PROGRESS', 'PRICE_REQUIRED', 'DEFAULT_LANGUAGE_NOT_APPROVED', 'INVALID_PRODUCT']);
+
+const namesOf = (codes) => codes.map((code) => LANGUAGE_NAMES[code]).join(', ');
+
+/** The notice after a translation update. The language lists come from the query string, so only known codes are used. */
+function translatedNotice(query) {
+  const known = (value) => (typeof value === 'string' ? value.split(',').filter((code) => LANGUAGES.includes(code)) : []);
+  const updated = known(query.updated);
+  const skipped = known(query.skipped);
+  const parts = [updated.length > 0 ? `Drafts written for ${namesOf(updated)}. Read them and approve them when you are happy.` : 'No language needed updating.'];
+  if (skipped.length > 0) parts.push(`Kept your own approved text in ${namesOf(skipped)}.`);
+  return parts.join(' ');
+}
 
 function parseProductId(params) {
   const parsed = productIdParamsSchema.safeParse(params);
@@ -72,7 +85,7 @@ function productTitle(product, defaultLanguage) {
  * @param {{ products: ReturnType<typeof import('../services/productService.js').createProductService>,
  *   listings: ReturnType<typeof import('../services/listingService.js').createListingService> }} deps
  */
-export function createProductController({ products, listings }) {
+export function createProductController({ products, listings, translations = null }) {
   async function renderEdit(req, res, { status = HTTP_OK, body, errors = {}, formError, generateError, notice }) {
     const view = await products.getForEdit(req.store.id, parseProductId(req.params));
     return res.status(status).render('product-edit', {
@@ -86,6 +99,7 @@ export function createProductController({ products, listings }) {
       formError,
       generateError,
       notice,
+      canTranslate: translations !== null,
     });
   }
 
@@ -106,7 +120,28 @@ export function createProductController({ products, listings }) {
     },
 
     showEdit(req, res) {
-      return renderEdit(req, res, { notice: NOTICES[req.query.notice] });
+      const notice = req.query.notice === 'translated' ? translatedNotice(req.query) : NOTICES[req.query.notice];
+      return renderEdit(req, res, { notice });
+    },
+
+    /** The "Update other languages?" confirmation. No side effects. */
+    async confirmTranslate(req, res) {
+      const view = await products.getForEdit(req.store.id, parseProductId(req.params));
+      return res.render('product-update-languages', {
+        title: 'Update other languages', product: view.product, defaultLanguageName: LANGUAGE_NAMES[req.store.defaultLanguage],
+        otherNames: LANGUAGES.filter((code) => code !== req.store.defaultLanguage).map((code) => LANGUAGE_NAMES[code]),
+      });
+    },
+
+    async postTranslate(req, res) {
+      const productId = parseProductId(req.params);
+      try {
+        const { languages, skipped } = await translations.update({ store: req.store, owner: req.owner, productId, correlationId: req.correlationId });
+        return res.redirect(SEE_OTHER, `/products/${productId}/edit?notice=translated&updated=${languages.join(',')}&skipped=${skipped.join(',')}`);
+      } catch (error) {
+        if (!TRANSLATE_CODES.has(error.code)) throw error;
+        return renderEdit(req, res, { status: error.httpStatus, formError: error.message });
+      }
     },
 
     async postGenerate(req, res) {

@@ -115,6 +115,7 @@ function mountOrderRoutes(router, { storeGuard, orders }) {
   router.get('/orders/:id', ...storeGuard, controller.detail);
   router.post('/orders/:id/paid', ...storeGuard, controller.markPaid);
   router.post('/orders/:id/not-received', ...storeGuard, controller.markNotReceived);
+  router.get('/orders/:id/cancel', ...storeGuard, controller.confirmCancel);
   router.post('/orders/:id/cancel', ...storeGuard, controller.cancel);
 }
 
@@ -123,7 +124,7 @@ function mountOrderRoutes(router, { storeGuard, orders }) {
  * Limiters run before any body is read, so an over-limit client costs no parsing.
  */
 function mountProductRoutes(router, { ownerOnly, services, limiters }) {
-  const controller = createProductController({ products: services.products, listings: services.listings });
+  const controller = createProductController({ products: services.products, listings: services.listings, translations: services.productTranslations ?? null });
   const guard = [...ownerOnly, loadStore({ stores: services.stores })];
   const form = express.urlencoded({ extended: false, limit: PRODUCT_FORM_BODY_LIMIT });
   const image = express.raw({ type: IMAGE_BODY_TYPES, limit: MAX_IMAGE_BYTES });
@@ -134,6 +135,10 @@ function mountProductRoutes(router, { ownerOnly, services, limiters }) {
   router.get('/products/:id/edit', ...guard, controller.showEdit);
   router.post('/products/:id/generate', ...guard, limiters.generate, form, controller.postGenerate);
   router.post('/products/:id/save', ...guard, form, controller.postSave);
+  if (services.productTranslations) {
+    router.get('/products/:id/update-languages', ...guard, controller.confirmTranslate);
+    router.post('/products/:id/update-languages', ...guard, limiters.draft, form, controller.postTranslate);
+  }
   router.post('/products/:id/delete', ...guard, controller.postDelete);
 }
 

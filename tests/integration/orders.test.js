@@ -272,12 +272,12 @@ describe('UTR submission, cancellation and the state machine', () => {
         assert.equal((await app.postTo(token, 'utr', { utr })).status, 303, utr);
         assert.equal((await app.ownerPost(token, 'not-received')).status, 303);
       }
-      assert.equal(app.orderRepo.orders[0].status, 'not_received');
+      assert.equal(app.orderRepo.orders[0].status, 'cancelled');
+      assert.equal(app.orderRepo.orders[0].cancelReason, 'utr_attempts_exhausted');
       const page = await app.status(token);
       assert.equal(page.text.includes('name="utr"'), false);
       const fourth = await app.postTo(token, 'utr', { utr: UTR4 });
       assert.equal(fourth.status, 409);
-      assert.ok(fourth.text.includes(EN.errUtrLimit));
       assert.equal(app.orderRepo.orders[0].utrSubmissions, 3);
       assert.equal(app.orderRepo.orders[0].attempts.length, 3);
     } finally {
@@ -353,12 +353,12 @@ describe('owner Orders pages', () => {
   it('lists orders, shows the detail with snapshots and UTR history, and gives the dashboard badge', async () => {
     const app = await setup();
     try {
-      const token = await app.place({ ...FORM, name: 'Asha <b>Patel</b>', address: 'test-address-line' });
+      const token = await app.place({ ...FORM, name: 'Asha Patel', address: 'test-address-line <b>x</b>' });
       await app.postTo(token, 'utr', { utr: UTR1 });
       const list = await app.owner('/orders');
       assert.equal(list.status, 200);
       assert.ok(list.text.includes('AS1001') && list.text.includes('₹500.00') && list.text.includes('Payment submitted'));
-      assert.equal(list.text.includes('<b>Patel</b>'), false);
+      assert.equal(list.text.includes('<b>x</b>'), false);
       assert.ok((await app.owner('/orders?status=paid')).text.includes('No orders to show'));
       const detail = await app.owner(`/orders/${app.orderIdOf(token)}`);
       for (const text of ['clay@okbank', UTR1, 'Clay diya', 'test-address-line', 'Mark paid', 'Payment not received', 'Cancel order', 'wa.me/919876543210']) assert.ok(detail.text.includes(text), text);
@@ -766,7 +766,7 @@ describe('owner orders table', () => {
       assert.ok(page.text.includes('/js/order-search.js'));
       const detail = await app.owner(`/orders/${app.orderIdOf(token)}`);
       for (const section of ['Customer', 'Items', 'Payment', 'Actions']) assert.ok(detail.text.includes(`>${section}</h2>`), section);
-      assert.ok(detail.text.includes('data-confirm="Cancel this order?'));
+      assert.ok(detail.text.includes(`href="/orders/${app.orderIdOf(token)}/cancel"`));
     } finally {
       await app.close();
     }

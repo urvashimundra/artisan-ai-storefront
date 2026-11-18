@@ -1,0 +1,14 @@
+<%- include('layout') %>
+    <header class="order-head">
+      <h1><%= strings.cancelConfirmTitle %></h1>
+      <p class="order-ref-line"><span class="summary-label"><%= strings.orderReferenceLabel %></span> <strong class="order-ref"><%= order.reference %></strong></p>
+    </header>
+    <section class="card" aria-labelledby="cancel-confirm-heading">
+      <h2 id="cancel-confirm-heading"><%= strings.cancelConfirmBody %></h2>
+      <p><%= strings.cancelNote %></p>
+      <form method="post" action="<%= paths.cancel %>">
+        <p><button type="submit" class="button"><%= strings.cancelConfirmYes %></button>
+        <a class="button button-secondary" href="<%= paths.status %>"><%= strings.cancelConfirmNo %></a></p>
+      </form>
+    </section>
+<%- include('layout-end') %>

@@ -22,12 +22,14 @@ const REASON_TO_OUTCOME = Object.freeze({
   not_in_document: 'seller', source_conflict: 'seller', unverified_amount: 'seller', too_complex: 'seller', refused: 'seller', knowledge_too_long: 'seller',
   provider_error: 'ai_unavailable', invalid_output: 'ai_unavailable', unavailable: 'ai_unavailable',
 });
+const PRICE_CLAIM_REJECTION = 'price_claim';
 const iso = (ms) => new Date(ms).toISOString();
 
 /** The customer's note when the live stock cannot cover the quantity asked: the database's own figures, in fixed localised words. */
 function stockShortBody({ title, requested, available, unitPricePaise }, strings) {
   if (available === 0) return fillTemplate(strings.chatNoticeSoldOut, { product: title });
-  return fillTemplate(strings.chatNoticeStockShort, { product: title, price: formatInr(unitPricePaise), available: String(available), requested: String(requested) });
+  const key = available === 1 ? 'chatNoticeStockShortOne' : 'chatNoticeStockShort';
+  return fillTemplate(strings[key], { product: title, price: formatInr(unitPricePaise), available: String(available), requested: String(requested) });
 }
 
 /**
@@ -80,9 +82,15 @@ export function createConversationService({
     }
   }
 
-  /** Maps the agent's result to the finish arguments. A conflict and a not-found answer are escalations to the seller. */
+  /** The fixed refusal when the customer's own message claimed a price or discount: it never repeats the claim. */
+function priceClaimFinish(strings) {
+  return { outcome: 'escalated', kind: 'escalation', body: strings.chatNoticePriceClaim, flagReason: 'unverified_amount', outcomeKey: 'seller' };
+}
+
+/** Maps the agent's result to the finish arguments. A conflict and a not-found answer are escalations to the seller. */
   function toFinish(result, pageLanguage) {
     const strings = stringsFor(result.language ?? pageLanguage);
+    if (result.rejection === PRICE_CLAIM_REJECTION) return priceClaimFinish(strings);
     if (!result.ok) {
       const { kind, result: outcome } = REASON_OUTCOMES[result.reason];
       return { outcome, kind, body: strings[NOTICE_KEYS[result.reason]], flagReason: result.reason, outcomeKey: REASON_TO_OUTCOME[result.reason] };

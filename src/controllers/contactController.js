@@ -9,7 +9,7 @@ const HTTP_BAD_REQUEST = 400;
 const ECHO_LIMIT = MAX_CONTACT_MESSAGE_LENGTH * 4;
 const FIELD_ORDER = ['name', 'email', 'message'];
 const MESSAGES = {
-  name: 'Enter your name (up to 80 characters, on one line).',
+  name: 'Enter your name: letters, spaces, apostrophes, hyphens and full stops only (2 to 80 characters).',
   email: 'Enter a valid email address.',
   message: 'Write your message (up to 2000 characters).',
 };

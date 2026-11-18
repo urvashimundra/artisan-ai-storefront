@@ -43,7 +43,7 @@ function findToolInput(response) {
   return blocks.find((block) => block?.type === 'tool_use' && block.name === LISTING_TOOL_NAME)?.input;
 }
 
-function buildRequest({ model, story, image }) {
+function buildRequest({ model, story, image, correction }) {
   return {
     model,
     max_tokens: LISTING_MAX_OUTPUT_TOKENS,
@@ -56,7 +56,7 @@ function buildRequest({ model, story, image }) {
         role: 'user',
         content: [
           { type: 'image', source: { type: 'base64', media_type: image.mediaType, data: image.data } },
-          { type: 'text', text: buildListingUserText(story) },
+          { type: 'text', text: buildListingUserText(story, correction) },
         ],
       },
     ],
@@ -77,16 +77,16 @@ export function createListingGenerator({ config, createClient = (options) => new
     promptVersion: LISTING_PROMPT_VERSION,
 
     /**
-     * @param {{ story: string, image: { mediaType: string, data: string } }} input `data` is base64.
+     * @param {{ story: string, image: { mediaType: string, data: string }, correction?: string | null }} input `data` is base64. `correction` names figures a previous attempt stated that the story does not.
      * @returns {Promise<{ ok: true, translations: object, usage: object | null }
      *   | { ok: false, reason: 'refused', stopReason: string | null, usage: object | null }
      *   | { ok: false, reason: 'invalid_output', stopReason: string | null, issues: string[], usage: object | null }>}
      * @throws {ListingProviderError} When the provider call itself fails.
      */
-    async generate({ story, image }) {
+    async generate({ story, image, correction = null }) {
       let response;
       try {
-        const call = () => client.messages.create(buildRequest({ model: config.model, story, image }));
+        const call = () => client.messages.create(buildRequest({ model: config.model, story, image, correction }));
         response = await withTimeout(call, LISTING_TIMEOUT_MS + BACKSTOP_MARGIN_MS, 'listing');
       } catch (error) {
         throw classifyFailure(error);

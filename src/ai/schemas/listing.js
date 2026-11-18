@@ -20,6 +20,9 @@ const field = (limit) =>
     .transform(cleanLine)
     .refine((value) => value.length >= MIN_FIELD_LENGTH && codePointLength(value) <= limit);
 
+/** The text validator shared by every product-text generator: control characters removed, whitespace collapsed, 1 to `limit` code points. */
+export const listingTextField = field;
+
 const translation = z
   .object({
     title: field(MAX_TITLE_LENGTH),

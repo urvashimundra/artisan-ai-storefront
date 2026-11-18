@@ -14,7 +14,7 @@ const NO_INPUT_TOOLS = new Set(['get_shop_info', 'read_knowledge', 'get_bulk_dis
 const NO_MATCH_NOTE = 'No product title or description matched the query, so the whole published catalogue is listed. Pick from it only if a product really is what the customer means.';
 
 const clip = (text, max) => (Array.from(text).length > max ? `${Array.from(text).slice(0, max).join('')}...` : text);
-const stockLabel = (stock) => (stock === null ? 'available' : stock === 0 ? 'sold out' : `${stock} in stock`);
+const stockLabel = (stock) => (stock === null ? 'available to order' : stock === 0 ? 'sold out' : `${stock} in stock`);
 const stockPlaceholder = (stock) => (stock === null ? '{{label.available}}' : stock === 0 ? '{{label.sold_out}}' : `${stock} {{label.in_stock}}`);
 const tierView = (tier) => ({ min_quantity: tier.minQty, percent_off: tier.percentOff });
 
@@ -219,6 +219,12 @@ export function createEnquiryTools({ storeId, shop, language, shops, knowledge, 
     async verifiedNumbers() {
       const { bulkRules } = await loadKnowledge();
       return [...seenNumbers, ...bulkRules.map((tier) => tier.minQty)];
+    },
+
+    /** @returns {Promise<{ titles: string[], texts: string[] }>} Every published title and description of this shop (the same approved text the listings show), for the deterministic figure checks. */
+    async catalogueTexts() {
+      const all = await catalogue();
+      return { titles: all.map((entry) => entry.title), texts: all.flatMap((entry) => [entry.title, ...(entry.description === '' ? [] : [entry.description])]) };
     },
 
     /** @returns {string[]} The approved product descriptions this run showed the model (the texts a product-description quote is checked against). */

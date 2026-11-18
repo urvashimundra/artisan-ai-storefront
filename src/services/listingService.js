@@ -3,6 +3,7 @@ import { detectImageType } from '../domain/imageUpload.js';
 import { generateRequestSchema } from '../domain/productRules.js';
 import { estimateListingReservationMicroUsd } from '../ai/listingCost.js';
 import { checkListingScripts } from '../ai/scriptCheck.js';
+import { correctionFor, findFigureMismatch } from '../ai/listingFigures.js';
 import { AppError, notFound } from '../lib/errors.js';
 
 const HTTP_BAD_REQUEST = 400;
@@ -96,12 +97,12 @@ export function createListingService({ products, images, budgets, generator, log
     }
   }
 
-  async function attempt({ owner, story, image, context }) {
+  async function attempt({ owner, story, image, correction, context }) {
     const estimateMicroUsd = estimateListingReservationMicroUsd(story);
     const { reservationId } = await budgets.reserve({ ownerId: owner.id, isDemo: owner.isDemo, estimateMicroUsd });
     let result;
     try {
-      result = await generator.generate({ story, image });
+      result = await generator.generate({ story, image, correction });
     } catch (error) {
       return afterProviderFailure(error, reservationId, context);
     }
@@ -117,12 +118,19 @@ export function createListingService({ products, images, budgets, generator, log
 
   async function runAttempts({ owner, story, image, context }) {
     const total = { tokIn: 0, tokOut: 0, costMicroUsd: 0 };
+    let correction = null;
     for (let tryNumber = 1; tryNumber <= MAX_GENERATION_ATTEMPTS; tryNumber += 1) {
-      const { result, charged } = await attempt({ owner, story, image, context: { ...context, tryNumber } });
+      const { result, charged } = await attempt({ owner, story, image, correction, context: { ...context, tryNumber } });
       total.tokIn += charged.inputTokens;
       total.tokOut += charged.outputTokens;
       total.costMicroUsd += charged.costMicroUsd;
-      if (result.ok) return { translations: result.translations, total };
+      const mismatch = result.ok ? findFigureMismatch(story, result.translations) : [];
+      if (result.ok && mismatch.length === 0) return { translations: result.translations, total };
+      if (result.ok) {
+        correction = correctionFor(mismatch);
+        logger?.warn('ai output rejected', { ...context, tryNumber, reason: 'figure_mismatch', mismatches: mismatch.length });
+        continue;
+      }
       logger?.warn('ai output rejected', {
         ...context,
         tryNumber,

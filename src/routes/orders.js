@@ -33,6 +33,7 @@ export function createOrderRouter({ config, orders, logger, rateLimits = {} }) {
   router.post('/s/:slug/p/:productId/buy', privacyHeaders, sameOrigin, create, controller.postCheckout);
   router.get('/o/:token', privacyHeaders, status, controller.showStatus);
   router.post('/o/:token/utr', privacyHeaders, sameOrigin, utr, controller.postUtr);
+  router.get('/o/:token/cancel', privacyHeaders, status, controller.showCancel);
   router.post('/o/:token/cancel', privacyHeaders, sameOrigin, utr, controller.postCancel);
   router.use(controller.handleError(logger));
   return router;

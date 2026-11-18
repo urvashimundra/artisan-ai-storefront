@@ -120,6 +120,13 @@ export function createOrderController({ orders }) {
       return page ? sendPage(res, 'public/order', page) : notFound(req, res);
     },
 
+    /** The "Cancel this order?" page. No side effects: an order that can no longer be cancelled shows its status page instead. */
+    async showCancel(req, res) {
+      const page = await orders.getCancelPage(req.params.token, preferences(req));
+      if (!page) return notFound(req, res);
+      return page.cancellable ? sendPage(res, 'public/order-cancel', page) : redirectToStatus(req, res);
+    },
+
     async postUtr(req, res) {
       try {
         await orders.submitUtr(req.params.token, req.body);

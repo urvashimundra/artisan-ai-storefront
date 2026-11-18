@@ -3,6 +3,8 @@ import { createConversationAgent } from './ai/conversationAgent.js';
 import { createEnquiryAgent } from './ai/enquiryAgent.js';
 import { createClaudeProbe } from './ai/claudeProbe.js';
 import { createListingGenerator } from './ai/listingGenerator.js';
+import { LANGUAGE_NAMES } from './domain/language.js';
+import { createProductTranslationGenerator } from './ai/productTranslationGenerator.js';
 import { createTranslationGenerator } from './ai/translationGenerator.js';
 import { createEmailService } from './email/emailService.js';
 import { createOutboxWorker } from './email/outboxWorker.js';
@@ -44,6 +46,7 @@ import { createPublicShopService } from './services/publicShopService.js';
 import { createSessionService } from './services/sessionService.js';
 import { createStoreService } from './services/storeService.js';
 import { createStoreTranslationService } from './services/storeTranslationService.js';
+import { createProductTranslationService } from './services/productTranslationService.js';
 import { createTranslationDraftService } from './services/translationDraftService.js';
 
 /** The database-backed three-limit AI budget guard, shared by every AI workflow. */
@@ -81,6 +84,9 @@ function buildProductServices({ config, client, logger }) {
   return {
     products: createProductService({ products, images, logger }),
     listings: createListingService({ products, images, budgets, generator, logger }),
+    productTranslations: createProductTranslationService({
+      products, budgets, generator: createProductTranslationGenerator({ config: config.ai }), languageNames: LANGUAGE_NAMES, logger,
+    }),
   };
 }
 

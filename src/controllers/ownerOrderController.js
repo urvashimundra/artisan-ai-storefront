@@ -1,4 +1,4 @@
-import { ORDER_STATUSES } from '../domain/orderRules.js';
+import { MAX_UTR_SUBMISSIONS, ORDER_STATUSES, lastAttemptUsed } from '../domain/orderRules.js';
 import { AppError } from '../lib/errors.js';
 import { formatInr } from '../lib/money.js';
 import { MAX_LISTED_ORDERS } from '../repositories/orderRepository.js';
@@ -6,7 +6,9 @@ import { MAX_LISTED_ORDERS } from '../repositories/orderRepository.js';
 const SEE_OTHER = 303;
 const HTTP_NOT_FOUND = 404;
 const INDIA_TIME_ZONE = 'Asia/Kolkata';
-const DONE_NOTICES = Object.freeze({ paid: 'Marked as paid.', not_received: 'Marked as payment not received. The customer can send a new UTR.', cancelled: 'Order cancelled.' });
+const DONE_NOTICES = Object.freeze({ paid: 'Marked as paid.', not_received: 'Marked as payment not received. The customer can send a new UTR.', cancelled: 'Order cancelled.',
+  cancelled_utr: `Marked as payment not received. This was attempt ${MAX_UTR_SUBMISSIONS} of ${MAX_UTR_SUBMISSIONS}, so the order was cancelled and the customer was told.`,
+});
 const OWNER_STATUS_LABELS = Object.freeze({
   awaiting_payment: 'Awaiting payment',
   payment_submitted: 'Payment submitted: check your bank',
@@ -16,7 +18,12 @@ const OWNER_STATUS_LABELS = Object.freeze({
 });
 /** Compact labels for the list badges (the detail page keeps the full wording). */
 const LIST_STATUS_LABELS = Object.freeze({ ...OWNER_STATUS_LABELS, payment_submitted: 'Payment submitted' });
-const CANCEL_REASON_LABELS = Object.freeze({ expired: 'Expired (no payment in time)', customer: 'Cancelled by the customer', owner: 'Cancelled by you' });
+const CANCEL_REASON_LABELS = Object.freeze({
+  expired: 'Expired (no payment in time)',
+  customer: 'Cancelled by the customer',
+  owner: 'Cancelled by you',
+  utr_attempts_exhausted: `Cancelled: payment not verified after ${MAX_UTR_SUBMISSIONS} attempts`,
+});
 const STATE_ERROR = 'state';
 const COUNTRY_PREFIX = '91';
 const PHONE_SPLIT = 5;
@@ -71,13 +78,14 @@ export function createOwnerOrderController({ orders }) {
   const detailPath = (id, query = '') => `/orders/${id}${query}`;
 
   async function change(req, res, action, done) {
+    let outcome;
     try {
-      await action(req.store, req.params.id);
+      outcome = await action(req.store, req.params.id);
     } catch (error) {
       if (error instanceof AppError && error.code === 'ORDER_STATE') return res.redirect(SEE_OTHER, detailPath(req.params.id, `?error=${STATE_ERROR}`));
       throw error;
     }
-    return res.redirect(SEE_OTHER, detailPath(req.params.id, `?done=${done}`));
+    return res.redirect(SEE_OTHER, detailPath(req.params.id, `?done=${outcome?.cancelled ? 'cancelled_utr' : done}`));
   }
 
   return {
@@ -113,6 +121,8 @@ export function createOwnerOrderController({ orders }) {
           attempts: order.attempts.map((attempt) => ({ utr: attempt.utr, at: formatIst(attempt.createdAt) })),
         },
         actions,
+        lastAttempt: lastAttemptUsed(order),
+        maxAttempts: MAX_UTR_SUBMISSIONS,
         whatsappUrl,
         done,
         stateError,
@@ -122,6 +132,14 @@ export function createOwnerOrderController({ orders }) {
 
     markPaid: (req, res) => change(req, res, (store, id) => orders.resolvePayment(store, id, 'paid'), 'paid'),
     markNotReceived: (req, res) => change(req, res, (store, id) => orders.resolvePayment(store, id, 'not_received'), 'not_received'),
+
+    /** "Cancel this order?" confirmation. No side effects; an order that cannot be cancelled goes back to its detail page. */
+    async confirmCancel(req, res) {
+      const found = await orders.getForOwner(req.store, req.params.id);
+      if (!found) return res.status(HTTP_NOT_FOUND).render('error', { title: 'Page not found', status: HTTP_NOT_FOUND, message: 'Order not found', correlationId: req.correlationId });
+      if (!found.actions.canCancel) return res.redirect(SEE_OTHER, detailPath(req.params.id));
+      return res.render('order-cancel-confirm', { title: `Cancel order ${found.order.reference}`, order: found.order });
+    },
     cancel: (req, res) => change(req, res, (store, id) => orders.cancelByOwner(store, id), 'cancelled'),
   };
 }

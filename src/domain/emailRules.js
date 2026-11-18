@@ -60,5 +60,6 @@ export const orderPayloadSchema = z
     shop: z.string().min(1).max(200),
     slug: z.string().min(1).max(40),
     token_enc: z.string().max(200).nullable().optional(),
+    cancel_reason: z.string().max(40).nullable().optional(),
   })
   .strict();

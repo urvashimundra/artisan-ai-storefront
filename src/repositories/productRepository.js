@@ -53,6 +53,11 @@ const reviewResultSchema = z.discriminatedUnion('ok', [
     .strict(),
 ]);
 
+const translationDraftsResultSchema = z.discriminatedUnion('ok', [
+  z.object({ ok: z.literal(true), saved: z.array(z.enum(['en', 'gu', 'hi'])), skipped: z.array(z.enum(['en', 'gu', 'hi'])) }).strict(),
+  z.object({ ok: z.literal(false), reason: z.enum(['not_found', 'generating', 'invalid']) }).strict(),
+]);
+
 function requireGenerationId(generationId) {
   if (!z.uuid().safeParse(generationId).success) throw new TypeError('A generation id is required');
   return generationId;
@@ -186,6 +191,17 @@ export function createProductRepository({ client, newGenerationId = randomUUID }
       };
       const result = await callRpc(client, 'save_ai_listing', args, aiListingResultSchema);
       return result.ok ? { ok: true, draftId: result.draft_id } : result;
+    },
+
+    /**
+     * RPC save_product_translation_drafts: title and description only, as unapproved AI drafts, in one transaction. A language whose approved
+     * text the owner wrote is skipped and reported.
+     * @param {string} storeId @param {string} productId @param {Record<string, { title: string, description: string }>} translations
+     * @returns {Promise<{ ok: true, saved: string[], skipped: string[] } | { ok: false, reason: string }>}
+     */
+    async saveTranslationDrafts(storeId, productId, translations) {
+      const args = { p_store_id: requireStoreId(storeId), p_product_id: productId, p_translations: translations };
+      return callRpc(client, 'save_product_translation_drafts', args, translationDraftsResultSchema);
     },
 
     /** RPC save_product_review: story, stock and everything else in one transaction. @returns {Promise<{ ok: true, status: string } | { ok: false, reason: string }>} */

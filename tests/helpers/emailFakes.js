@@ -18,7 +18,8 @@ export function createFakeOutbox({ clock }) {
   function limitReason(kind, to) {
     if (rows.filter((r) => clock.now - r.createdAtMs < MS_PER_HOUR).length >= EMAIL_LIMITS.globalPerHour) return 'limited_global';
     if (kind === EMAIL_KINDS.CONTACT_INBOX) return null;
-    const hourly = isSeller(kind) ? EMAIL_LIMITS.sellerPerHour : EMAIL_LIMITS.customerPerHour;
+    const hourlyExempt = kind === EMAIL_KINDS.ORDER_CANCELLED;
+    const hourly = hourlyExempt ? Infinity : isSeller(kind) ? EMAIL_LIMITS.sellerPerHour : EMAIL_LIMITS.customerPerHour;
     if (recentFor(to, MS_PER_HOUR) >= hourly) return 'limited_recipient';
     if (!isSeller(kind) && recentFor(to, MS_PER_DAY) >= EMAIL_LIMITS.customerPerDay) return 'limited_recipient';
     return null;
@@ -51,7 +52,7 @@ export function createFakeOutbox({ clock }) {
       if (!to) return 'skipped';
       return outbox.enqueueNow({
         storeId: order.storeId, kind, toEmail: to, language: isSeller(kind) ? 'en' : order.language, subject: '', body: '',
-        payload: { reference: order.reference, shop: shop.name, slug: shop.slug, token_enc: isSeller(kind) ? null : order.statusTokenEnc ?? null }, dedupeKey: `${kind}:${order.id}${suffix === null ? '' : `:${suffix}`}`,
+        payload: { reference: order.reference, shop: shop.name, slug: shop.slug, token_enc: isSeller(kind) ? null : order.statusTokenEnc ?? null, cancel_reason: kind === EMAIL_KINDS.ORDER_CANCELLED ? order.cancelReason : null }, dedupeKey: `${kind}:${order.id}${suffix === null ? '' : `:${suffix}`}`,
       });
     },
 

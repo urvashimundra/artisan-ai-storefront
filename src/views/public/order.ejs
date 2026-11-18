@@ -10,7 +10,8 @@
           <h2 id="status-heading"><%= strings.statusLabel %></h2>
           <p class="status-text"><strong><%= order.statusLabel %></strong></p>
           <p><%= order.help %></p>
-<% if (order.expired) { %>          <p class="callout"><%= strings.reservationReleased %></p>
+<% if (order.utrExhausted) { %>          <p><a class="button button-secondary" href="<%= shopHref %>"><%= strings.visitShop %></a></p>
+<% } %><% if (order.expired) { %>          <p class="callout"><%= strings.reservationReleased %></p>
 <% } %><% if (order.countdown) { %>          <div class="countdown" data-countdown data-seconds-left="<%= order.countdown.secondsLeft %>" data-status-url="<%= paths.status %>" data-expired-text="<%= strings.countdownExpired %>" data-checking-text="<%= strings.countdownChecking %>" data-minute-text="<%= strings.countdownMinuteLeft %>">
             <span class="countdown-label"><%= strings.timeLeftLabel %></span>
             <span class="countdown-time" data-countdown-time><%= String(Math.floor(order.countdown.secondsLeft / 60)).padStart(2, '0') %>:<%= String(order.countdown.secondsLeft % 60).padStart(2, '0') %></span>
@@ -70,7 +71,7 @@
 <% } %><% if (order.canCancel) { %>        <section class="card" aria-labelledby="cancel-heading">
           <h2 id="cancel-heading"><%= strings.cancelHeading %></h2>
           <p><%= strings.cancelNote %></p>
-          <form method="post" action="<%= paths.cancel %>"><button type="submit" class="button button-secondary"><%= strings.cancelOrder %></button></form>
+          <p><a class="button button-secondary" href="<%= paths.cancel %>"><%= strings.cancelOrder %></a></p>
         </section>
 <% } %>        <p class="hint"><%= strings.keepLinkNote %></p>
       </aside>

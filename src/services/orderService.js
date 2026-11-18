@@ -1,6 +1,6 @@
 import { LANGUAGE_NAMES, pickField, resolveLanguage } from '../domain/language.js';
 import {
-  ACTORS, ORDER_EXPIRY_MINUTES, ORDER_STATUSES, STATUS, MAX_QUANTITY, MAX_UTR_SUBMISSIONS, checkoutSchema, customerActions, isPastDeadline, ownerActions, priceOrder,
+  ACTORS, CANCEL_REASON_UTR_EXHAUSTED, ORDER_EXPIRY_MINUTES, ORDER_STATUSES, STATUS, MAX_QUANTITY, MAX_UTR_SUBMISSIONS, checkoutSchema, customerActions, holdMinutes, isPastDeadline, ownerActions, priceOrder,
   secondsUntil, utrSchema,
 } from '../domain/orderRules.js';
 import { themeClass } from '../domain/palette.js';
@@ -34,7 +34,9 @@ const HELP_STRING_KEYS = Object.freeze({
 });
 const LOCALES = Object.freeze({ en: 'en-IN', gu: 'gu-IN', hi: 'hi-IN' });
 const INDIA_TIME_ZONE = 'Asia/Kolkata';
-const CANCEL_STRING_KEYS = Object.freeze({ expired: 'cancelledExpired', customer: 'cancelledCustomer', owner: 'cancelledOwner' });
+const CANCEL_STRING_KEYS = Object.freeze({
+  expired: 'cancelledExpired', customer: 'cancelledCustomer', owner: 'cancelledOwner', [CANCEL_REASON_UTR_EXHAUSTED]: 'cancelledUtrExhausted',
+});
 
 /** Failure reasons from the database functions, as AppErrors. Codes are stable; controllers map them to messages. */
 const REASON_ERRORS = Object.freeze({
@@ -109,7 +111,7 @@ const effectiveOrder = (order, nowMs) =>
   isPastDeadline(order, nowMs) ? { ...order, status: STATUS.CANCELLED, cancelReason: 'expired', expiresAt: null } : order;
 
 function statusHelp(order, strings) {
-  if (order.status === STATUS.CANCELLED) return strings[CANCEL_STRING_KEYS[order.cancelReason]];
+  if (order.status === STATUS.CANCELLED) return fillTemplate(strings[CANCEL_STRING_KEYS[order.cancelReason]], { attempts: String(MAX_UTR_SUBMISSIONS) });
   return strings[order.status === STATUS.PAYMENT_SUBMITTED ? 'reservationHeld' : HELP_STRING_KEYS[order.status]];
 }
 
@@ -145,8 +147,9 @@ export function buildStatusView({ order: stored, language, statusPath, nowMs = D
       items: order.items.map(lineView),
       expiresText: PAYABLE.has(order.status) ? formatExpiry(order.expiresAt, language) : null,
       countdown: countdownView(order, nowMs),
-      reservationNote: fillTemplate(strings.reservationNote, { minutes: String(ORDER_EXPIRY_MINUTES) }),
+      reservationNote: fillTemplate(strings.reservationNote, { minutes: String(holdMinutes(order.status)) }),
       expired,
+      utrExhausted: order.status === STATUS.CANCELLED && order.cancelReason === CANCEL_REASON_UTR_EXHAUSTED,
       attemptsText: fillTemplate(strings.attemptsLeft, { count: String(Math.max(0, MAX_UTR_SUBMISSIONS - order.utrSubmissions)) }),
       utr: order.utr,
       canSubmitUtr: actions.canSubmitUtr && order.utrSubmissions < MAX_UTR_SUBMISSIONS,
@@ -322,6 +325,19 @@ export function createOrderService({ orders, shops, logger, newToken = generateS
       return { language, view: buildStatusView({ order: loaded.order, language, statusPath: `/o/${token}`, nowMs: now() }) };
     },
 
+    /**
+     * The "Cancel this order?" confirmation page. No side effects.
+     * @returns {Promise<{ view: object, language: string, cancellable: boolean } | null>} null for an unknown token. When the order can no longer be cancelled, `cancellable` is false and the caller shows the status page instead.
+     */
+    async getCancelPage(token, prefs) {
+      const loaded = await loadOrder(token);
+      if (!loaded) return null;
+      const { language } = resolveLanguage({ ...prefs, shopDefault: loaded.order.language });
+      const statusPath = `/o/${token}`;
+      const view = buildStatusView({ order: loaded.order, language, statusPath, nowMs: now() });
+      return { language, cancellable: view.order.canCancel, view: { ...view, kind: 'order', languageLinks: languageLinks(`${statusPath}/cancel`, language) } };
+    },
+
     /** Records the customer's UTR (12 digits). Throws ZodError, or AppError for state, limit and reuse problems. */
     async submitUtr(token, body) {
       const { order, tokenHash } = await requireOrder(token);
@@ -356,12 +372,16 @@ export function createOrderService({ orders, shops, logger, newToken = generateS
       return { order, actions: ownerActions(order.status), whatsappUrl: buildOwnerWhatsappLink(order, store.name) };
     },
 
-    /** Owner marks a submitted payment as received or not received. */
+    /**
+     * Owner marks a submitted payment as received or not received. Rejecting the last allowed reference cancels the order.
+     * @returns {Promise<{ cancelled: boolean }>}
+     */
     async resolvePayment(store, orderId, outcome) {
       if (!isProductId(orderId)) throw notFound('Order not found');
-      ensureOk(await orders.resolvePayment(store.id, store.ownerId, orderId, outcome));
+      const result = ensureOk(await orders.resolvePayment(store.id, store.ownerId, orderId, outcome));
       wakeEmailWorker();
-      logger.info('payment resolved', { storeId: store.id, orderId, outcome });
+      logger.info('payment resolved', { storeId: store.id, orderId, outcome, cancelled: result.cancelled === true });
+      return { cancelled: result.cancelled === true };
     },
 
     async cancelByOwner(store, orderId) {

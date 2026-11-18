@@ -33,7 +33,7 @@ describe('migration 008 text', () => {
     assert.match(code, new RegExp(`customer_email\\) <= ${MAX_EMAIL_LENGTH}`));
     assert.match(code, new RegExp(`interval '1 hour'`));
     for (const status of ORDER_STATUSES) assert.ok(code.includes(`'${status}'`), status);
-    for (const reason of CANCEL_REASONS) assert.ok(code.includes(`'${reason}'`), reason);
+    for (const reason of CANCEL_REASONS.filter((r) => r !== 'utr_attempts_exhausted')) assert.ok(code.includes(`'${reason}'`), reason);
   });
 
   it('every function pins search_path, revokes from public, anon and authenticated, and grants to service_role only', () => {

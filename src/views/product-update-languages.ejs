@@ -1,0 +1,14 @@
+<%- include('partials/header') %>
+    <p class="crumb"><a href="/products/<%= product.id %>/edit">&larr; Back to the product</a></p>
+    <section class="card" aria-labelledby="update-confirm-heading">
+      <h1 id="update-confirm-heading">Update other languages?</h1>
+      <p>The AI will translate your saved <%= defaultLanguageName %> title and description into <%= otherNames.join(' and ') %>. It uses the text that is saved now, so save your edits first. It does not look at the photo.</p>
+      <p>This replaces the title and description of those languages with new drafts, including drafts you have not approved yet and AI text you approved earlier. A language you wrote yourself and approved is kept. The new text stays hidden from customers until you read it and approve it.</p>
+      <form method="post" action="/products/<%= product.id %>/update-languages" id="update-languages-form" data-progress="update-languages-progress">
+        <p><button type="submit" class="button">Yes, update the other languages</button>
+        <a class="button button-secondary" href="/products/<%= product.id %>/edit">No, keep them</a></p>
+        <p id="update-languages-progress" class="notice" role="status" aria-live="polite" hidden>The AI is translating. This can take up to a minute.</p>
+      </form>
+    </section>
+    <script src="/js/product-generate.js" defer></script>
+<%- include('partials/footer') %>

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { EMAIL_KINDS } from '../../src/domain/emailRules.js';
-import { MAX_UTR_SUBMISSIONS, ORDER_EXPIRY_MINUTES, ORDER_RESUBMIT_MINUTES, STATUS, canTransition } from '../../src/domain/orderRules.js';
+import { CANCEL_REASON_UTR_EXHAUSTED, MAX_UTR_SUBMISSIONS, ORDER_EXPIRY_MINUTES, ORDER_RESUBMIT_MINUTES, STATUS, canTransition } from '../../src/domain/orderRules.js';
 import { requireStoreId } from '../../src/repositories/requireStoreId.js';
 import { createOrderService } from '../../src/services/orderService.js';
 import { createLogCollector } from './productFakes.js';
@@ -120,7 +120,12 @@ export function createFakeOrderRepo({ publicRepo, ownsStore, clock, outbox = nul
       const order = ownsStore(storeId, ownerId) ? inStore(storeId).find((o) => o.id === orderId) : null;
       if (!order) return fail('not_found');
       if (order.status === outcome) return done({ already: true });
+      if (outcome === STATUS.NOT_RECEIVED && order.cancelReason === CANCEL_REASON_UTR_EXHAUSTED) return done({ already: true, cancelled: true });
       if (!canTransition('owner', order.status, outcome)) return fail('invalid_transition');
+      if (outcome === STATUS.NOT_RECEIVED && order.utrSubmissions >= MAX_UTR_SUBMISSIONS) {
+        cancelLocked(order, CANCEL_REASON_UTR_EXHAUSTED);
+        return done({ cancelled: true });
+      }
       Object.assign(order, outcome === STATUS.PAID
         ? { status: STATUS.PAID, paidAt: new Date(clock.now).toISOString(), expiresAt: null }
         : { status: STATUS.NOT_RECEIVED, expiresAt: windowEnd(ORDER_RESUBMIT_MINUTES) });

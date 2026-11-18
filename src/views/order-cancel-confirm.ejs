@@ -1,0 +1,12 @@
+<%- include('partials/header') %>
+    <p class="crumb"><a href="/orders/<%= order.id %>">&larr; Back to order</a></p>
+    <section class="card" aria-labelledby="cancel-confirm-heading">
+      <h1 id="cancel-confirm-heading">Cancel this order?</h1>
+      <p>Order <strong><%= order.reference %></strong> for <%= order.customerName %>. This can't be undone.</p>
+      <p>Cancelling puts the reserved stock back and emails the customer.</p>
+      <form method="post" action="/orders/<%= order.id %>/cancel">
+        <p><button type="submit" class="button button-danger">Yes, cancel order</button>
+        <a class="button button-secondary" href="/orders/<%= order.id %>">No, keep it</a></p>
+      </form>
+    </section>
+<%- include('partials/footer') %>
