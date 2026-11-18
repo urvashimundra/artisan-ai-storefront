@@ -409,3 +409,57 @@ describe('limits and failure categories', () => {
     assert.ok(!JSON.stringify(h.requests[0]).includes('cache_control'));
   });
 });
+
+describe('reply wording: one estimate line, repeated words, hours in a seller note', () => {
+  const QUOTE = [turn(use('search_products', {})), turn(use('calculate_quote', { productId: 'p1', quantity: 10 }))];
+  const count = (text, part) => text.split(part).length - 1;
+  const GIFT_QUESTION = 'Can you gift-wrap a mug with a handwritten note, and do you provide a GST invoice?';
+  const GIFT_NOTE = 'The shop notes do not mention gift-wrapping with a handwritten note, or a GST invoice, so I cannot confirm the rate and the seller will reply between 10 am to 7 pm IST, Monday to Saturday.';
+
+  for (const [name, question, text, language] of [
+    ['English', 'How much for 10 lamps?', 'Your total is {{q1.total}}. This is an estimate, the seller will confirm the final amount.', 'en'],
+    ['Gujarati', 'મને 10 દીવા જોઈએ છે, કિંમત કેટલી?', 'તમારો કુલ ભાવ {{q1.total}} છે. આ અંદાજ છે, અંતિમ પુષ્ટિ વિક્રેતા કરશે.', 'gu'],
+    ['Hindi', 'मुझे 10 दीये चाहिए, कीमत कितनी है?', 'आपका कुल मूल्य {{q1.total}} है। यह अनुमान है, अंतिम पुष्टि विक्रेता करेंगे।', 'hi'],
+  ]) {
+    it(`${name}: the model's own estimate sentence is removed and the server line appears exactly once`, async () => {
+      const h = await harness({ tiers: TIERS, stock: 50, history: messages(question), script: [...QUOTE, finalTurn({ outcome: 'answered', text })] });
+      const result = await h.run();
+      const note = stringsFor(language).quoteEstimateNote;
+      assert.equal(result.ok, true);
+      assert.equal(count(result.text, note), 1, result.text);
+      assert.ok(result.text.endsWith(note));
+      assert.match(result.text, /₹/);
+      assert.equal(result.text.replace(note, '').match(/estimate|અંદાજ|अनुमान|अंदाज/giu), null, result.text);
+    });
+  }
+
+  it('keeps an estimate sentence that carries other content or money, and still adds one server line', async () => {
+    const text = 'Your total is {{q1.total}}, an estimate for 10 lamps. Delivery estimate: 5 days.';
+    const h = await harness({ tiers: TIERS, stock: 50, script: [...QUOTE, finalTurn({ outcome: 'answered', text })] });
+    const result = await h.run();
+    assert.match(result.text, /an estimate for 10 lamps\. Delivery estimate: 5 days\./);
+    assert.equal(count(result.text, NOTE), 1);
+  });
+
+  it('collapses a repeated word in a Gujarati reply but keeps repeated numbers and product names', async () => {
+    const h = await harness({ history: messages('સ્ટોકમાં કેટલા છે?'), script: [turn(use('search_products', {})), finalTurn({ outcome: 'answered', text: 'Clay diya સ્ટોકમાં સ્ટોકમાં 38 38 છે. Clay diya Clay diya બહુ સરસ છે.', sources: [{ label: 'live_catalog' }] })] });
+    const result = await h.run();
+    assert.equal(result.ok, true, result.reason);
+    assert.match(result.text, /^Clay diya સ્ટોકમાં 38 38 છે\. Clay diya Clay diya બહુ સરસ છે\.$/u);
+  });
+
+  it('the exact scenario: a needs_seller note naming both missing items with the shop hours survives', async () => {
+    const h = await harness({ history: messages(GIFT_QUESTION), script: [finalTurn({ outcome: 'needs_seller', text: GIFT_NOTE })] });
+    const result = await h.run();
+    assert.deepEqual([result.ok, result.outcome, result.text, result.rejection], [true, 'needs_seller', GIFT_NOTE, undefined]);
+  });
+
+  it('a needs_seller note that states a price or discount, or an unlabelled figure beside a money word, still falls back to the fixed notice', async () => {
+    for (const text of ['Gift-wrapping is not in the notes; it may cost 150 rupees.', 'Gift-wrapping is not in the notes, but we usually give a 20% discount on it.', 'We cannot confirm the gift-wrap price, probably 10 for a mug.', 'Not in the notes. Gift wrap total 1200.']) {
+      const h = await harness({ history: messages(GIFT_QUESTION), script: [finalTurn({ outcome: 'needs_seller', text })] });
+      const result = await h.run();
+      assert.deepEqual([result.ok, result.text], [true, null], text);
+      assert.ok(result.rejection, text);
+    }
+  });
+});

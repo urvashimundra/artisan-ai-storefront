@@ -13,7 +13,7 @@ import { INDIC_TOKENS_PER_CHARACTER } from './listingCost.js';
 import { classifyFailure, readUsage } from './listingGenerator.js';
 import { hasTypedAmount, resolveMoney } from './moneyPlaceholders.js';
 import { customerClaimsPrice } from './priceClaim.js';
-import { removeStockLeadIn, withDescriptionSource, withEstimateLine } from './replyPolish.js';
+import { collapseRepeatedWords, removeStockLeadIn, withDescriptionSource, withEstimateLine, withoutEstimateSentences } from './replyPolish.js';
 import { sharesWordRun } from './wordRuns.js';
 import { findUnitConflict } from './unitConflict.js';
 import { CONVERSATION_PROMPT_VERSION, buildConversationSystemPrompt, buildConversationUserText } from './prompts/conversationV1.js';
@@ -134,8 +134,8 @@ export function createConversationAgent({ config, createClient = (options) => ne
   };
 
   /** The text of a needs_seller note, or null (the fixed localised notice is used) when it states an unverifiable amount or is not in its language. */
-  function sellerNote(text, money, language) {
-    return text !== undefined && money.ok && textUsesScript(withoutPlaceholders(text), language) ? money.text : null;
+  function sellerNote(text, money, language, shownNames) {
+    return text !== undefined && money.ok && textUsesScript(withoutPlaceholders(text), language) ? collapseRepeatedWords(money.text, shownNames) : null;
   }
 
   /** Every text the model was shown that may carry plain figures: product titles and descriptions, the seller notes and the shop profile. */
@@ -174,7 +174,7 @@ export function createConversationAgent({ config, createClient = (options) => ne
   }
 
   function evaluateNeedsSeller({ text, money, refusal, sellerNotice }, state) {
-    const note = sellerNote(text, money, state.replyLanguage);
+    const note = sellerNote(text, money, state.replyLanguage, state.tools.shownTitles());
     const rejection = note === null ? (money.ok ? 'language_mismatch' : money.reason === 'unverified_amount' ? refusal : 'invalid_schema') : undefined;
     return { result: succeeded(state, { outcome: CONVERSATION_OUTCOMES.NEEDS_SELLER, text: note, sellerNotice, rejection }) };
   }
@@ -188,13 +188,13 @@ export function createConversationAgent({ config, createClient = (options) => ne
     if (hasEnglishLabelWords(bare, language, state.tools.shownTitles())) return retryWith('label_words');
     if (sellerNotice && repeatsNotice(money.text, sellerNotice)) return retryWith('contested_fact', VOLUNTEERED_MESSAGE);
     const strings = stringsFor(language);
-    const reply = removeStockLeadIn(money.text, { stockWord: strings.chatStockWord, inStock: strings.chatLabelInStock });
+    const reply = collapseRepeatedWords(removeStockLeadIn(money.text, { stockWord: strings.chatStockWord, inStock: strings.chatLabelInStock }), state.tools.shownTitles());
     const { titles, texts } = await state.tools.catalogueTexts();
     state.catalogueTexts = texts;
     const unit = unitConflictResult(reply, state, titles);
     if (unit) return unit;
     const verified = withDescriptionSource(verifiedClaims(sources, sourceBook(state), { usedLiveData: state.tools.usedLiveData() }), reply, state.tools.descriptionTexts());
-    return { result: succeeded(state, { outcome, text: money.usedQuote ? withEstimateLine(reply, strings.quoteEstimateNote) : reply, sources: verified, sellerNotice }) };
+    return { result: succeeded(state, { outcome, text: money.usedQuote ? withEstimateLine(withoutEstimateSentences(reply, language), strings.quoteEstimateNote) : reply, sources: verified, sellerNotice }) };
   }
 
   async function evaluateFinal(block, state) {

@@ -72,7 +72,7 @@
     var bubble = element('div', 'msg-bubble');
     bubble.appendChild(element('p', message.role === 'customer' ? 'visually-hidden' : 'msg-speaker', message.speaker));
     bubble.appendChild(element('p', 'msg-text', message.text));
-    if (message.sources && message.sources.length) bubble.appendChild(element('p', 'msg-sources', text.sources + ': ' + message.sources.join(', ')));
+    if (message.sources && message.sources.length) bubble.appendChild(element('p', 'msg-sources', (message.sourcesLabel || text.sources) + ': ' + message.sources.join(', ')));
     var meta = element('p', 'msg-meta');
     var time = element('time', '', message.timeLabel);
     time.setAttribute('datetime', message.time);

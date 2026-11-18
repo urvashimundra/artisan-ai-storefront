@@ -197,7 +197,7 @@ export const CONVERSATION_STRINGS = Object.freeze({
     chatRefresh: 'रिफ़्रेश करें',
     chatRetry: 'फिर कोशिश करें',
     chatSent: 'भेजा गया',
-    chatSourcesLabel: 'आधार',
+    chatSourcesLabel: 'इसके आधार पर',
     chatSourceNotes: 'विक्रेता के नोट्स',
     chatSourceProduct: 'उत्पाद का विवरण',
     chatSourceProfile: 'दुकान की प्रोफ़ाइल',
