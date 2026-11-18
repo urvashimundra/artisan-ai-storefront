@@ -16,7 +16,12 @@
   --error-soft: #fbe9e9;
   --warn: #5a3b00;
   --warn-soft: #fff1cf;
+  --owner-width: 80rem;
+  --measure-form: 40rem;
+  --gutter: 1rem;
 }
+@media (min-width: 48rem) { :root { --gutter: 2rem; } }
+@media (min-width: 64rem) { :root { --gutter: 2.5rem; } }
 
 *, *::before, *::after { box-sizing: border-box; }
 
@@ -30,7 +35,8 @@ body {
   background: var(--paper);
 }
 
-main { max-width: 44rem; margin: 0 auto; padding: 1rem; }
+main { max-width: var(--owner-width); margin: 0 auto; padding: 1rem var(--gutter); }
+.measure-form, main > form.stack { max-width: var(--measure-form); }
 main:focus { outline: none; }
 
 h1 { font-size: 1.6rem; line-height: 1.25; margin: 1rem 0; }
@@ -128,7 +134,7 @@ dl.details dt { font-weight: 700; margin-top: 0.75rem; }
 dl.details dd { margin: 0; overflow-wrap: anywhere; white-space: pre-wrap; }
 
 @media (min-width: 48rem) {
-  main { padding: 2rem; }
+  main { padding-block: 2rem; }
   h1 { font-size: 2rem; }
 }
 #login-error {
@@ -167,14 +173,11 @@ input[type="file"] { width: 100%; padding: 0.5rem 0; font: inherit; }
 /* Owner Orders pages. Wide layout (.main-wide), desktop data table from 64rem, cards below it. Status is always shown as
    text; colour and border style only reinforce it. All text pairs meet 4.5:1 (ink and --muted on white or --band; each badge
    uses a dark text colour on its own light tint). */
-.main-wide { max-width: 82rem; }
+.main-wide { max-width: var(--owner-width); }
 @media (min-width: 64rem) {
-  .main-wide { padding: 2rem 2.5rem 3rem; }
+  .main-wide { padding-bottom: 3rem; }
 }
-.site-header { padding-inline: max(1rem, calc((100% - 82rem) / 2 + 1rem)); }
-@media (min-width: 64rem) {
-  .site-header { padding-inline: max(2.5rem, calc((100% - 82rem) / 2 + 2.5rem)); }
-}
+.site-header { padding-inline: max(var(--gutter), calc((100% - var(--owner-width)) / 2 + var(--gutter))); }
 .button { transition: background-color 0.15s ease, border-color 0.15s ease; }
 .button:hover { background: #083b69; border-color: #083b69; }
 .button-secondary { color: var(--link); background: var(--paper); }
@@ -294,10 +297,9 @@ input[type="file"] { width: 100%; padding: 0.5rem 0; font: inherit; }
 }
 
 /* Main-site footer and contact form (Module 5). */
-.site-footer { max-width: 44rem; margin: 0 auto; padding: 0.5rem 1rem 1.5rem; border-top: 1px solid var(--line); }
+.site-footer { max-width: var(--owner-width); margin: 0 auto; padding: 0.5rem var(--gutter) 1.5rem; border-top: 1px solid var(--line); }
 .site-footer nav { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; }
 .site-footer a { display: inline-flex; align-items: center; min-height: 2.75rem; }
-.main-wide + .site-footer { max-width: 82rem; }
 .contact-form { max-width: 32rem; }
 .contact-form .error-text, .error-summary a { overflow-wrap: anywhere; }
 .error-summary ul { margin: 0.25rem 0 0; padding-left: 1.25rem; }
