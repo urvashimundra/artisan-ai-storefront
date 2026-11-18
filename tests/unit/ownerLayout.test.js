@@ -27,8 +27,8 @@ describe('owner layout width', () => {
     for (const selector of ['main {', '.site-footer {', '.main-wide {']) {
       assert.match(block(selector), /max-width: var\(--owner-width\)/, selector);
     }
-    assert.match(block('.site-header { padding-inline'), /var\(--owner-width\)/);
-    assert.match(block('.site-header { padding-inline'), /var\(--gutter\)/);
+    assert.match(block('.site-header {'), /var\(--owner-width\)/);
+    assert.match(block('.site-header {'), /var\(--gutter\)/);
     assert.match(block('main {'), /var\(--gutter\)/);
     assert.match(block('.site-footer {'), /var\(--gutter\)/);
   });
@@ -76,5 +76,16 @@ describe('disabled buttons', () => {
 describe('focus ring', () => {
   it('applies to the mobile menu summary like buttons and links', () => {
     assert.match(block('a:focus-visible'), /summary:focus-visible/);
+  });
+});
+
+describe('merged rules', () => {
+  it('each duplicate selector has one definition and one reduced-motion block', () => {
+    for (const selector of ['.button {', '.site-header {', 'textarea {']) {
+      assert.equal(css.split(`\n${selector}`).length - 1, 1, selector);
+    }
+    assert.equal(css.split('@media (prefers-reduced-motion: reduce)').length - 1, 1);
+    assert.match(block('.button {'), /transition: background-color/);
+    assert.match(block('textarea {'), /min-height: 9rem; overflow-wrap: anywhere/);
   });
 });

@@ -85,7 +85,8 @@ a:focus-visible, button:focus-visible, summary:focus-visible, input:focus-visibl
   gap: var(--space-2) var(--space-4);
   align-items: center;
   justify-content: space-between;
-  padding: var(--space-3) var(--space-4);
+  padding-block: var(--space-3);
+  padding-inline: max(var(--gutter), calc((100% - var(--owner-width)) / 2 + var(--gutter)));
   background: var(--band);
 }
 .site-header nav { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); align-items: center; }
@@ -125,7 +126,7 @@ input:not([type="checkbox"], [type="radio"], [type="file"], [type="submit"], [ty
   border: 2px solid var(--border);
   border-radius: var(--radius);
 }
-textarea { min-height: 9rem; }
+textarea { min-height: 9rem; overflow-wrap: anywhere; }
 
 [aria-invalid="true"] { border-color: var(--error); }
 
@@ -149,6 +150,7 @@ textarea { min-height: 9rem; }
   border: 2px solid var(--accent);
   border-radius: var(--radius);
   cursor: pointer;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
 
 .meta { color: var(--muted); font-size: var(--text-sm); }
@@ -198,8 +200,6 @@ input[type="file"] { width: 100%; padding: var(--space-2) 0; font: inherit; }
 @media (min-width: 64rem) {
   .main-wide { padding-bottom: 3rem; }
 }
-.site-header { padding-inline: max(var(--gutter), calc((100% - var(--owner-width)) / 2 + var(--gutter))); }
-.button { transition: background-color 0.15s ease, border-color 0.15s ease; }
 .button:hover { background: var(--accent-strong); border-color: var(--accent-strong); }
 .button-secondary { color: var(--accent); background: var(--paper); }
 .button-secondary:hover { color: var(--accent-strong); background: var(--surface-soft); border-color: var(--accent-strong); }
@@ -314,9 +314,6 @@ input[type="file"] { width: 100%; padding: var(--space-2) 0; font: inherit; }
   .items-table tfoot tr { display: flex; justify-content: space-between; }
   .items-table tfoot th, .items-table tfoot td { width: auto; }
 }
-@media (prefers-reduced-motion: reduce) {
-  .button { transition: none; }
-}
 
 /* Main-site footer and contact form (Module 5). */
 .site-footer { max-width: var(--owner-width); margin: 0 auto; padding: var(--space-2) var(--gutter) var(--space-6); border-top: 1px solid var(--line); }
@@ -329,7 +326,6 @@ input[type="file"] { width: 100%; padding: var(--space-2) 0; font: inherit; }
 .status-word { font-weight: 700; }
 /* The bot trap: out of sight and out of the tab order for people, still present in the page for bots. */
 .contact-trap { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
-textarea { overflow-wrap: anywhere; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }
