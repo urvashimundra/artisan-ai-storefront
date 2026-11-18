@@ -60,3 +60,14 @@ describe('badge inside a button', () => {
     }
   });
 });
+
+describe('disabled buttons', () => {
+  it('are muted, not-allowed, and legible for every variant', () => {
+    const rule = block('.button:disabled');
+    assert.match(rule, /\.button\[aria-disabled="true"\]/);
+    assert.match(rule, /cursor: not-allowed/);
+    assert.match(rule, /color: var\(--neutral-ink\)/);
+    assert.match(rule, /background: var\(--neutral-soft\)/);
+    assert.ok(css.indexOf('.button:disabled') > css.indexOf('.button-danger:hover'), 'placed after the hover rules so it wins');
+  });
+});
