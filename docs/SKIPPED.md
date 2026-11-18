@@ -14,3 +14,4 @@
 | T11 | Product card "one clear action" | The whole card is already one link (href unchanged). A separate visible action label needs a new translated string in the strings module (service change), so none was added. |
 | T11 | Instagram icon | No Instagram icon partial exists; none was created (partials must not be recreated). Instagram link stays text-only. |
 | T12 | Quantity and checkout form on the product page | The product page has no form: it links to /buy, where the quantity field and checkout form live. Those were left unchanged (pinned by a test). |
+| T14 | Q9 separate payment status | Status and payment status are ONE domain field (`order.status`: awaiting_payment, payment_submitted, paid, not_received, cancelled). The header badge and the Payment card both render `order.statusLabel`, so they always match. No field or state was added; the template label "Payment status" was changed to "Current status" so it no longer implies a second value. |
