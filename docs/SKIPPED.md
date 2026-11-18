@@ -13,3 +13,4 @@
 | T10 | .product-photo merge | Equivalent, but tests/unit/storefrontGrid.test.js pins margin-bottom: 1rem from the first (dead) block; existing tests may not be weakened, so the two blocks stay. |
 | T11 | Product card "one clear action" | The whole card is already one link (href unchanged). A separate visible action label needs a new translated string in the strings module (service change), so none was added. |
 | T11 | Instagram icon | No Instagram icon partial exists; none was created (partials must not be recreated). Instagram link stays text-only. |
+| T12 | Quantity and checkout form on the product page | The product page has no form: it links to /buy, where the quantity field and checkout form live. Those were left unchanged (pinned by a test). |

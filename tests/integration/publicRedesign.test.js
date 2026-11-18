@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { startChatApp } from '../helpers/chatApp.js';
+import { setup } from '../helpers/orderApp.js';
 
 const withApp = async (options, run) => {
   const app = await startChatApp(options);
@@ -61,5 +62,20 @@ describe('storefront and product redesign: hooks, icons and labels survive', () 
       assert.match(text, /Back to all products/);
       assert.equal((text.match(/<form/g) ?? []).length, 0);
     });
+  });
+
+  it('keeps the Buy now link and every checkout field, id and form attribute', async () => {
+    const app = await setup();
+    try {
+      const product = (await app.request(app.buyPath().replace('/buy', ''))).text;
+      assert.match(product, /<a class="button button-primary button-large" href="[^"]*\/buy\?lang=en">Buy now<\/a>/);
+      assert.match(product, /<svg class="icon"[^>]*aria-hidden="true"/);
+      const checkout = (await app.request(app.buyPath())).text;
+      assert.match(checkout, /<form method="post" action="[^"]*\/buy[^"]*" class="checkout-form" id="checkout-form">/);
+      assert.match(checkout, /<input type="number" id="quantity" name="quantity" form="checkout-form" min="1"/);
+      for (const field of ['name', 'phone', 'email', 'address']) assert.match(checkout, new RegExp(`(id|name)="${field}"`), field);
+    } finally {
+      await app.close();
+    }
   });
 });
