@@ -6,23 +6,25 @@
   <title><%= locals.title ? locals.title + ' | ' : '' %>The Artisan Story</title>
   <link rel="stylesheet" href="/css/app.css">
 </head>
-<body>
+<body<% if (locals.owner) { %> class="owner-shell"<% } %>>
   <a class="skip-link" href="#main">Skip to main content</a>
   <header class="site-header">
     <span class="brand">The Artisan Story</span>
+<% if (locals.owner) { %>
+    <nav aria-label="Account" class="nav-sidebar">
+<%- include('owner-nav-links') %>
+    </nav>
+    <details class="nav-menu">
+      <summary>Menu</summary>
+      <nav aria-label="Account menu">
+<%- include('owner-nav-links') %>
+      </nav>
+    </details>
+<% } else if (locals.showAuthLinks) { %>
     <nav aria-label="Account">
-      <% if (locals.owner) { %>
-      <a href="/dashboard">Dashboard</a>
-      <% if (locals.productsEnabled) { %><a href="/products">Products</a><% } %>
-      <% if (locals.ordersEnabled) { %><a href="/orders">Orders</a><% } %>
-      <% if (locals.enquiriesEnabled) { %><a href="/enquiries">Conversations</a><% } %>
-      <form method="post" action="/logout" class="inline-form">
-        <button type="submit" class="link-button">Log out</button>
-      </form>
-      <% } else if (locals.showAuthLinks) { %>
       <a href="/login">Log in</a>
       <% if (locals.signupEnabled) { %><a href="/signup">Sign up</a><% } %>
-      <% } %>
     </nav>
+<% } %>
   </header>
   <main id="main" tabindex="-1"<% if (locals.wide) { %> class="main-wide"<% } %>>

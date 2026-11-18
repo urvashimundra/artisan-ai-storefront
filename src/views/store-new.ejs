@@ -1,6 +1,6 @@
 <%- include('partials/header') %>
     <h1>Create your store</h1>
-    <p class="hint">Step 1 of 4. Your shop name, address and story.</p>
+    <p class="hint"><strong>Step 1 of 4.</strong> Your shop name, address and story.</p>
     <% const errors = locals.errors || {}; const values = locals.values || {}; %>
     <% if (Object.keys(errors).length > 0) { %>
     <p class="alert" role="alert">Please check the fields marked below.</p>
@@ -54,6 +54,6 @@
         </select>
         <% if (errors.accentKey) { %><p id="accentKey-error" class="error-text"><%= errors.accentKey %></p><% } %>
       </div>
-      <div><button type="submit" class="button">Create store</button></div>
+      <div class="actions"><button type="submit" class="button">Create store</button></div>
     </form>
 <%- include('partials/footer') %>

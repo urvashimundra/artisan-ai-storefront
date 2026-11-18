@@ -1,7 +1,7 @@
 <%- include('partials/header') %>
     <h1>Your languages</h1>
 <% if (review) { %>
-    <p class="hint">Step 3 of 4. Claude wrote these drafts. Nothing is public until you approve it.</p>
+    <p class="hint"><strong>Step 3 of 4.</strong> Claude wrote these drafts. Nothing is public until you approve it.</p>
 <% rows.forEach((row) => { %>
     <section class="stack" aria-labelledby="lang-<%= row.language %>-heading">
       <h2 id="lang-<%= row.language %>-heading"><%= row.name %> <span class="chip<%= row.approved ? ' chip-approved' : '' %>"><%= row.approved ? 'Approved' : 'Draft' %></span></h2>
@@ -14,13 +14,13 @@
     </section>
 <% }) %>
     <form method="post" action="/store/new/languages/approve" class="stack">
-      <div><button type="submit" class="button">Approve all and finish</button> <a href="/store/settings">Edit in Shop settings</a></div>
+      <div class="actions"><button type="submit" class="button">Approve all and finish</button> <a href="/store/settings">Edit in Shop settings</a></div>
     </form>
 <% } else { %>
-    <p class="hint">Step 3 of 4. Claude can write your tagline and story in the other languages. It only reads your <%= defaultLanguageName %> tagline and story. You review everything before it is public.</p>
+    <p class="hint"><strong>Step 3 of 4.</strong> Claude can write your tagline and story in the other languages. It only reads your <%= defaultLanguageName %> tagline and story. You review everything before it is public.</p>
     <% if (aiError) { %><p class="alert" role="alert"><%= aiError %></p><% } %>
     <form method="post" action="/store/new/languages" class="stack"<%= autosubmit ? ' data-autosubmit' : '' %>>
-      <div><button type="submit" class="button"><%= aiError ? 'Try again' : 'Write my translations with Claude' %></button> <a href="<%= nextPath %>"<%= autosubmit ? ' data-autosubmit-skip' : '' %>>Skip, I will do this later</a></div>
+      <div class="actions"><button type="submit" class="button"><%= aiError ? 'Try again' : 'Write my translations with Claude' %></button> <a href="<%= nextPath %>"<%= autosubmit ? ' data-autosubmit-skip' : '' %>>Skip, I will do this later</a></div>
     </form>
 <% if (autosubmit) { %>    <p class="hint" role="status" aria-live="polite" data-autosubmit-status></p>
     <script src="/js/autosubmit.js" defer></script>

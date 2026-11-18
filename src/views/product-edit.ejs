@@ -29,6 +29,7 @@
           <label for="gen-story">Your story about this product</label>
           <textarea id="gen-story" name="story" required maxlength="1500"><%= values.story %></textarea>
           <p class="hint">Generating again replaces all three texts and removes every approval.</p>
+          <% if (errors.story) { %><p class="error-text"><%= errors.story %></p><% } %>
         </div>
         <div><button type="submit" class="button" id="generate-button"><%= translations.en.title ? 'Generate again' : 'Generate listing' %></button></div>
         <p id="generate-progress" class="notice" role="status" aria-live="polite" hidden>The AI is writing your listing. This can take up to a minute.</p>
@@ -46,7 +47,9 @@
 
     <form method="post" action="/products/<%= product.id %>/save" class="stack" novalidate>
       <input type="hidden" name="story" value="<%= values.story %>">
-      <h2>Details and text</h2>
+      <section class="stack card" aria-labelledby="details-heading">
+      <h2 id="details-heading">Price and stock</h2>
+      <div class="field-row">
       <div class="field">
         <label for="price">Price in rupees</label>
         <input type="text" id="price" name="price" inputmode="decimal" autocomplete="off" value="<%= values.price %>"
@@ -61,8 +64,12 @@
         <p id="stock-hint" class="hint">Leave blank if you do not count stock.</p>
         <% if (errors.stock) { %><p id="stock-error" class="error-text"><%= errors.stock %></p><% } %>
       </div>
-      <% if (errors.story) { %><p class="error-text"><%= errors.story %></p><% } %>
+      </div>
+      </section>
+      <% if (errors.story && product.status === 'published') { %><p class="error-text"><%= errors.story %></p><% } %>
 
+      <section class="stack card" aria-labelledby="text-heading">
+      <h2 id="text-heading">Text in each language</h2>
       <% languages.forEach((language) => { const code = language.code; const t = translations[code]; %>
       <fieldset class="language <%= values['approved_' + code] ? 'is-approved' : (t.source === 'ai' && t.title ? 'is-ai-draft' : '') %>">
         <legend><%= language.name %><%= code === defaultLanguage ? ' (shop default, must be approved to publish)' : '' %></legend>
@@ -95,8 +102,9 @@
         </div>
       </fieldset>
       <% }) %>
+      </section>
 
-      <div class="actions">
+      <div class="actions actions-sticky">
         <button type="submit" name="intent" value="save" class="button">Save</button>
         <button type="submit" name="intent" value="publish" class="button">Approve and publish</button>
       </div>

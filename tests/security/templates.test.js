@@ -5,7 +5,7 @@ import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const VIEWS_DIR = fileURLToPath(new URL('../../src/views', import.meta.url));
-const ALLOWED_RAW_OUTPUT = /^<%- include\('[a-z0-9/_-]+'\) %>$/;
+const ALLOWED_RAW_OUTPUT = /^<%- include\('(?:\.\.\/\.\.\/partials\/icons\/(?:chat|share|whatsapp)|[a-z0-9_-]+(?:\/[a-z0-9_-]+)*)'\) %>$/;
 
 /** The only script allowed: an external, self-hosted file under /js (the CSP blocks everything else). */
 const ALLOWED_SCRIPT_TAG = /<script src="\/js\/[a-z-]+\.js" defer><\/script>/g;
@@ -30,7 +30,9 @@ describe('EJS templates never emit unescaped output', () => {
   });
 
   it('the guard itself rejects other raw forms', () => {
-    for (const bad of ['<%- name %>', "<%- include('a', { x: 1 }) %>", '<%-name%>', "<%- include(name) %>"]) {
+    for (const bad of ['<%- name %>', "<%- include('a', { x: 1 }) %>", '<%-name%>', "<%- include(name) %>",
+      "<%- include('../secret') %>", "<%- include('../../../etc/passwd') %>", "<%- include('../../partials/icons/other') %>",
+      "<%- include('../../partials/icons/chat/../x') %>", "<%- include('/abs/path') %>", "<%- include('partials/../x') %>"]) {
       assert.doesNotMatch(bad, ALLOWED_RAW_OUTPUT, bad);
     }
   });
