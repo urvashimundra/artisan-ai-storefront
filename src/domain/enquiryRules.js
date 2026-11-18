@@ -10,6 +10,8 @@ export const MAX_TRACE_ITEMS = 12;
 export const MAX_TRACE_ITEM_LENGTH = 160;
 /** Server label of the trace entry that carries the assistant's note about an incidental source conflict. Shown in the seller inbox only. */
 export const SELLER_NOTICE_PREFIX = 'Assistant note for you: ';
+/** Server-written trace entry: why a fixed message replaced the assistant's reply. Followed by a code only, never model text. */
+export const REJECTION_PREFIX = 'Reply replaced by a fixed message: ';
 export const MAX_ENQUIRY_NAME_LENGTH = MAX_CUSTOMER_NAME_LENGTH;
 /** An answering enquiry older than this is treated as needing the seller. */
 export const STUCK_AFTER_MS = 120_000;

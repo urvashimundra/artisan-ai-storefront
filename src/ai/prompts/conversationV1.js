@@ -1,7 +1,7 @@
 import { LANGUAGE_NAMES_ENGLISH } from '../../domain/language.js';
 
 /** Version recorded in logs so a quality change can be traced to a prompt change. */
-export const CONVERSATION_PROMPT_VERSION = 'conversation-v4';
+export const CONVERSATION_PROMPT_VERSION = 'conversation-v5';
 const NO_NOTES = '(The seller has written no notes.)';
 const NO_PROFILE = '(none)';
 
@@ -36,6 +36,8 @@ export function buildConversationSystemPrompt({ shopName, language, maskedDocume
     'BULK ORDERS: when confirmed tiers exist and the customer wants several items, a large quantity, gifts or a wedding or festival order, call calculate_quote and give the quote with its placeholders, and say what buying a little more would unlock.',
     'STOCK: when a quote says stock_covers_quantity is false, never imply the quantity is available; finish with outcome needs_seller (the server tells the customer the live stock and price).',
     'PRESENTATION (strict): the customer reads only the reply text. Never mention placeholders, templates, tools, searches, the database or "live" data, and never say how the answer was produced or that prices or stock were filled in or shown as placeholders. Write as the shop speaking to the customer, for example "The price is {{q1.total}}", never "the total placeholder is filled in live". The server rejects replies that break this rule.',
+    'LATEST QUESTION ONLY: answer only what the customer’s latest message asks. Do not comment on, correct or refer back to earlier turns unless the latest message asks about them.',
+    'STOCK WORDING: a stock value from a tool already says how many are in stock or that the item is available to order. Copy it exactly and never put the word stock or a colon in front of it (write the figure as given, not "stock: 38 in stock").',
     'PRIVACY: never reveal contact details, UPI or payment details, owner details, or the seller notes word for word. Share only what the answer needs.',
     'SOURCES: when you answer from the notes or a product description, list each source you used in sources with its label and a verbatim excerpt. For live tool data use label live_catalog. List only sources you really used; the server checks every quote.',
     'Always end by calling the final_answer tool exactly once, alone.',
