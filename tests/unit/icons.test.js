@@ -25,3 +25,12 @@ describe('icon partials', () => {
     }
   });
 });
+
+describe('whatsapp icon legibility', () => {
+  it('draws a handset large enough to read at 16px and differs from the chat bubble', () => {
+    const whatsapp = read('src/views/partials/icons/whatsapp.ejs');
+    const handset = /<path d="M7 5\.5c0 6 4\.5 10\.5 10\.5/;
+    assert.match(whatsapp, handset);
+    assert.doesNotMatch(read('src/views/partials/icons/chat.ejs'), handset);
+  });
+});
