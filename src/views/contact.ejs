@@ -10,7 +10,7 @@
 <% }) %>      </ul>
     </div>
 <% } %>
-    <form method="post" action="/contact" class="stack contact-form" novalidate>
+    <form method="post" action="/contact" class="stack contact-form card" novalidate>
       <div class="field">
         <label for="name">Your name</label>
         <input type="text" id="name" name="name" autocomplete="name" required maxlength="<%= limits.name %>" value="<%= values.name || '' %>"<% if (errors.name) { %> aria-invalid="true" aria-describedby="name-error"<% } %>>
