@@ -540,3 +540,16 @@ body:has(.auth-card) .site-footer { display: none; }
 .select-swatch:has(option[value="saffron"]:checked) { --swatch: var(--swatch-saffron); }
 .field-check + .hint { padding-inline-start: calc(1.4rem + 0.6rem); }
 .actions a:not(.button) { align-self: center; }
+
+/* Onboarding step 3: one card, a section per language, read-only boxes that look like the fields. */
+.languages-card { display: grid; gap: var(--space-5); }
+.languages-card section + section { padding-top: var(--space-5); border-top: 1px solid var(--color-divider); }
+.languages-card h2 { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-3); margin: 0; }
+.languages-card .chip { border: 0; background: var(--color-primary-soft); color: var(--color-text); font-family: var(--font-sans); }
+.languages-card .chip-approved { background: var(--color-success-soft); color: var(--color-success); }
+.languages-card dl.details { grid-template-columns: minmax(0, 1fr); gap: var(--space-2); padding: 0; margin: 0; }
+.languages-card dl.details dt { padding: 0; }
+.languages-card dl.details dd { padding: var(--space-3); border: 1px solid var(--color-border); border-radius: var(--radius-input); background: var(--color-card); line-height: var(--lang-line-height); min-height: calc(var(--lang-line-height) * 2em + var(--space-3) * 2); }
+.languages-card dl.details dd + dt { margin-top: var(--space-3); }
+.languages-card dd:lang(gu) { font-family: var(--font-gujarati); }
+.languages-card dd:lang(hi) { font-family: var(--font-devanagari); }

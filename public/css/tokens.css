@@ -42,5 +42,8 @@
   --shadow-soft: 0 8px 24px rgba(43, 26, 18, 0.08);
 
   --font-serif: "Lora", "Noto Serif", Georgia, "Times New Roman", serif;
-  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Noto Sans Devanagari", "Noto Sans Gujarati", sans-serif;
+  --font-gujarati: "Noto Sans Gujarati", "Noto Serif Gujarati", "Shruti", "Nirmala UI", sans-serif;
+  --font-devanagari: "Noto Sans Devanagari", "Noto Serif Devanagari", "Mangal", "Nirmala UI", sans-serif;
+  --lang-line-height: 1.7;
+  --font-sans:"Inter", system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Noto Sans Devanagari", "Noto Sans Gujarati", sans-serif;
 }
