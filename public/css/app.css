@@ -216,7 +216,7 @@ input[type="file"] { width: 100%; padding: var(--space-2) 0; font: inherit; }
 .mono { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; }
 .eyebrow { margin: 0; color: var(--muted); font-size: var(--text-xs); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
 .crumb { margin: 0 0 var(--space-3); }
-.callout { margin: var(--space-4) 0; padding: var(--space-3) var(--space-4); border-left: 0.35rem solid var(--link); border-radius: var(--radius); background: var(--link-soft); }
+.callout { margin: var(--space-4) 0; padding: var(--space-3) var(--space-4); border-left: 0.35rem solid var(--link); border-radius: var(--radius-input); background: var(--link-soft); }
 .card { padding: var(--space-5); border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); box-shadow: 0 1px 2px rgba(26, 26, 26, 0.08); }
 .card h2 { margin: 0 0 var(--space-3); font-size: var(--text-lg); }
 .card h3 { margin: var(--space-5) 0 var(--space-2); font-size: 1rem; }
@@ -553,3 +553,11 @@ body:has(.auth-card) .site-footer { display: none; }
 .languages-card dl.details dd + dt { margin-top: var(--space-3); }
 .languages-card dd:lang(gu) { font-family: var(--font-gujarati); }
 .languages-card dd:lang(hi) { font-family: var(--font-devanagari); }
+
+/* Onboarding step 4: shop notes and bulk discount cards, info banner, template link, counter, neutral pill. */
+.knowledge-card h2 { margin: 0; font-size: 1.6rem; }
+.knowledge-card a[download] { display: inline-flex; align-items: center; gap: var(--space-2); }
+.knowledge-card a[download]::before { content: ""; width: var(--icon-size); height: var(--icon-size); background: currentColor; -webkit-mask: var(--icon-notes) center / contain no-repeat; mask: var(--icon-notes) center / contain no-repeat; }
+.knowledge-card #knowledge-count { text-align: end; }
+.knowledge-card .pill-note { justify-self: start; padding: var(--space-2) var(--space-3); border-radius: var(--radius-input); background: var(--color-primary-soft); color: var(--color-text); font-weight: 600; }
+.knowledge-card .field-row { gap: var(--space-4); }
