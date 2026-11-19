@@ -1,4 +1,5 @@
 <%- include('partials/header') %>
+    <div class="knowledge-page">
     <h1>Shop notes for the assistant</h1>
 <% if (onboarding) { %>    <p class="hint">Step 4 of 4. Optional. <a href="/dashboard?welcome=1">Skip, I will do this later</a></p>
 <% } %>    <p>Write what customers often ask: delivery, returns, custom orders, bulk discounts and care. When a customer asks you a question on your shop, an AI assistant answers from these notes and from your products. If the answer is not here, it passes the question to you.</p>
@@ -59,4 +60,5 @@
     <script src="/js/knowledge-file.js" defer></script>
     <script src="/js/focus-alert.js" defer></script>
     <script src="/js/product-generate.js" defer></script>
+    </div>
 <%- include('partials/footer') %>
