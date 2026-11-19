@@ -16,25 +16,11 @@
     </header>
 
     <% if (locals.generateError) { %><p class="alert" role="alert"><%= generateError %></p><% } %>
-    <% if (product.status !== 'published') { %>
-    <section aria-labelledby="generate-heading">
-      <h2 id="generate-heading">Write with AI</h2>
-      <form id="generate-form" data-progress="generate-progress" method="post" action="/products/<%= product.id %>/generate" class="stack">
-        <div class="field">
-          <label for="gen-story">Your story about this product</label>
-          <textarea id="gen-story" name="story" required maxlength="1500"><%= values.story %></textarea>
-          <p class="hint">Generating again replaces all three texts and removes every approval.</p>
-          <% if (errors.story) { %><p class="error-text"><%= errors.story %></p><% } %>
-        </div>
-        <div><button type="submit" class="button" id="generate-button"><%= translations.en.title ? 'Generate again' : 'Generate listing' %></button></div>
-        <p id="generate-progress" class="notice" role="status" aria-live="polite" hidden>The AI is writing your listing. This can take up to a minute.</p>
-      </form>
-    </section>
-    <% } %>
 
     <form method="post" action="/products/<%= product.id %>/save" class="stack" id="review-form" data-active-tab="<%= typeof activeTab !== 'undefined' ? activeTab : 'details' %>" novalidate>
       <input type="hidden" name="story" value="<%= values.story %>">
       <nav class="product-tabs" aria-label="Product sections">
+        <a href="#tab-story">Your story</a>
         <a href="#tab-details">Details &amp; translations</a>
         <a href="#tab-price">Price &amp; stock</a>
         <a href="#tab-publish">Publishing</a>
@@ -166,6 +152,25 @@
         <p class="hint">Publishing needs a price and an approved <%= defaultLanguageName %> text. Nothing is published until you choose Approve and publish.</p>
       </section>
     </form>
+
+    <section id="tab-story" class="stack card product-panel" aria-labelledby="story-heading">
+      <h2 id="story-heading">Your story about this product</h2>
+      <% if (product.status !== 'published') { %>
+      <form id="generate-form" data-progress="generate-progress" method="post" action="/products/<%= product.id %>/generate" class="stack">
+        <div class="field">
+          <label for="gen-story" class="visually-hidden">Your story about this product</label>
+          <textarea id="gen-story" name="story" required maxlength="1500" aria-describedby="gen-story-hint"><%= values.story %></textarea>
+          <p id="gen-story-hint" class="hint">This replaces the details and translations with new text, and removes every approval. Review each language again on Details & translations before publishing.</p>
+          <% if (errors.story) { %><p class="error-text"><%= errors.story %></p><% } %>
+        </div>
+        <div><button type="submit" class="button" id="generate-button"><%= translations.en.title ? 'Generate again' : 'Generate listing' %></button></div>
+        <p id="generate-progress" class="notice" role="status" aria-live="polite" hidden>The AI is writing your listing. This can take up to a minute.</p>
+      </form>
+      <% } else { %>
+      <p><%= values.story %></p>
+      <p class="hint">This product is published, so AI cannot rewrite it.</p>
+      <% } %>
+    </section>
 
     <details class="danger-zone">
       <summary>Delete this product</summary>
