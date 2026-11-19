@@ -304,7 +304,7 @@ input[type="file"] { width: 100%; padding: var(--space-2) 0; font: inherit; }
 .danger-zone { margin-top: var(--space-5); padding: 0 var(--space-4); border: 2px solid var(--error); border-radius: var(--radius); background: var(--error-soft); }
 .danger-zone[open] { padding-bottom: var(--space-4); }
 .language-block { border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); padding: 0 var(--space-4); }
-.language-block > summary { cursor: pointer; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); min-height: 2.75rem; font-weight: 700; }
+.language-block > summary { font-family: var(--font-serif); font-size: var(--text-lg); cursor: pointer; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); min-height: 2.75rem; font-weight: 700; }
 .language-block[open] > summary { margin-bottom: var(--space-3); }
 .language-block > form.stack { padding-bottom: var(--space-4); }
 .danger-zone summary { cursor: pointer; display: flex; align-items: center; min-height: 2.75rem; color: var(--error); font-weight: 700; }
@@ -525,6 +525,7 @@ body:has(.auth-card) .site-footer { display: none; }
 
 /* Onboarding steps 1 and 2: card form, required marker, address prefix, colour swatch, skip link. */
 .onboard-card { margin-top: var(--space-5); padding: var(--space-6, var(--space-5)); }
+.settings-card h2 { margin: 0; font-size: 1.6rem; }
 .onboard-card .field:has([required]) > label::after { content: " *"; color: var(--error); }
 .input-prefix { display: flex; align-items: stretch; border: 1px solid var(--color-border); border-radius: var(--radius-input); background: var(--color-card); overflow: hidden; }
 .input-prefix:focus-within { border-color: var(--color-primary); box-shadow: var(--focus-ring); }
