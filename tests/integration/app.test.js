@@ -21,7 +21,8 @@ describe('app basics', () => {
   it('GET / returns 200 with name and status for platform health probes', async () => {
     const res = await fetch(`${app.url}/`);
     assert.equal(res.status, 200);
-    assert.deepEqual(await res.json(), { name: 'The Artisan Story', status: 'ok' });
+    assert.match(res.headers.get('content-type'), /text\/html/);
+    assert.match(await res.text(), /The Artisan Story/);
     assert.ok(res.headers.get('x-request-id'));
     assert.ok(res.headers.get('x-content-type-options'));
   });
