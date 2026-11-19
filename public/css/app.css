@@ -597,9 +597,9 @@ main > form.stack:has(.settings-panel) { max-width: none; }
 .product-tabs { display: flex; flex-wrap: nowrap; gap: 1.5rem; overflow-x: auto; margin-top: var(--space-4); border-bottom: 1px solid var(--color-divider); font-family: var(--font-sans); }
 .product-tabs a { flex: none; padding: 0.5rem 0; min-height: 2.75rem; display: inline-flex; align-items: center; white-space: nowrap; border-bottom: 3px solid transparent; color: var(--color-text); font-weight: 600; text-decoration: none; }
 .product-tabs a:hover { color: var(--color-primary); }
-main:not(:has(.product-panel:target)) .product-tabs a[href="#tab-details"], main:has(#tab-details:target) .product-tabs a[href="#tab-details"], main:has(#tab-price:target) .product-tabs a[href="#tab-price"], main:has(#tab-publish:target) .product-tabs a[href="#tab-publish"] { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+main:not(:has(.product-panel:target)):not(:has(.product-panel.is-active)) .product-tabs a[href="#tab-details"], main:not(:has(.product-panel:target)):has(#tab-details.is-active) .product-tabs a[href="#tab-details"], main:not(:has(.product-panel:target)):has(#tab-price.is-active) .product-tabs a[href="#tab-price"], main:not(:has(.product-panel:target)):has(#tab-publish.is-active) .product-tabs a[href="#tab-publish"], main:has(#tab-details:target) .product-tabs a[href="#tab-details"], main:has(#tab-price:target) .product-tabs a[href="#tab-price"], main:has(#tab-publish:target) .product-tabs a[href="#tab-publish"] { color: var(--color-primary); border-bottom-color: var(--color-primary); }
 .product-panel { display: none; margin-top: var(--space-4); scroll-margin-top: var(--space-6); }
-.product-panel:target, main:not(:has(.product-panel:target)) #tab-details { display: grid; }
+.product-panel:target, main:not(:has(.product-panel:target)) .product-panel.is-active, main:not(:has(.product-panel:target)):not(:has(.product-panel.is-active)) #tab-details { display: grid; }
 .product-columns { display: grid; gap: var(--space-5); align-items: start; }
 @media (min-width: 48rem) { .product-columns { grid-template-columns: 45fr 55fr; } }
 main > form#review-form { max-width: 80rem; }

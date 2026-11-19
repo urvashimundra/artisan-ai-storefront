@@ -32,7 +32,7 @@
     </section>
     <% } %>
 
-    <form method="post" action="/products/<%= product.id %>/save" class="stack" id="review-form" novalidate>
+    <form method="post" action="/products/<%= product.id %>/save" class="stack" id="review-form" data-active-tab="<%= typeof activeTab !== 'undefined' ? activeTab : 'details' %>" novalidate>
       <input type="hidden" name="story" value="<%= values.story %>">
       <nav class="product-tabs" aria-label="Product sections">
         <a href="#tab-details">Details &amp; translations</a>
@@ -40,7 +40,7 @@
         <a href="#tab-publish">Publishing</a>
       </nav>
 
-      <section id="tab-details" class="stack card product-panel" aria-labelledby="details-heading">
+      <section id="tab-details" class="stack card product-panel<%= typeof activeTab !== 'undefined' && activeTab === 'details' ? ' is-active' : '' %>" aria-labelledby="details-heading">
         <div class="product-columns">
           <div class="stack product-column">
             <div class="product-details-head">
@@ -128,7 +128,7 @@
         </div>
       </section>
 
-      <section id="tab-price" class="stack card product-panel" aria-labelledby="price-heading">
+      <section id="tab-price" class="stack card product-panel<%= typeof activeTab !== 'undefined' && activeTab === 'price' ? ' is-active' : '' %>" aria-labelledby="price-heading">
         <h2 id="price-heading">Price and stock</h2>
         <div class="field-row">
           <div class="field">
@@ -152,7 +152,7 @@
         </div>
       </section>
 
-      <section id="tab-publish" class="stack card product-panel" aria-labelledby="publish-heading">
+      <section id="tab-publish" class="stack card product-panel<%= typeof activeTab !== 'undefined' && activeTab === 'publish' ? ' is-active' : '' %>" aria-labelledby="publish-heading">
         <h2 id="publish-heading">Publishing</h2>
         <p>
           <strong>Status:</strong>
@@ -175,4 +175,5 @@
       </form>
     </details>
     <script src="/js/product-generate.js" defer></script>
+    <script src="/js/product-tabs.js" defer></script>
 <%- include('partials/footer') %>
