@@ -1,24 +1,51 @@
 <%- include('partials/header') %>
-    <h1>Products</h1>
+    <% const languageLabels = { en: 'English', gu: 'Gujarati', hi: 'Hindi' };
+       const needsTranslation = (product) => ['en', 'gu', 'hi'].some((language) => !product.translations[language].approved);
+       const publishedCount = products.filter((product) => product.status === 'published').length;
+       const needsCount = products.filter(needsTranslation).length;
+       const stats = [
+         { label: 'Total products', value: products.length },
+         { label: 'Published', value: publishedCount },
+         { label: 'Draft', value: products.length - publishedCount },
+         { label: 'Needs translation', value: needsCount }
+       ]; %>
+    <div class="products-head">
+      <div>
+        <h1>Products</h1>
+        <p class="hint">Manage your shop's products, check translations and publish them.</p>
+      </div>
+      <a class="button" href="/products/new">Add a product</a>
+    </div>
     <% if (locals.notice) { %><p class="notice" role="status"><%= notice %></p><% } %>
-    <p><a class="button" href="/products/new">Add a product</a></p>
+    <ul class="stat-grid plain">
+      <% stats.forEach((stat) => { %>
+      <li class="card stat-card"><span class="stat-value"><%= stat.value %></span><span class="stat-label"><%= stat.label %></span></li>
+      <% }) %>
+    </ul>
     <% if (products.length === 0) { %>
     <p>You have no products yet. Add a photo and a short story to create your first listing.</p>
     <% } else { %>
     <ul class="product-list">
       <% products.forEach((product) => { %>
       <li class="product-card">
-        <h2><a href="/products/<%= product.id %>/edit"><%= product.displayTitle || 'Untitled product' %></a></h2>
-        <p>
-          <span class="badge"><%= product.status === 'published' ? 'Published' : 'Draft' %></span>
-          <% if (product.generating) { %><span class="badge">AI is writing</span><% } %>
-        </p>
-        <ul class="plain">
-          <% ['en', 'gu', 'hi'].forEach((language) => { const t = product.translations[language]; %>
-          <li><%= { en: 'English', gu: 'Gujarati', hi: 'Hindi' }[language] %>:
-            <%= t.approved ? 'approved by you' : (t.title ? (t.source === 'ai' ? 'AI draft, not yet approved' : 'your text, not yet approved') : 'no text yet') %></li>
-          <% }) %>
-        </ul>
+        <div class="product-main">
+          <h2><a href="/products/<%= product.id %>/edit"><%= product.displayTitle || 'Untitled product' %></a></h2>
+          <p class="product-meta">
+            <span class="pill <%= product.status === 'published' ? 'pill-published' : 'pill-draft' %>"><%= product.status === 'published' ? 'Published' : 'Draft' %></span>
+            <% if (needsTranslation(product)) { %><span class="pill pill-translate">Needs translation</span><% } %>
+            <% if (product.generating) { %><span class="badge">AI is writing</span><% } %>
+          </p>
+          <ul class="plain lang-list">
+            <% ['en', 'gu', 'hi'].forEach((language) => { const t = product.translations[language]; %>
+            <li class="lang-item">
+              <span aria-hidden="true"><%= language.toUpperCase() %> <%= t.approved ? '✓' : (t.title ? '·' : '–') %></span>
+              <span class="visually-hidden"><%= languageLabels[language] %>:
+                <%= t.approved ? 'approved by you' : (t.title ? (t.source === 'ai' ? 'AI draft, not yet approved' : 'your text, not yet approved') : 'no text yet') %></span>
+            </li>
+            <% }) %>
+          </ul>
+        </div>
+        <a class="button button-secondary button-small" href="/products/<%= product.id %>/edit">Edit<span class="visually-hidden"> <%= product.displayTitle || 'Untitled product' %></span></a>
       </li>
       <% }) %>
     </ul>

@@ -171,8 +171,24 @@ dl.details dd { margin: 0; padding: var(--space-3) 0 var(--space-3) var(--space-
 /* Products */
 .product-list, .plain { list-style: none; padding: 0; margin: 0; }
 .product-list { display: grid; gap: var(--space-4); }
-.product-card { padding: var(--space-3) var(--space-4); border: 2px solid var(--border); border-radius: var(--radius); }
-.product-card h2 { font-size: var(--text-lg); margin: var(--space-1) 0; }
+.product-card { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3) var(--space-4); padding: var(--space-4); border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); }
+.product-card h2 { font-size: var(--text-lg); margin: 0 0 var(--space-2); }
+.product-main { min-width: 0; flex: 1 1 14rem; overflow-wrap: anywhere; }
+.product-meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); margin: 0 0 var(--space-2); }
+.product-meta .badge { margin-right: 0; }
+.lang-list { display: flex; flex-wrap: wrap; gap: var(--space-4); color: var(--muted); font-size: var(--text-sm); font-weight: 600; }
+.products-head { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--space-3) var(--space-4); }
+.products-head h1 { margin-bottom: var(--space-1); }
+.products-head .hint { margin: 0; }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--space-4); margin: var(--space-4) 0; }
+@media (min-width: 48rem) { .stat-grid { grid-template-columns: repeat(4, 1fr); } }
+.stat-card { display: grid; gap: var(--space-1); }
+.stat-value { font-size: 2rem; font-weight: 700; line-height: 1.1; }
+.stat-label { color: var(--muted); font-size: var(--text-sm); }
+.pill { display: inline-block; padding: 0.1rem 0.7rem; border: 1px solid currentColor; border-radius: var(--radius-pill); font-size: var(--text-sm); font-weight: 600; white-space: nowrap; }
+.pill-published { color: var(--color-success); background: var(--color-success-soft); }
+.pill-draft { color: var(--warn); background: var(--warn-soft); }
+.pill-translate { color: var(--color-purple); background: var(--color-purple-soft); }
 .badge { display: inline-block; padding: 0.1rem 0.6rem; margin-right: 0.35rem; border: 2px solid var(--ink); border-radius: var(--radius-pill); font-size: var(--text-sm); font-weight: 600; }
 .product-photo { max-width: 100%; height: auto; border-radius: var(--radius); }
 fieldset.language { margin: 0; padding: var(--space-3) var(--space-4) var(--space-4); border: 2px dashed var(--border); border-radius: var(--radius); display: grid; gap: var(--space-4); }
