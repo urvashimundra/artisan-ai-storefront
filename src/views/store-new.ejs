@@ -5,6 +5,7 @@
     <% if (Object.keys(errors).length > 0) { %>
     <p class="alert" role="alert">Please check the fields marked below.</p>
     <% } %>
+    <div class="card onboard-card">
     <form method="post" action="/store/new" class="stack" novalidate>
       <div class="field">
         <label for="name">Store name</label>
@@ -14,9 +15,12 @@
       </div>
       <div class="field">
         <label for="slug">Website address</label>
-        <input type="text" id="slug" name="slug" required maxlength="40" autocapitalize="none" spellcheck="false"
-          value="<%= values.slug || '' %>"
-          aria-describedby="slug-hint slug-example<%= errors.slug ? ' slug-error' : '' %>"<% if (errors.slug) { %> aria-invalid="true"<% } %>>
+        <div class="input-prefix">
+          <span class="input-prefix-text" aria-hidden="true"><%= baseHost %>/s/</span>
+          <input type="text" id="slug" name="slug" required maxlength="40" autocapitalize="none" spellcheck="false"
+            value="<%= values.slug || '' %>"
+            aria-describedby="slug-hint slug-example<%= errors.slug ? ' slug-error' : '' %>"<% if (errors.slug) { %> aria-invalid="true"<% } %>>
+        </div>
         <p id="slug-hint" class="hint">This is your shop's web address on this site, not a physical location. Use lowercase letters, numbers and hyphens.</p>
         <p id="slug-example" class="hint"><%= baseHost %>/s/<%= values.slug || 'your-address' %></p>
         <% if (errors.slug) { %><p id="slug-error" class="error-text"><%= errors.slug %></p><% } %>
@@ -46,14 +50,18 @@
       </div>
       <div class="field">
         <label for="accentKey">Shop colour</label>
-        <select id="accentKey" name="accentKey"
-          <% if (errors.accentKey) { %>aria-invalid="true" aria-describedby="accentKey-error"<% } %>>
-          <% accents.forEach((accent) => { %>
-          <option value="<%= accent.key %>"<%= values.accentKey === accent.key ? ' selected' : '' %>><%= accent.label %></option>
-          <% }) %>
-        </select>
+        <div class="select-swatch">
+          <span class="swatch" aria-hidden="true"></span>
+          <select id="accentKey" name="accentKey"
+            <% if (errors.accentKey) { %>aria-invalid="true" aria-describedby="accentKey-error"<% } %>>
+            <% accents.forEach((accent) => { %>
+            <option value="<%= accent.key %>"<%= values.accentKey === accent.key ? ' selected' : '' %>><%= accent.label %></option>
+            <% }) %>
+          </select>
+        </div>
         <% if (errors.accentKey) { %><p id="accentKey-error" class="error-text"><%= errors.accentKey %></p><% } %>
       </div>
       <div class="actions"><button type="submit" class="button">Create store</button></div>
     </form>
+    </div>
 <%- include('partials/footer') %>

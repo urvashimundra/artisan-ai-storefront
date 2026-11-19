@@ -4,8 +4,10 @@
     <% if (Object.keys(locals.errors || {}).length > 0) { %>
     <p class="alert" role="alert">Please check the fields marked below.</p>
     <% } %>
+    <div class="card onboard-card">
     <form method="post" action="/store/new/contact" class="stack" novalidate>
 <%- include('partials/contact-fields') %>
       <div class="actions"><button type="submit" class="button">Save and continue</button> <a href="/store/new/languages">Skip for now</a></div>
     </form>
+    </div>
 <%- include('partials/footer') %>

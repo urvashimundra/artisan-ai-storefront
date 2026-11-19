@@ -522,3 +522,21 @@ body:has(.auth-card) .site-footer { display: none; }
 @media (min-width: 64rem) {
   .owner-shell .site-header { border-bottom: 0; border-right: 1px solid var(--color-divider); }
 }
+
+/* Onboarding steps 1 and 2: card form, required marker, address prefix, colour swatch, skip link. */
+.onboard-card { margin-top: var(--space-5); padding: var(--space-6, var(--space-5)); }
+.onboard-card .field:has([required]) > label::after { content: " *"; color: var(--error); }
+.input-prefix { display: flex; align-items: stretch; border: 1px solid var(--color-border); border-radius: var(--radius-input); background: var(--color-card); overflow: hidden; }
+.input-prefix:focus-within { border-color: var(--color-primary); box-shadow: var(--focus-ring); }
+.input-prefix-text { display: flex; align-items: center; padding-inline: var(--space-3); font-weight: 600; color: var(--color-text); background: var(--color-primary-soft); border-inline-end: 1px solid var(--color-border); white-space: nowrap; }
+.input-prefix input { border: 0; border-radius: 0; box-shadow: none; flex: 1; min-width: 0; }
+.select-swatch { position: relative; --swatch: var(--swatch-terracotta); }
+.select-swatch .swatch { position: absolute; inset-inline-start: var(--space-3); top: 50%; width: var(--swatch-size); height: var(--swatch-size); transform: translateY(-50%); border-radius: 4px; background: var(--swatch); pointer-events: none; }
+.select-swatch select { padding-inline-start: calc(var(--space-3) * 2 + var(--swatch-size)); }
+.select-swatch:has(option[value="indigo"]:checked) { --swatch: var(--swatch-indigo); }
+.select-swatch:has(option[value="forest"]:checked) { --swatch: var(--swatch-forest); }
+.select-swatch:has(option[value="plum"]:checked) { --swatch: var(--swatch-plum); }
+.select-swatch:has(option[value="teal"]:checked) { --swatch: var(--swatch-teal); }
+.select-swatch:has(option[value="saffron"]:checked) { --swatch: var(--swatch-saffron); }
+.field-check + .hint { padding-inline-start: calc(1.4rem + 0.6rem); }
+.actions a:not(.button) { align-self: center; }
