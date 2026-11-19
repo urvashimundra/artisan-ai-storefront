@@ -1,29 +1,24 @@
 <%- include('partials/header') %>
-    <h1>Review product</h1>
     <p><a href="/products">Back to products</a></p>
     <% if (locals.notice) { %><p class="notice" role="status"><%= notice %></p><% } %>
     <% if (locals.formError) { %><p class="alert" role="alert"><%= formError %></p><% } %>
     <% if (Object.keys(errors).length > 0) { %><p class="alert" role="alert">Please check the fields marked below.</p><% } %>
 
-    <p>
-      <strong>Status:</strong>
-      <span class="badge"><%= product.status === 'published' ? 'Published' : 'Draft, not published' %></span>
-      <% if (generating) { %><span class="badge">AI is writing</span><% } else if (product.aiStatus === 'failed') { %><span class="badge">Last AI attempt failed</span><% } %>
-    </p>
+    <header class="card product-head">
+      <% if (imageUrl) { %><img class="product-thumb" src="<%= imageUrl %>" alt="" width="96" height="96"><% } %>
+      <div class="product-head-text">
+        <h1><%= translations[defaultLanguage].title || 'Review product' %></h1>
+        <p>
+          <span class="badge"><%= product.status === 'published' ? 'Published' : 'Draft' %></span>
+          <% languages.forEach((language) => { %><span class="badge"><%= language.code.toUpperCase() %> <% if (translations[language.code].approved) { %><svg class="icon" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" focusable="false"><path d="M3 8.5l3 3 7-7" fill="none" stroke="currentColor" stroke-width="2"/></svg><span class="visually-hidden">approved</span><% } else { %><span class="visually-hidden">not approved</span><% } %></span><% }) %>
+        </p>
+      </div>
+    </header>
 
-    <% if (imageUrl) { %>
-    <img class="product-photo" src="<%= imageUrl %>" lang="<%= translations[defaultLanguage].altText ? defaultLanguage : 'en' %>"
-      alt="<%= translations[defaultLanguage].altText || 'Product photo (no description written yet)' %>" width="400">
-    <% } else { %>
-    <p class="hint">The photo could not be loaded right now.</p>
-    <% } %>
-
+    <% if (locals.generateError) { %><p class="alert" role="alert"><%= generateError %></p><% } %>
+    <% if (product.status !== 'published') { %>
     <section aria-labelledby="generate-heading">
       <h2 id="generate-heading">Write with AI</h2>
-      <% if (locals.generateError) { %><p class="alert" role="alert"><%= generateError %></p><% } %>
-      <% if (product.status === 'published') { %>
-      <p class="hint">This product is published, so AI cannot rewrite it. You can still edit the text below.</p>
-      <% } else { %>
       <form id="generate-form" data-progress="generate-progress" method="post" action="/products/<%= product.id %>/generate" class="stack">
         <div class="field">
           <label for="gen-story">Your story about this product</label>
@@ -34,81 +29,142 @@
         <div><button type="submit" class="button" id="generate-button"><%= translations.en.title ? 'Generate again' : 'Generate listing' %></button></div>
         <p id="generate-progress" class="notice" role="status" aria-live="polite" hidden>The AI is writing your listing. This can take up to a minute.</p>
       </form>
-      <% } %>
-    </section>
-
-    <% if (canTranslate) { %>
-    <section aria-labelledby="update-languages-heading">
-      <h2 id="update-languages-heading">Other languages</h2>
-      <p class="hint">Changed the <%= defaultLanguageName %> text? Let the AI rewrite the other languages from your saved <%= defaultLanguageName %> title and description.</p>
-      <p><a class="button button-secondary" href="/products/<%= product.id %>/update-languages">Update other languages from my edits</a></p>
     </section>
     <% } %>
 
-    <form method="post" action="/products/<%= product.id %>/save" class="stack" novalidate>
+    <form method="post" action="/products/<%= product.id %>/save" class="stack" id="review-form" novalidate>
       <input type="hidden" name="story" value="<%= values.story %>">
-      <section class="stack card" aria-labelledby="details-heading">
-      <h2 id="details-heading">Price and stock</h2>
-      <div class="field-row">
-      <div class="field">
-        <label for="price">Price in rupees</label>
-        <input type="text" id="price" name="price" inputmode="decimal" autocomplete="off" value="<%= values.price %>"
-          aria-describedby="price-hint<%= errors.price ? ' price-error' : '' %>"<% if (errors.price) { %> aria-invalid="true"<% } %>>
-        <p id="price-hint" class="hint">For example 499 or 499.50. Needed before you can publish. The AI never sets prices.</p>
-        <% if (errors.price) { %><p id="price-error" class="error-text"><%= errors.price %></p><% } %>
-      </div>
-      <div class="field">
-        <label for="stock">Number in stock (optional)</label>
-        <input type="text" id="stock" name="stock" inputmode="numeric" autocomplete="off" value="<%= values.stock %>"
-          aria-describedby="stock-hint<%= errors.stock ? ' stock-error' : '' %>"<% if (errors.stock) { %> aria-invalid="true"<% } %>>
-        <p id="stock-hint" class="hint">Leave blank if you do not count stock.</p>
-        <% if (errors.stock) { %><p id="stock-error" class="error-text"><%= errors.stock %></p><% } %>
-      </div>
-      </div>
-      </section>
-      <% if (errors.story && product.status === 'published') { %><p class="error-text"><%= errors.story %></p><% } %>
+      <nav class="product-tabs" aria-label="Product sections">
+        <a href="#tab-details">Details &amp; translations</a>
+        <a href="#tab-price">Price &amp; stock</a>
+        <a href="#tab-publish">Publishing</a>
+      </nav>
 
-      <section class="stack card" aria-labelledby="text-heading">
-      <h2 id="text-heading">Text in each language</h2>
-      <% languages.forEach((language) => { const code = language.code; const t = translations[code]; %>
-      <fieldset class="language <%= values['approved_' + code] ? 'is-approved' : (t.source === 'ai' && t.title ? 'is-ai-draft' : '') %>">
-        <legend><%= language.name %><%= code === defaultLanguage ? ' (shop default, must be approved to publish)' : '' %></legend>
-        <p class="status-line">
-          <% if (t.approved) { %><strong>Approved by you</strong>
-          <% } else if (t.source === 'ai' && t.title) { %><strong>AI draft, not yet reviewed by you</strong>
-          <% } else if (t.title) { %><strong>Your text, not yet approved</strong>
-          <% } else { %><strong>No text yet</strong><% } %>
+      <section id="tab-details" class="stack card product-panel" aria-labelledby="details-heading">
+        <div class="product-columns">
+          <div class="stack product-column">
+            <div class="product-details-head">
+              <h2 id="details-heading">Product details (English)</h2>
+            </div>
+            <% languages.filter((language) => language.code === 'en').forEach((language) => { const code = language.code; const t = translations[code]; const refused = locals.approvalRefusal && approvalRefusal.language === code; %>
+            <fieldset lang="<%= code %>" class="language <%= values['approved_' + code] ? 'is-approved' : (t.source === 'ai' && t.title ? 'is-ai-draft' : '') %>">
+              <legend><%= language.name %><%= code === defaultLanguage ? ' (shop default, must be approved to publish)' : '' %></legend>
+              <p class="status-line">
+                <% if (t.approved) { %><strong>Approved by you</strong>
+                <% } else if (t.source === 'ai' && t.title) { %><strong>AI draft, not yet reviewed by you</strong>
+                <% } else if (t.title) { %><strong>Your text, not yet approved</strong>
+                <% } else { %><strong>No text yet</strong><% } %>
+              </p>
+              <% if (scriptWarnings[code]) { %><p class="alert">The AI text may not be written in <%= language.name %>. Please read it carefully and fix it before approving.</p><% } %>
+              <% if (errors[code]) { %><p class="error-text" role="alert"><%= errors[code] %></p><% } %>
+              <div class="field">
+                <label for="title_<%= code %>">Title</label>
+                <input type="text" id="title_<%= code %>" name="title_<%= code %>" lang="<%= code %>" maxlength="100" value="<%= values['title_' + code] %>">
+              </div>
+              <div class="field">
+                <label for="description_<%= code %>">Description</label>
+                <textarea id="description_<%= code %>" name="description_<%= code %>" lang="<%= code %>" maxlength="1200"><%= values['description_' + code] %></textarea>
+              </div>
+              <div class="field">
+                <label for="alt_text_<%= code %>">Photo description (for people who cannot see the photo)</label>
+                <input type="text" id="alt_text_<%= code %>" name="alt_text_<%= code %>" lang="<%= code %>" maxlength="250" value="<%= values['alt_text_' + code] %>">
+              </div>
+              <div class="check">
+                <input type="checkbox" id="approved_<%= code %>" name="approved_<%= code %>" value="on"<%= values['approved_' + code] ? ' checked' : '' %><% if (refused) { %> autofocus aria-invalid="true" aria-describedby="approval-error"<% } %>>
+                <label for="approved_<%= code %>">I have read this <%= language.name %> text and approve it</label>
+                <% if (refused) { %><p id="approval-error" class="error-text" role="alert"><%= approvalRefusal.message %></p><% } %>
+              </div>
+            </fieldset>
+            <% }) %>
+            <% if (errors.story && product.status === 'published') { %><p class="error-text"><%= errors.story %></p><% } %>
+          </div>
+          <div class="stack product-column">
+            <h2 id="text-heading">Translations</h2>
+            <% if (canTranslate) { %>
+            <div aria-labelledby="update-languages-heading" role="group">
+              <h3 id="update-languages-heading">Other languages</h3>
+              <p class="hint">Changed the <%= defaultLanguageName %> text? Let the AI rewrite the other languages from your saved <%= defaultLanguageName %> title and description.</p>
+              <p><a class="button button-secondary" href="/products/<%= product.id %>/update-languages">Update other languages from my edits</a></p>
+            </div>
+            <% } %>
+            <% languages.filter((language) => language.code !== 'en').forEach((language) => { const code = language.code; const t = translations[code]; const refused = locals.approvalRefusal && approvalRefusal.language === code; %>
+            <details class="product-language"<%= (errors[code] || refused) ? ' open' : '' %>>
+              <summary><%= language.name %><%= code === defaultLanguage ? ' (shop default, must be approved to publish)' : '' %> <span class="badge"><%= t.approved ? 'Approved' : 'Not approved' %></span></summary>
+              <fieldset lang="<%= code %>" class="language <%= values['approved_' + code] ? 'is-approved' : (t.source === 'ai' && t.title ? 'is-ai-draft' : '') %>">
+                <legend class="visually-hidden"><%= language.name %></legend>
+                <p class="status-line">
+                  <% if (t.approved) { %><strong>Approved by you</strong>
+                  <% } else if (t.source === 'ai' && t.title) { %><strong>AI draft, not yet reviewed by you</strong>
+                  <% } else if (t.title) { %><strong>Your text, not yet approved</strong>
+                  <% } else { %><strong>No text yet</strong><% } %>
+                </p>
+                <% if (scriptWarnings[code]) { %><p class="alert">The AI text may not be written in <%= language.name %>. Please read it carefully and fix it before approving.</p><% } %>
+                <% if (errors[code]) { %><p class="error-text" role="alert"><%= errors[code] %></p><% } %>
+                <div class="field">
+                  <label for="title_<%= code %>">Title</label>
+                  <input type="text" id="title_<%= code %>" name="title_<%= code %>" lang="<%= code %>" maxlength="100" value="<%= values['title_' + code] %>">
+                </div>
+                <div class="field">
+                  <label for="description_<%= code %>">Description</label>
+                  <textarea id="description_<%= code %>" name="description_<%= code %>" lang="<%= code %>" maxlength="1200"><%= values['description_' + code] %></textarea>
+                </div>
+                <div class="field">
+                  <label for="alt_text_<%= code %>">Photo description (for people who cannot see the photo)</label>
+                  <input type="text" id="alt_text_<%= code %>" name="alt_text_<%= code %>" lang="<%= code %>" maxlength="250" value="<%= values['alt_text_' + code] %>">
+                </div>
+                <div class="check">
+                  <input type="checkbox" id="approved_<%= code %>" name="approved_<%= code %>" value="on"<%= values['approved_' + code] ? ' checked' : '' %><% if (refused) { %> autofocus aria-invalid="true" aria-describedby="approval-error"<% } %>>
+                  <label for="approved_<%= code %>">I have read this <%= language.name %> text and approve it</label>
+                  <% if (refused) { %><p id="approval-error" class="error-text" role="alert"><%= approvalRefusal.message %></p><% } %>
+                </div>
+              </fieldset>
+            </details>
+            <% }) %>
+          </div>
+        </div>
+        <div class="actions product-footer">
+          <button type="submit" name="intent" value="save" class="button">Save changes</button>
+          <a class="button button-secondary" href="#tab-price">Next: Price &amp; stock</a>
+        </div>
+      </section>
+
+      <section id="tab-price" class="stack card product-panel" aria-labelledby="price-heading">
+        <h2 id="price-heading">Price and stock</h2>
+        <div class="field-row">
+          <div class="field">
+            <label for="price">Price in rupees</label>
+            <input type="text" id="price" name="price" inputmode="decimal" autocomplete="off" value="<%= values.price %>"
+              aria-describedby="price-hint<%= errors.price ? ' price-error' : '' %>"<% if (errors.price) { %> aria-invalid="true"<% } %>>
+            <p id="price-hint" class="hint">For example 499 or 499.50. Needed before you can publish. The AI never sets prices.</p>
+            <% if (errors.price) { %><p id="price-error" class="error-text"><%= errors.price %></p><% } %>
+          </div>
+          <div class="field">
+            <label for="stock">Number in stock (optional)</label>
+            <input type="text" id="stock" name="stock" inputmode="numeric" autocomplete="off" value="<%= values.stock %>"
+              aria-describedby="stock-hint<%= errors.stock ? ' stock-error' : '' %>"<% if (errors.stock) { %> aria-invalid="true"<% } %>>
+            <p id="stock-hint" class="hint">Leave blank if you do not count stock.</p>
+            <% if (errors.stock) { %><p id="stock-error" class="error-text"><%= errors.stock %></p><% } %>
+          </div>
+        </div>
+        <div class="actions product-footer">
+          <button type="submit" name="intent" value="save" class="button">Save changes</button>
+          <a class="button button-secondary" href="#tab-publish">Next: Publishing</a>
+        </div>
+      </section>
+
+      <section id="tab-publish" class="stack card product-panel" aria-labelledby="publish-heading">
+        <h2 id="publish-heading">Publishing</h2>
+        <p>
+          <strong>Status:</strong>
+          <span class="badge"><%= product.status === 'published' ? 'Published' : 'Draft, not published' %></span>
+          <% if (generating) { %><span class="badge">AI is writing</span><% } else if (product.aiStatus === 'failed') { %><span class="badge">Last AI attempt failed</span><% } %>
         </p>
-        <% if (scriptWarnings[code]) { %><p class="alert">The AI text may not be written in <%= language.name %>. Please read it carefully and fix it before approving.</p><% } %>
-        <% if (errors[code]) { %><p class="error-text" role="alert"><%= errors[code] %></p><% } %>
-        <div class="field">
-          <label for="title_<%= code %>">Title</label>
-          <input type="text" id="title_<%= code %>" name="title_<%= code %>" lang="<%= code %>" maxlength="100" value="<%= values['title_' + code] %>">
+        <div class="actions actions-sticky">
+          <button type="submit" name="intent" value="save" class="button">Save</button>
+          <button type="submit" name="intent" value="publish" class="button">Approve and publish</button>
         </div>
-        <div class="field">
-          <label for="description_<%= code %>">Description</label>
-          <textarea id="description_<%= code %>" name="description_<%= code %>" lang="<%= code %>" maxlength="1200"><%= values['description_' + code] %></textarea>
-        </div>
-        <div class="field">
-          <label for="alt_text_<%= code %>">Photo description (for people who cannot see the photo)</label>
-          <input type="text" id="alt_text_<%= code %>" name="alt_text_<%= code %>" lang="<%= code %>" maxlength="250" value="<%= values['alt_text_' + code] %>">
-        </div>
-        <div class="check">
-<% const refused = locals.approvalRefusal && approvalRefusal.language === code; %>
-          <input type="checkbox" id="approved_<%= code %>" name="approved_<%= code %>" value="on"<%= values['approved_' + code] ? ' checked' : '' %><% if (refused) { %> autofocus aria-invalid="true" aria-describedby="approval-error"<% } %>>
-          <label for="approved_<%= code %>">I have read this <%= language.name %> text and approve it</label>
-          <% if (refused) { %><p id="approval-error" class="error-text" role="alert"><%= approvalRefusal.message %></p>
-          <% } %>
-        </div>
-      </fieldset>
-      <% }) %>
+        <p class="hint">Publishing needs a price and an approved <%= defaultLanguageName %> text. Nothing is published until you choose Approve and publish.</p>
       </section>
-
-      <div class="actions actions-sticky">
-        <button type="submit" name="intent" value="save" class="button">Save</button>
-        <button type="submit" name="intent" value="publish" class="button">Approve and publish</button>
-      </div>
-      <p class="hint">Publishing needs a price and an approved <%= defaultLanguageName %> text. Nothing is published until you choose Approve and publish.</p>
     </form>
 
     <details class="danger-zone">

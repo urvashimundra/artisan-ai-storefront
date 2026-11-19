@@ -588,3 +588,21 @@ main:not(:has(.settings-panel:target)):not(:has(.settings-panel.is-active)) .set
 main > form.stack:has(.settings-panel) { max-width: none; }
 .settings-panel { display: none; scroll-margin-top: var(--space-6); }
 .settings-panel:target, main:not(:has(.settings-panel:target)) .settings-panel.is-active, main:not(:has(.settings-panel:target)):not(:has(.settings-panel.is-active)) #tab-identity { display: grid; }
+
+/* Product edit: header card and CSS-only tabs. One panel shows; Product details is the default when nothing is targeted. */
+.product-head { display: flex; align-items: center; gap: var(--space-4); margin-top: var(--space-4); }
+.product-head h1 { margin: 0 0 var(--space-2); }
+.product-head-text p { margin: 0; }
+.product-thumb { flex: none; width: 6rem; height: 6rem; object-fit: cover; border-radius: var(--radius); }
+.product-tabs { display: flex; flex-wrap: nowrap; gap: 1.5rem; overflow-x: auto; margin-top: var(--space-4); border-bottom: 1px solid var(--color-divider); font-family: var(--font-sans); }
+.product-tabs a { flex: none; padding: 0.5rem 0; min-height: 2.75rem; display: inline-flex; align-items: center; white-space: nowrap; border-bottom: 3px solid transparent; color: var(--color-text); font-weight: 600; text-decoration: none; }
+.product-tabs a:hover { color: var(--color-primary); }
+main:not(:has(.product-panel:target)) .product-tabs a[href="#tab-details"], main:has(#tab-details:target) .product-tabs a[href="#tab-details"], main:has(#tab-price:target) .product-tabs a[href="#tab-price"], main:has(#tab-publish:target) .product-tabs a[href="#tab-publish"] { color: var(--color-primary); border-bottom-color: var(--color-primary); }
+.product-panel { display: none; margin-top: var(--space-4); scroll-margin-top: var(--space-6); }
+.product-panel:target, main:not(:has(.product-panel:target)) #tab-details { display: grid; }
+.product-columns { display: grid; gap: var(--space-5); align-items: start; }
+@media (min-width: 48rem) { .product-columns { grid-template-columns: 45fr 55fr; } }
+main > form#review-form { max-width: 80rem; }
+.product-footer { padding-top: var(--space-4); border-top: 1px solid var(--color-divider); }
+.product-language { border: 1px solid var(--color-divider); border-radius: var(--radius); padding: 0 var(--space-4); }
+.product-language summary { cursor: pointer; display: flex; align-items: center; gap: var(--space-3); min-height: 2.75rem; font-weight: 700; }

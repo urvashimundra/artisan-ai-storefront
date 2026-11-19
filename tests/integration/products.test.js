@@ -242,7 +242,7 @@ describe('product routes: generate, review, publish, delete', () => {
     assert.equal(page.status, 200);
     assert.match(page.text, /AI draft, not yet reviewed by you/);
     assert.match(page.text, /value="Blue clay pot"/);
-    assert.match(page.text, /<img class="product-photo" src="https:\/\/project\.supabase\.test\/storage\/v1\/object\/sign\//);
+    assert.match(page.text, /<img class="product-thumb" src="https:\/\/project\.supabase\.test\/storage\/v1\/object\/sign\//);
     assert.doesNotMatch(page.text, /Approved by you/);
     assert.equal(app.products.rows[0].status, 'draft');
 
