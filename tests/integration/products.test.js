@@ -242,7 +242,7 @@ describe('product routes: generate, review, publish, delete', () => {
     assert.equal(page.status, 200);
     assert.match(page.text, /AI draft, not yet reviewed by you/);
     assert.match(page.text, /value="Blue clay pot"/);
-    assert.match(page.text, /<img class="product-photo" src="https:\/\/project\.supabase\.test\/storage\/v1\/object\/sign\//);
+    assert.match(page.text, /<img class="product-thumb" src="https:\/\/project\.supabase\.test\/storage\/v1\/object\/sign\//);
     assert.doesNotMatch(page.text, /Approved by you/);
     assert.equal(app.products.rows[0].status, 'draft');
 
@@ -251,7 +251,7 @@ describe('product routes: generate, review, publish, delete', () => {
       title_gu: GOOD_TRANSLATIONS.gu.title, description_gu: GOOD_TRANSLATIONS.gu.description, alt_text_gu: GOOD_TRANSLATIONS.gu.alt_text,
     });
     const published = await formPost(app, cookie, `/products/${id}/save`, full);
-    assert.equal(published.location, `/products/${id}/edit?notice=published`);
+    assert.equal(published.location, `/products/${id}/edit?notice=published#tab-details`);
     const after = await app.request(published.location, { cookie });
     assert.match(after.text, /Published/);
     assert.match(after.text, /value="499\.50"/);

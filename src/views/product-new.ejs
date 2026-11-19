@@ -1,11 +1,16 @@
 <%- include('partials/header') %>
+    <div class="product-new">
+    <p class="crumb"><a href="/products">&larr; Back to products</a></p>
     <h1>Add a product</h1>
     <p>Choose a photo and tell us about it. The AI will suggest a title and description in English, Gujarati and Hindi. You review and approve everything before it is published.</p>
     <noscript><p class="alert">This page needs JavaScript to prepare your photo. Please turn it on and reload.</p></noscript>
+    <div class="card">
     <form id="new-product-form" class="stack" novalidate data-upload-url="/products/image">
       <div class="field">
         <label for="photo">Product photo</label>
-        <input type="file" id="photo" name="photo" accept="image/jpeg,image/png,image/webp" required aria-describedby="photo-hint photo-error">
+        <div class="dropzone">
+          <input type="file" id="photo" name="photo" accept="image/jpeg,image/png,image/webp" required aria-describedby="photo-hint photo-error">
+        </div>
         <p id="photo-hint" class="hint">JPEG, PNG or WebP. Large photos are made smaller on your device first, and location data is removed.</p>
         <p id="photo-error" class="error-text" hidden></p>
       </div>
@@ -19,6 +24,8 @@
       <p id="progress" class="notice" role="status" aria-live="polite" hidden></p>
       <p id="form-error" class="alert" role="alert" hidden></p>
     </form>
+    </div>
+    </div>
     <script src="/js/resize.js" defer></script>
     <script src="/js/product-upload.js" defer></script>
 <%- include('partials/footer') %>

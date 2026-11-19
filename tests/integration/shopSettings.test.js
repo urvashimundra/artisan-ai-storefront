@@ -53,7 +53,7 @@ describe('shop settings page', () => {
     await withOwners(async ({ app, cookieA, storeA }) => {
       const res = await post(app, cookieA, VALID);
       assert.equal(res.status, 303);
-      assert.equal(res.location, '/store/settings?saved=1');
+      assert.equal(res.location, '/store/settings?saved=1#tab-identity');
       assert.deepEqual(
         { ...storeA },
         { ...storeA, tagline: 'Hand made in Kutch', story: 'A new story of the workshop.', accentKey: 'teal', whatsappNumber: '919876543210', whatsappEnabled: true, instagramHandle: 'mati.no.rang', upiId: 'asha@okhdfcbank' },
@@ -63,6 +63,14 @@ describe('shop settings page', () => {
       assert.match(page.text, /value="919876543210"/);
       assert.match(page.text, /<option value="teal" selected>/);
       assert.match(page.text, /id="whatsappEnabled" name="whatsappEnabled" value="on" checked/);
+    });
+  });
+
+  it('returns to the tab whose save button was used', async () => {
+    await withOwners(async ({ app, cookieA }) => {
+      const res = await post(app, cookieA, { ...VALID, tab: 'contact' });
+      assert.equal(res.status, 303);
+      assert.equal(res.location, '/store/settings?saved=1#tab-contact');
     });
   });
 

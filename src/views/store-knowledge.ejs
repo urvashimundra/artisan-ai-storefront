@@ -1,11 +1,12 @@
 <%- include('partials/header') %>
+    <div class="knowledge-page">
     <h1>Shop notes for the assistant</h1>
 <% if (onboarding) { %>    <p class="hint">Step 4 of 4. Optional. <a href="/dashboard?welcome=1">Skip, I will do this later</a></p>
 <% } %>    <p>Write what customers often ask: delivery, returns, custom orders, bulk discounts and care. When a customer asks you a question on your shop, an AI assistant answers from these notes and from your products. If the answer is not here, it passes the question to you.</p>
     <p class="callout"><strong>Customers can read what you write here through the assistant's answers.</strong> Do not write bank details, passwords or private information.</p>
 <% if (notice) { %>    <p class="notice" role="status" aria-live="polite"><%= notice %></p>
 <% } %>
-    <section class="stack" aria-labelledby="notes-heading">
+    <section class="stack card onboard-card knowledge-card" aria-labelledby="notes-heading">
       <h2 id="notes-heading">Your notes</h2>
 <% if (documentError) { %>      <p class="error-summary" role="alert" id="notes-error"><%= documentError %></p>
 <% } %>      <p><a href="/knowledge-template.md" download>Download the notes template (a plain text file with examples)</a></p>
@@ -24,11 +25,11 @@
         <div><button type="submit" class="button">Save notes</button></div>
       </form>
     </section>
-    <section class="stack" aria-labelledby="bulk-heading">
+    <section class="stack card onboard-card knowledge-card" aria-labelledby="bulk-heading">
       <h2 id="bulk-heading">Bulk discounts</h2>
       <p>The assistant only uses the discounts you confirm here. It never makes up a discount. Leave a row empty if you do not need it.</p>
 <% if (confirmedRules.length > 0) { %>      <p class="hint">Confirmed now: <%= confirmedRules.map((tier) => tier.minQty + ' or more: ' + tier.percentOff + '% off').join('; ') %>.</p>
-<% } else { %>      <p class="hint">No bulk discount is confirmed yet.</p>
+<% } else { %>      <p class="hint pill-note">No bulk discount is confirmed yet.</p>
 <% } %><% if (canExtract) { %>      <form method="post" action="/store/knowledge/rules/find<%= stepSuffix %>" class="stack" data-progress="find-progress">
         <p class="hint">Claude can read your saved notes and suggest the discounts. It only fills the boxes below. Check them, then save.</p>
 <% if (aiError) { %>        <p class="error-summary" role="alert" tabindex="-1" data-focus-alert id="find-error"><%= aiError %></p>
@@ -59,4 +60,5 @@
     <script src="/js/knowledge-file.js" defer></script>
     <script src="/js/focus-alert.js" defer></script>
     <script src="/js/product-generate.js" defer></script>
+    </div>
 <%- include('partials/footer') %>

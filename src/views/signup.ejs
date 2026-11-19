@@ -1,4 +1,5 @@
 <%- include('partials/header') %>
+    <div class="card auth-card">
     <h1>Create your owner account</h1>
     <% const errors = locals.errors || {}; const values = locals.values || {}; %>
     <% if (Object.keys(errors).length > 0) { %>
@@ -24,7 +25,8 @@
           <% if (errors.inviteCode) { %>aria-invalid="true" aria-describedby="inviteCode-error"<% } %>>
         <% if (errors.inviteCode) { %><p id="inviteCode-error" class="error-text"><%= errors.inviteCode %></p><% } %>
       </div>
-      <div><button type="submit" class="button">Sign up</button></div>
+      <div><button type="submit" class="button btn-primary-block">Sign up</button></div>
     </form>
-    <p>Already have an account? <a href="/login">Log in</a></p>
+    <p class="auth-footer">Already have an account? <a href="/login">Log in</a></p>
+    </div>
 <%- include('partials/footer') %>

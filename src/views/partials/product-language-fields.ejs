@@ -1,0 +1,20 @@
+<p class="status-line">
+  <% if (t.approved) { %><strong>Approved by you</strong>
+  <% } else if (t.source === 'ai' && t.title) { %><strong>AI draft, not yet reviewed by you</strong>
+  <% } else if (t.title) { %><strong>Your text, not yet approved</strong>
+  <% } else { %><strong>No text yet</strong><% } %>
+</p>
+<% if (scriptWarnings[code]) { %><p class="alert">The AI text may not be written in <%= language.name %>. Please read it carefully and fix it before approving.</p><% } %>
+<% if (errors[code]) { %><p class="error-text" role="alert"><%= errors[code] %></p><% } %>
+<div class="field">
+  <label for="title_<%= code %>">Title</label>
+  <input type="text" id="title_<%= code %>" name="title_<%= code %>" form="review-form" lang="<%= code %>" maxlength="100" value="<%= values['title_' + code] %>">
+</div>
+<div class="field">
+  <label for="description_<%= code %>">Description</label>
+  <textarea id="description_<%= code %>" name="description_<%= code %>" form="review-form" lang="<%= code %>" maxlength="1200"><%= values['description_' + code] %></textarea>
+</div>
+<div class="field">
+  <label for="alt_text_<%= code %>">Photo description (for people who cannot see the photo)</label>
+  <input type="text" id="alt_text_<%= code %>" name="alt_text_<%= code %>" form="review-form" lang="<%= code %>" maxlength="250" value="<%= values['alt_text_' + code] %>">
+</div>

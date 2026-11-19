@@ -2,6 +2,7 @@
 <% if (locals.productsEnabled) { %><a href="/products">Products</a><% } %>
 <% if (locals.ordersEnabled) { %><a href="/orders">Orders</a><% } %>
 <% if (locals.enquiriesEnabled) { %><a href="/enquiries">Conversations</a><% } %>
+<hr class="nav-divider">
 <form method="post" action="/logout" class="inline-form">
   <button type="submit" class="link-button">Log out</button>
 </form>

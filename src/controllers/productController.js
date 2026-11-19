@@ -36,6 +36,9 @@ const TRANSLATE_CODES = new Set(['NOTHING_TO_TRANSLATE', 'GENERATION_IN_PROGRESS
 const DEFAULT_LANGUAGE_REFUSAL = 'DEFAULT_LANGUAGE_NOT_APPROVED';
 const REVIEW_CODES = new Set(['GENERATION_IN_PROGRESS', 'PRICE_REQUIRED', DEFAULT_LANGUAGE_REFUSAL, 'INVALID_PRODUCT']);
 
+const PRODUCT_TABS = Object.freeze(['details', 'price', 'publish']);
+const DEFAULT_PRODUCT_TAB = 'details';
+
 const namesOf = (codes) => codes.map((code) => LANGUAGE_NAMES[code]).join(', ');
 
 /** The notice after a translation update. The language lists come from the query string, so only known codes are used. */
@@ -88,7 +91,7 @@ function productTitle(product, defaultLanguage) {
  *   listings: ReturnType<typeof import('../services/listingService.js').createListingService> }} deps
  */
 export function createProductController({ products, listings, translations = null }) {
-  async function renderEdit(req, res, { status = HTTP_OK, body, errors = {}, formError, generateError, notice, approvalRefusal = null }) {
+  async function renderEdit(req, res, { status = HTTP_OK, body, errors = {}, formError, generateError, notice, approvalRefusal = null, activeTab = DEFAULT_PRODUCT_TAB }) {
     const view = await products.getForEdit(req.store.id, parseProductId(req.params));
     return res.status(status).render('product-edit', {
       title: 'Review product',
@@ -102,6 +105,7 @@ export function createProductController({ products, listings, translations = nul
       generateError,
       notice,
       approvalRefusal,
+      activeTab,
       canTranslate: translations !== null,
     });
   }
@@ -165,13 +169,15 @@ export function createProductController({ products, listings, translations = nul
 
     async postSave(req, res) {
       const productId = parseProductId(req.params);
+      const { tab, ...review } = req.body ?? {};
+      const activeTab = PRODUCT_TABS.includes(tab) ? tab : DEFAULT_PRODUCT_TAB;
       try {
-        const { status } = await products.saveReview(req.store.id, productId, req.body);
-        const wasPublish = req.body?.intent === REVIEW_INTENTS.publish;
+        const { status } = await products.saveReview(req.store.id, productId, review);
+        const wasPublish = review.intent === REVIEW_INTENTS.publish;
         const notice = status === 'published' ? (wasPublish ? 'published' : 'saved-live') : 'saved';
-        return res.redirect(SEE_OTHER, `/products/${productId}/edit?notice=${notice}`);
+        return res.redirect(SEE_OTHER, `/products/${productId}/edit?notice=${notice}#tab-${activeTab}`);
       } catch (error) {
-        return reviewFailure(req, res, error);
+        return reviewFailure(req, res, error, activeTab);
       }
     },
 
@@ -191,17 +197,17 @@ export function createProductController({ products, listings, translations = nul
   }
 
   /** The shop's default language is not approved, so publishing is refused: name that language at the top and next to its approval box. */
-  function defaultLanguageRefusal(req, res, error) {
+  function defaultLanguageRefusal(req, res, error, activeTab) {
     const message = `Approve the ${LANGUAGE_NAMES_ENGLISH[req.store.defaultLanguage]} text before publishing.`;
-    return renderEdit(req, res, { status: error.httpStatus, body: req.body, formError: message, approvalRefusal: { language: req.store.defaultLanguage, message } });
+    return renderEdit(req, res, { status: error.httpStatus, body: req.body, formError: message, approvalRefusal: { language: req.store.defaultLanguage, message }, activeTab });
   }
 
-  function reviewFailure(req, res, error) {
+  function reviewFailure(req, res, error, activeTab) {
     if (error instanceof ZodError) {
-      return renderEdit(req, res, { status: HTTP_BAD_REQUEST, body: req.body, errors: reviewFormErrors(error) });
+      return renderEdit(req, res, { status: HTTP_BAD_REQUEST, body: req.body, errors: reviewFormErrors(error), activeTab });
     }
-    if (error.code === DEFAULT_LANGUAGE_REFUSAL) return defaultLanguageRefusal(req, res, error);
+    if (error.code === DEFAULT_LANGUAGE_REFUSAL) return defaultLanguageRefusal(req, res, error, activeTab);
     if (!REVIEW_CODES.has(error.code)) throw error;
-    return renderEdit(req, res, { status: error.httpStatus, body: req.body, formError: error.message });
+    return renderEdit(req, res, { status: error.httpStatus, body: req.body, formError: error.message, activeTab });
   }
 }

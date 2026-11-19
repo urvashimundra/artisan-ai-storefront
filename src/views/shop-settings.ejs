@@ -1,5 +1,6 @@
 <%- include('partials/header') %>
     <h1>Shop settings</h1>
+    <p class="hint">Update how your shop looks, how customers reach you and what we email you about.</p>
     <% const errors = locals.errors || {}; const values = locals.values || {}; %>
     <% if (locals.notice) { %><p class="notice" role="status"><%= notice %></p><% } %>
     <% if (locals.aiError) { %><p class="alert" role="alert"><%= aiError %></p><% } %>
@@ -8,9 +9,17 @@
     <p class="alert" role="alert">Please check the fields marked below.</p>
     <% } %>
     <p><a href="/s/<%= shopSlug %>" target="_blank" rel="noopener noreferrer">View your shop (opens in a new tab)</a></p>
-    <form method="post" action="/store/settings" class="stack" novalidate>
-    <section class="stack card" aria-labelledby="identity-heading">
+    <nav class="settings-tabs" aria-label="Settings sections">
+      <a href="#tab-identity">Shop identity</a>
+      <a href="#tab-contact">Contact &amp; payments</a>
+      <a href="#tab-notify">Notifications</a>
+      <a href="#tab-languages">Languages</a>
+    </nav>
+    <% const currentTab = locals.activeTab || 'identity'; %>
+    <form method="post" action="/store/settings" class="stack" data-active-tab="<%= currentTab %>" novalidate>
+    <section id="tab-identity" class="stack card onboard-card settings-card settings-panel<%= currentTab === 'identity' ? ' is-active' : '' %>" aria-labelledby="identity-heading">
       <h2 id="identity-heading">Shop identity</h2>
+      <p class="callout">Changing the tagline or story withdraws your approved translations until you approve them again.</p>
       <div class="field">
         <label for="tagline">Tagline</label>
         <input type="text" id="tagline" name="tagline" maxlength="120" value="<%= values.tagline || '' %>"
@@ -22,34 +31,39 @@
         <label for="story">Story (<%= defaultLanguageName %>)</label>
         <textarea id="story" name="story" maxlength="2000" lang="<%= defaultLanguage %>" required
           aria-describedby="story-hint<%= errors.story ? ' story-error' : '' %>"<% if (errors.story) { %> aria-invalid="true"<% } %>><%= values.story || '' %></textarea>
-        <p id="story-hint" class="hint">Shown on your shop. Changing the tagline or story withdraws your approved translations until you approve them again.</p>
+        <p id="story-hint" class="hint">Shown on your shop.</p>
         <% if (errors.story) { %><p id="story-error" class="error-text"><%= errors.story %></p><% } %>
       </div>
       <div class="field">
         <label for="accentKey">Shop colour</label>
-        <select id="accentKey" name="accentKey" required
-          <% if (errors.accentKey) { %>aria-invalid="true" aria-describedby="accentKey-error"<% } %>>
-          <% accents.forEach((accent) => { %>
-          <option value="<%= accent.key %>"<%= values.accentKey === accent.key ? ' selected' : '' %>><%= accent.label %></option>
-          <% }) %>
-        </select>
+        <div class="select-swatch">
+          <span class="swatch" aria-hidden="true"></span>
+          <select id="accentKey" name="accentKey" required
+            <% if (errors.accentKey) { %>aria-invalid="true" aria-describedby="accentKey-error"<% } %>>
+            <% accents.forEach((accent) => { %>
+            <option value="<%= accent.key %>"<%= values.accentKey === accent.key ? ' selected' : '' %>><%= accent.label %></option>
+            <% }) %>
+          </select>
+        </div>
         <% if (errors.accentKey) { %><p id="accentKey-error" class="error-text"><%= errors.accentKey %></p><% } %>
       </div>
+      <div class="actions"><button type="submit" name="tab" value="identity" class="button">Save settings</button></div>
     </section>
-    <section class="stack card" aria-labelledby="contact-heading">
+    <section id="tab-contact" class="stack card onboard-card settings-card settings-panel<%= currentTab === 'contact' ? ' is-active' : '' %>" aria-labelledby="contact-heading">
       <h2 id="contact-heading">Contact and payments</h2>
 <%- include('partials/contact-fields') %>
+      <div class="actions"><button type="submit" name="tab" value="contact" class="button">Save settings</button></div>
     </section>
-    <section class="stack card" aria-labelledby="notify-heading">
+    <section id="tab-notify" class="stack card onboard-card settings-card settings-panel<%= currentTab === 'notify' ? ' is-active' : '' %>" aria-labelledby="notify-heading">
       <h2 id="notify-heading">Email notifications</h2>
       <div class="field">
         <label for="notifyEnquiryEmail"><input type="checkbox" id="notifyEnquiryEmail" name="notifyEnquiryEmail" value="on"<%= values.notifyEnquiryEmail ? ' checked' : '' %> aria-describedby="notifyEnquiryEmail-hint"> Email me when a customer enquiry needs me</label>
         <p id="notifyEnquiryEmail-hint" class="hint">We send it to your account email address. You always get an email when a customer sends a payment reference.</p>
       </div>
+      <div class="actions"><button type="submit" name="tab" value="notify" class="button">Save settings</button></div>
     </section>
-      <div><button type="submit" class="button">Save settings</button> <a href="/dashboard">Back to dashboard</a></div>
     </form>
-    <section class="stack" aria-labelledby="translations-heading">
+    <section id="tab-languages" class="stack card onboard-card languages-card settings-panel<%= currentTab === 'languages' ? ' is-active' : '' %>" aria-labelledby="translations-heading">
       <h2 id="translations-heading">Languages</h2>
       <p class="hint">Your shop name is never translated. Visitors see a translation only after you approve it; until then they see your <%= defaultLanguageName %> text.</p>
       <dl class="details">
@@ -66,6 +80,7 @@
       <summary><%= row.name %> <span class="chip<%= row.approved ? ' chip-approved' : '' %>"><%= row.approved ? 'Approved' : 'Draft' %></span></summary>
       <form method="post" action="/store/settings/translations" class="stack" novalidate>
         <h3 id="tr-<%= row.language %>-heading" class="visually-hidden"><%= row.name %></h3>
+        <input type="hidden" name="tab" value="languages">
         <input type="hidden" name="language" value="<%= row.language %>">
         <p><span class="chip<%= row.approved ? ' chip-approved' : '' %>"><%= row.approved ? 'Approved' : 'Draft' %></span> <% if (row.source === 'ai' && (row.tagline || row.story)) { %>Written by Claude<% } else if (row.tagline || row.story) { %>Written by you<% } %></p>
         <div class="field">
@@ -78,10 +93,13 @@
         </div>
 <% if (translationErrors[row.language]) { %>        <p id="tr-<%= row.language %>-error" class="error-text"><%= translationErrors[row.language] %></p>
 <% } %>        <div class="field">
-          <label for="tr-<%= row.language %>-approved"><input type="checkbox" id="tr-<%= row.language %>-approved" name="approved" value="on"<%= row.approved ? ' checked' : '' %>> Approve: show this <%= row.name %> text on my shop</label>
+          <label for="tr-<%= row.language %>-approved" class="field-check"><input type="checkbox" id="tr-<%= row.language %>-approved" name="approved" value="on"<%= row.approved ? ' checked' : '' %>> Approve: show this <%= row.name %> text on my shop</label>
         </div>
         <div><button type="submit" class="button">Save <%= row.name %></button></div>
       </form>
       </details>
 <% }) %>    </section>
+    <p><a href="/dashboard">Back to dashboard</a></p>
+
+    <script src="/js/settings-tab.js" defer></script>
 <%- include('partials/footer') %>

@@ -22,13 +22,21 @@
       <dd lang="<%= store.defaultLanguage %>"><%= store.story %></dd>
     </dl>
     <div class="actions">
-      <a class="button" href="/s/<%= store.slug %>" target="_blank" rel="noopener noreferrer">View your shop</a>
-      <button type="button" class="button button-secondary" data-share data-share-url="<%= shopUrl %>" data-share-title="<%= store.name %>" data-copied="Link copied" hidden>Copy shop link</button>
-      <a class="button button-secondary" href="/store/settings">Shop settings</a>
-      <% if (locals.productsEnabled) { %><a class="button button-secondary" href="/products">Manage products</a><% } %>
-      <% if (locals.enquiriesEnabled) { %><a class="button button-secondary" href="/enquiries">Conversations<% if (locals.needsYouEnquiries) { %> <span class="badge"><%= needsYouEnquiries %> need you</span><% } %></a><% } %>
-      <% if (locals.knowledgeEnabled) { %><a class="button button-secondary" href="/store/knowledge">Shop notes</a><% } %>
-      <% if (locals.ordersEnabled) { %><a class="button button-secondary" href="/orders">Orders<% if (locals.pendingPayments) { %> <span class="badge"><%= pendingPayments %> to check</span><% } %></a><% } %>
+      <div class="action-group">
+        <a class="button button-secondary" href="/store/settings">Shop settings</a>
+        <% if (locals.knowledgeEnabled) { %><a class="button button-secondary" href="/store/knowledge">Shop notes</a><% } %>
+      </div>
+      <div class="action-group">
+        <% if (locals.productsEnabled) { %><a class="button button-secondary" href="/products">Manage products</a><% } %>
+      </div>
+      <div class="action-group">
+        <% if (locals.ordersEnabled) { %><a class="button button-secondary" href="/orders">Orders<% if (locals.pendingPayments) { %> <span class="badge"><%= pendingPayments %> to check</span><% } %></a><% } %>
+        <% if (locals.enquiriesEnabled) { %><a class="button button-secondary" href="/enquiries">Conversations<% if (locals.needsYouEnquiries) { %> <span class="badge"><%= needsYouEnquiries %> need you</span><% } %></a><% } %>
+      </div>
+      <div class="action-group">
+        <a class="button" href="/s/<%= store.slug %>" target="_blank" rel="noopener noreferrer">View your shop</a>
+        <button type="button" class="button button-secondary" data-share data-share-url="<%= shopUrl %>" data-share-title="<%= store.name %>" data-copied="Link copied" hidden>Copy shop link</button>
+      </div>
     </div>
     <p class="hint" role="status" aria-live="polite" data-share-status></p>
     <script src="/js/share.js" defer></script>

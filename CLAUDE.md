@@ -119,3 +119,12 @@ Done: Module 0 code, Preview and Publish healthy, Supabase (DB + Storage), Claud
 Next: SPEC.md modules in order, starting with Module 1.
 Pending: email transport decision (SMTP blocked on hosting), domain connection, removal of the
 temporary SMTP diagnostics detail and of DIAGNOSTICS_TOKEN on Publish.
+
+
+## UI revamp rules
+- Frontend = EJS in views/, styles in public/css/, vanilla JS in public/js/. No React, no CSS framework, no build step.
+- UI-only changes. Never edit src/ (routes, controllers, services, repositories), SPEC.md or tests unless I ask.
+- Keep every form field name, action, method, CSRF/hidden input, and EJS variable exactly as is.
+- All colors, fonts, radii and shadows come from CSS variables in public/css/tokens.css. No hardcoded values in pages.
+- Icons: inline SVG only. Fonts: Google Fonts link in the shared layout/head partial only.
+- Be brief: after finishing, list changed files and stop. No long explanations.
