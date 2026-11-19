@@ -66,12 +66,19 @@ describe('shop settings: translated tagline and story (owner side)', () => {
     withOwner({}, async ({ app, cookie, store }) => {
       const res = await postTranslation(app, cookie, FORM);
       assert.equal(res.status, 303);
-      assert.equal(res.location, '/store/settings?saved=translation');
+      assert.equal(res.location, '/store/settings?saved=translation#tab-languages');
       assert.deepEqual(app.translationsRepo.rows.map((row) => [row.storeId, row.language, row.source, row.approved]), [[store.id, 'en', 'owner', true]]);
       const page = await app.request(res.location, { cookie });
       assert.ok(page.text.includes('Your translation was saved.'));
       assert.ok(page.text.includes('We make pots in Kutch.'));
       assert.match(page.text, /id="tr-en-approved"[^>]* checked/);
+    }));
+
+  it('accepts the tab field and returns to the languages tab', () =>
+    withOwner({}, async ({ app, cookie }) => {
+      const res = await postTranslation(app, cookie, { ...FORM, tab: 'languages' });
+      assert.equal(res.status, 303);
+      assert.equal(res.location, '/store/settings?saved=translation#tab-languages');
     }));
 
   it('escapes script payloads in saved translations and in re-displayed input', () =>
@@ -174,7 +181,7 @@ describe('shop settings: Draft translations with Claude', () => {
       assert.equal((await postTranslation(app, cookie, unapproved)).status, 303);
       assert.equal(app.translationsRepo.rows[0].approved, false);
       const res = await app.request('/store/settings/translations/draft', { method: 'POST', cookie });
-      assert.equal(res.location, '/store/settings?saved=drafts');
+      assert.equal(res.location, '/store/settings?saved=drafts#tab-languages');
       assert.deepEqual(generator.calls[0], { tagline: '', story: store.story, targets: ['en', 'hi'] });
       assert.deepEqual(app.translationsRepo.rows.map((row) => [row.language, row.source, row.approved]), [['en', 'ai', false], ['hi', 'ai', false]]);
       const page = (await app.request(res.location, { cookie })).text;
@@ -277,7 +284,7 @@ describe('shop settings: drafts skip approved owner text', () => {
     withOwner({ withAi: true, script: [{ ok: true, translations: { hi: GOOD.hi }, usage: USAGE }] }, async ({ app, cookie, generator }) => {
       await postTranslation(app, cookie, FORM);
       const res = await app.request('/store/settings/translations/draft', { method: 'POST', cookie });
-      assert.equal(res.location, '/store/settings?saved=drafts&skipped=en');
+      assert.equal(res.location, '/store/settings?saved=drafts&skipped=en#tab-languages');
       assert.deepEqual(generator.calls[0].targets, ['hi']);
       const page = (await app.request(res.location, { cookie })).text;
       assert.ok(page.includes('Skipped English: you already approved your own text there'));
@@ -289,7 +296,7 @@ describe('shop settings: drafts skip approved owner text', () => {
       await postTranslation(app, cookie, FORM);
       await postTranslation(app, cookie, { ...FORM, language: 'hi' });
       const res = await app.request('/store/settings/translations/draft', { method: 'POST', cookie });
-      assert.equal(res.location, '/store/settings?saved=skipped&skipped=en,hi');
+      assert.equal(res.location, '/store/settings?saved=skipped&skipped=en,hi#tab-languages');
       assert.equal(generator.calls.length, 0);
       assert.ok((await app.request(res.location, { cookie })).text.includes('Nothing was drafted. Skipped English and Hindi'));
     }));

@@ -12,6 +12,9 @@ const SEE_OTHER = 303;
 const HTTP_OK = 200;
 const HTTP_BAD_REQUEST = 400;
 const SETTINGS_PATH = '/store/settings';
+const SETTINGS_TABS = ['identity', 'contact', 'notify', 'languages'];
+const DEFAULT_TAB = 'identity';
+const LANGUAGES_TAB = 'languages';
 const TEXT_FIELDS = ['tagline', 'accentKey'];
 const STORY_FIELDS = ['story'];
 const TRANSLATION_FIELDS = ['language', 'tagline', 'story'];
@@ -76,18 +79,20 @@ export function createShopSettingsController({ stores, translations, drafts }) {
       defaultTagline: req.store.tagline,
       defaultStory: req.store.story,
       defaultLanguage: req.store.defaultLanguage,
+      activeTab: view.activeTab ?? DEFAULT_TAB,
     });
   }
 
-  function settingsFailure(req, res, error) {
+  function settingsFailure(req, res, error, tab) {
     if (!(error instanceof ZodError)) throw error;
+    const activeTab = SETTINGS_TABS.includes(tab) ? tab : DEFAULT_TAB;
     const values = {
       ...echoValues(req.body, TEXT_FIELDS, MAX_ECHO_LENGTH),
       ...echoValues(req.body, STORY_FIELDS, MAX_STORY_ECHO_LENGTH),
       ...contactValuesFromBody(req.body),
     };
     values.accentKey ??= DEFAULT_ACCENT_KEY;
-    return page(req, res, HTTP_BAD_REQUEST, { values, errors: fieldErrors(error, SETTINGS_MESSAGES) });
+    return page(req, res, HTTP_BAD_REQUEST, { values, errors: fieldErrors(error, SETTINGS_MESSAGES), activeTab });
   }
 
   async function translationFailure(req, res, error) {
@@ -97,7 +102,9 @@ export function createShopSettingsController({ stores, translations, drafts }) {
     const rows = (await translations.listForOwner(req.store)).map((row) =>
       row.language === echoed.language ? { ...row, tagline: echoed.tagline ?? '', story: echoed.story ?? '' } : row,
     );
-    return page(req, res, HTTP_BAD_REQUEST, { rows, translationErrors: { [echoed.language]: TRANSLATION_MESSAGE } });
+    return page(req, res, HTTP_BAD_REQUEST, { rows, translationErrors: { [echoed.language]: TRANSLATION_MESSAGE },
+      activeTab: LANGUAGES_TAB,
+    });
   }
 
   return {
@@ -106,21 +113,24 @@ export function createShopSettingsController({ stores, translations, drafts }) {
     },
 
     async save(req, res) {
+      const { tab, ...formBody } = req.body ?? {};
       try {
-        await stores.updateSettings(req.owner.id, req.body ?? {});
+        await stores.updateSettings(req.owner.id, formBody);
       } catch (error) {
-        return settingsFailure(req, res, error);
+        return settingsFailure(req, res, error, tab);
       }
-      return res.redirect(SEE_OTHER, `${SETTINGS_PATH}?saved=1`);
+      const target = SETTINGS_TABS.includes(tab) ? tab : DEFAULT_TAB;
+      return res.redirect(SEE_OTHER, `${SETTINGS_PATH}?saved=1#tab-${target}`);
     },
 
     async saveTranslation(req, res) {
+      const { tab, ...formBody } = req.body ?? {};
       try {
-        await translations.save(req.store, req.body ?? {});
+        await translations.save(req.store, formBody);
       } catch (error) {
         return translationFailure(req, res, error);
       }
-      return res.redirect(SEE_OTHER, `${SETTINGS_PATH}?saved=translation`);
+      return res.redirect(SEE_OTHER, `${SETTINGS_PATH}?saved=translation#tab-${LANGUAGES_TAB}`);
     },
 
     async draftTranslations(req, res) {
@@ -133,7 +143,7 @@ export function createShopSettingsController({ stores, translations, drafts }) {
       }
       const saved = outcome.languages.length > 0 ? 'drafts' : 'skipped';
       const skipped = outcome.skipped.length > 0 ? `&skipped=${outcome.skipped.join(',')}` : '';
-      return res.redirect(SEE_OTHER, `${SETTINGS_PATH}?saved=${saved}${skipped}`);
+      return res.redirect(SEE_OTHER, `${SETTINGS_PATH}?saved=${saved}${skipped}#tab-${LANGUAGES_TAB}`);
     },
   };
 }
