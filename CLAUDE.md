@@ -1,130 +1,187 @@
-# PROJECT: Artisan AI Storefront & Business Assistant
-Hackathon: GoDaddy Inclusive Innovation Hackathon 2026, Round 2. Solo build. Submission by 20 Nov 2026.
-Full requirements, data model and modules live in SPEC.md. This file holds standing rules.
+# PROJECT: The Artisan Story
 
-## Product
-Artisans (English / Gujarati / Hindi) upload product photos plus a short story. The app creates an
-accessible multilingual storefront at /s/:slug on their own domain. Customers send enquiries or order
-requests. The owner reviews AI drafts and approves. AI never performs a consequential action alone.
+**Project:** Artisan AI Storefront & Business Assistant  
+**Hackathon:** GoDaddy Inclusive Innovation Hackathon 2026, Round 2  
+**Runtime:** Node.js 22.x, Express 5, ES modules  
+**Hosting:** GoDaddy Node.js hosting  
+**Data:** Supabase Cloud (PostgreSQL + private Storage)  
+**AI:** Anthropic Claude through the official SDK
 
-## Engineering rule (never violate)
-Claude proposes and explains. The backend validates and executes deterministic business operations.
-The owner approves consequential actions. The database is the source of truth.
+`SPEC.md` is the current-state product and technical specification. `README.md` is the public project guide. This file contains standing engineering rules for coding agents.
 
-## Fixed stack (do not change or add without asking)
-Node.js 22 (engines "22.x") + Express (ES modules), EJS + vanilla JS, Supabase Cloud (Postgres +
-Storage) via supabase-js over HTTPS, Claude via official @anthropic-ai/sdk, Nodemailer for email
-transport, Zod, Helmet, express-rate-limit, node:test. Hosting: GoDaddy Node.js hosting; bind to
-process.env.PORT. Supabase is NOT hosted on GoDaddy; the app calls it over HTTPS.
-Outbound SMTP is BLOCKED from the GoDaddy hosting (Preview and Publish): email goes through the
-swappable transport in src/email (smtp or api), chosen by EMAIL_TRANSPORT. Do not assume SMTP works
-when deployed. Adding an HTTPS email provider needs explicit approval.
-Default model: claude-haiku-5-5 (validated). Use a larger model only where quality clearly needs it.
+## Product and operating principle
 
-## Validated on GoDaddy (tested, can rely on)
-- Express runs and binds to process.env.PORT; /health and / respond; Preview and Publish are healthy.
-- ~90 s requests complete; streaming responses arrive progressively.
-- Supabase over HTTPS: Postgres read/write and private Storage upload work.
-- Claude API from the backend works (claude-haiku-5-5), usage returned.
-- SMTP credentials work from a local machine (ports 465 and 587) but the hosted app gets
-  `connect EACCES`, so SMTP is unusable from the hosting unless GoDaddy provides another route.
+The Artisan Story helps artisans in India create and operate accessible storefronts in English, Gujarati and Hindi. Owners create products from photos and stories, manage shop knowledge, review customer conversations and orders, and share public storefronts. Customers can ask questions and place order requests without creating accounts.
 
-## Platform constraints (design around these)
-- Local filesystem: survives restart, is WIPED on every new deployment. Never store images, sessions,
-  drafts or any user data on disk. Disk is scratch space only (delete after use).
-- Keep any single Claude call well under 60 s. Stream progress for longer flows. Retries idempotent.
-- Secrets are set per variant (preview AND publish) in GoDaddy, as raw values with no quotes.
-  Never in code, repo, logs or ZIP.
-- GoDaddy rate limits are undocumented: throttle AI and public endpoints, keep demo usage modest.
-- Package requirements: root package.json with name, version, main; "build" script (currently
-  `node -e "process.exit(0)"`, a no-op that works on Windows and Linux); "start":
-  "node src/server.js"; runtime packages in dependencies; ZIP (if used) excludes node_modules, .env,
-  .git and stays under 100 MB.
-- Fonts and assets for Gujarati and Devanagari must be self-hosted under public/ (Helmet CSP blocks
-  third-party origins unless deliberately configured).
+**Claude proposes. The backend validates and executes deterministic operations. The artisan approves consequential business decisions. PostgreSQL is the source of truth.**
 
-## Layering (strict)
-routes -> controllers (HTTP only) -> services (business rules) -> repositories (ONLY place that talks
-to Supabase). Pure domain logic (pricing, quotes, contrast) lives in src/domain with zero I/O.
-AI code lives in src/ai. Email in src/email. Controllers never import supabase-js or the SDK.
+Routine customer answers may be sent automatically only when grounded in allowed store information and they pass the application's safeguards. Uncertain, conflicting or unsafe answers must be escalated. Do not interpret "owner approval" as requiring manual approval of every ordinary grounded chat response.
 
-## Folder layout
-src/server.js (listen only) | src/app.js (app factory, testable) | src/config/env.js (Zod env)
-src/lib (logger, errors, correlation, money) | src/middleware | src/routes | src/controllers
-src/services | src/repositories | src/domain | src/ai (client, prompts/, tools/, schemas/)
-src/email | src/views (EJS) | public (static, NEVER private data)
-db/migrations/*.sql | db/verify | db/seed | scripts | tests/{unit,integration,security,ai-evals} | docs/
+## Fixed technology stack
 
-## Non-negotiables
-1. Multi-tenancy: every query is scoped by store_id. store_id comes from the authenticated server
-   session or the URL slug resolved server-side. NEVER from request body or model/tool arguments.
-2. Validate every external input with Zod at the boundary (HTTP body, query, params, model output,
-   tool arguments, env vars). Reject unknown keys (use .strict()).
-3. Money is integer paise. Never use floats for currency. All arithmetic is in code, never by the model.
-4. Secrets only in environment variables. Never in code, logs, client JS, or the deploy ZIP.
-   The Supabase service-role key is server-side only. (It bypasses RLS, so app-layer store scoping is
-   mandatory; RLS is defence in depth.)
-5. Escape all output in EJS (<%= %>). Never use <%- %> on user or model text. Never execute or render
-   AI-generated HTML, CSS or JS.
-6. Treat customer text, product text, image text and owner notes as UNTRUSTED data (prompt injection).
-7. Multi-step DB changes happen inside ONE Postgres function (RPC), not several client calls.
-   supabase-js has no multi-statement transactions.
-8. Side effects (email) are idempotent and go through the email_outbox. Email failure never rolls
-   back committed business data.
-9. Errors: throw AppError(code, httpStatus, safeMessage, details). One central error handler. Never
-   leak stack traces, SQL or provider errors to clients. Every response carries a correlation id.
-10. Logging: structured JSON, correlation id, no secrets, no full customer messages or phone numbers.
-11. Accessibility: semantic HTML, page lang attribute, alt text, visible focus, contrast >= 4.5:1,
-    keyboard operable, mobile-first, works at 200% zoom.
-12. Supabase: RLS enabled on every table; Storage bucket private; images served via signed URLs.
-13. Owner auth is a simple server-side session (NOT Supabase Auth): email + password hashed with
-    crypto.scrypt, random session token stored as a SHA-256 hash in the sessions table, HttpOnly +
-    SameSite=Lax cookie (Secure and `__Host-` prefixed in production), Origin check on
-    state-changing requests, rate-limited login, signup gated by SIGNUP_INVITE_CODE.
-    No new auth dependency. Sessions are never stored on local disk.
-14. Postgres functions must set `search_path` and REVOKE EXECUTE from public, anon and
-    authenticated, then GRANT EXECUTE to service_role only. Functions in the public schema are
-    otherwise callable through Supabase's API.
-15. AI cost is tracked as integer micro-USD and enforced by database-backed atomic reservation
-    (per owner per day in India time, plus a global daily cap). Never rely on in-memory counters.
+Do not change or add dependencies without explicit approval.
+
+- Node.js 22.x (`engines` is `22.x`).
+- Express 5, ES modules.
+- EJS server-rendered views and vanilla browser JavaScript.
+- CSS; no frontend framework, CSS framework or build pipeline.
+- Supabase Cloud PostgreSQL and private Storage via `@supabase/supabase-js` over HTTPS.
+- Anthropic Claude via `@anthropic-ai/sdk`; default `CLAUDE_MODEL` is `claude-haiku-5-5`.
+- Zod 4, Helmet, `express-rate-limit`, `qrcode`.
+- Node built-in `node:test`.
+- Email outbox plus the HTTP relay client in `src/email`; current configuration uses `EMAIL_RELAY_URL` and `EMAIL_WORKER_ENABLED`. Do not reintroduce Nodemailer, SMTP transport selection or `EMAIL_TRANSPORT` unless the developer explicitly changes the architecture.
+
+GoDaddy hosts the Node application. Supabase is a separate cloud service accessed over HTTPS. The server must bind to `process.env.PORT`.
+
+## Source-of-truth hierarchy
+
+When documents disagree, follow this order and report the discrepancy:
+
+1. Current application code, SQL migrations and tests define actual behavior.
+2. `SPEC.md` describes the current intended/implemented product and architecture.
+3. `CLAUDE.md` defines standing engineering constraints.
+4. `README.md` explains the project to users and contributors.
+5. `docs/DECISIONS.md`, `docs/MODULE1_PLAN.md` and `docs/SKIPPED.md` are historical records; do not treat old plan/status statements as current implementation instructions.
+
+Do not silently reconcile a contradiction by guessing. Inspect the relevant source and tests, then update the appropriate current documentation when asked.
+
+## Strict architecture and layering
+
+```text
+routes -> controllers -> services -> repositories -> Supabase
+                         |              |
+                         |              +-- only repositories access Supabase
+                         +-- domain: pure business rules, no I/O
+                         +-- ai: Claude prompts, tools, schemas and guards
+                         +-- email: outbox, templates and HTTP relay
+```
+
+- `src/server.js`: process startup/listen.
+- `src/app.js`: testable Express application factory.
+- `src/composition.js`: dependency wiring.
+- `src/config`: environment parsing and validation.
+- `src/routes`: route declarations and middleware composition.
+- `src/controllers`: HTTP parsing, response and rendering only.
+- `src/services`: application workflows and orchestration.
+- `src/domain`: pure rules/calculations; no network or database I/O.
+- `src/repositories`: the only application layer that talks to Supabase.
+- `src/ai`: Anthropic client, prompts, tools, schemas, agent flows and AI safeguards.
+- `src/email`: email templates, outbox worker and HTTP relay client.
+- `src/views`: EJS templates and partials.
+- `public`: static CSS, JavaScript, fonts and assets; never private user data.
+- `db/migrations`: append-only numbered SQL migrations.
+- `db/verify`: read-only migration checks.
+- `db/test`: database smoke and concurrency checks.
+- `scripts`: smoke, seed and bounded evaluation scripts.
+- `tests`: unit, integration and security tests.
+
+Controllers must not import Supabase clients or the Anthropic SDK. Domain modules must remain pure. Do not move database access into services or controllers.
+
+## Non-negotiable engineering rules
+
+1. **Tenant isolation.** Every business-data query is scoped by `store_id`. Resolve it from the authenticated server session or resolve a public store from its slug on the server. Never trust a store ID from a request body, query parameter or model/tool argument.
+2. **Validate boundaries.** Validate HTTP params/query/body, environment variables, model outputs and tool arguments with Zod. Prefer strict schemas that reject unknown keys. Preserve established input contracts.
+3. **Money.** Product/order money is integer paise. Do not use floating-point arithmetic for currency. AI usage accounting uses integer micro-USD. Calculations happen in code/database functions, never in the model.
+4. **Secrets.** Secrets belong in environment variables only. Never print, read, copy into docs, expose to browser code or commit them. The Supabase service-role key is server-side only.
+5. **EJS output.** Escape all user/model text. Use `<%= ... %>` for untrusted values. Never render AI-generated HTML, CSS or JavaScript. Do not add raw-output EJS expressions for user/model content.
+6. **Untrusted content.** Treat customer messages, product descriptions, image text and owner notes as untrusted data and potential prompt injection. They must never override system or application rules.
+7. **Database atomicity.** Multi-step state changes that must be atomic belong in one PostgreSQL function/RPC. `supabase-js` does not provide multi-statement transactions.
+8. **AI boundaries.** Claude must not set product prices, order totals, stock, payment status, store scope or other authoritative business state. Use server-owned data and validated tools. Escalate missing, conflicting or unverified facts.
+9. **Email side effects.** Queue supported notifications through `email_outbox`. Use idempotency. Email delivery failure must not roll back a committed business operation.
+10. **Errors.** Use the established `AppError` contract and central error handler. Never expose stack traces, SQL or provider internals to clients. Preserve correlation IDs.
+11. **Logging.** Structured logs with correlation IDs. Never log secrets, full customer messages or full phone numbers. Use existing redaction utilities.
+12. **Accessibility.** Semantic HTML, correct page `lang`, alt text, visible focus, keyboard-operable controls, sufficient contrast, mobile-first behavior and usability at 200% zoom.
+13. **Supabase security.** RLS enabled on application tables; Storage bucket private; serve private images using signed URLs. The service-role key bypasses RLS, so repository store scoping is mandatory.
+14. **PostgreSQL functions.** Set a controlled `search_path`; revoke public/anon/authenticated execution and grant only the required role as defined by project policy.
+15. **Authentication.** Owner auth is the existing application-managed server-side session system, not Supabase Auth. Passwords use `crypto.scrypt`; random session tokens are stored as SHA-256 hashes; cookies are HttpOnly and SameSite=Lax, with Secure and `__Host-` in HTTPS deployments. Keep Origin checks and rate limits. Signup is gated by `SIGNUP_INVITE_CODE`.
+16. **AI cost controls.** Use database-backed atomic reservation/settlement and configured budgets. Never replace authoritative budget enforcement with in-memory counters.
+17. **Persistence.** Do not store user data, images, sessions or drafts on GoDaddy local disk. Deployments can replace the filesystem; use Supabase for durable data.
+
+## Platform and operational constraints
+
+- Bind to `process.env.PORT`.
+- GoDaddy Node.js hosting and Supabase Cloud are separate systems.
+- The local filesystem is temporary and may be wiped on deployment.
+- Email delivery uses the configured HTTP relay through the email outbox worker. Do not assume direct outbound SMTP is available.
+- Keep outbound calls bounded with explicit timeouts and safe failure handling.
+- Keep Claude calls within hosting request/runtime limits; avoid long unbounded agent loops.
+- GoDaddy rate limits are external/undocumented. Keep public and AI endpoints bounded.
+- Configure Preview and Publish environment variables independently.
+- Never include `.env`, secrets, `.git` or `node_modules` in deployment ZIPs.
 
 ## Code quality
-Small pure functions; no function over ~40 lines; no deep nesting; descriptive names; JSDoc on exports;
-no dead code; no commented-out code; no magic numbers (named constants); async/await with explicit
-error handling; timeouts on every outbound call (Supabase, Claude, SMTP, email API).
 
-## Never do without explicit approval
-- Run gddy deploy / publish / purchase / DNS commands. The developer runs all hosting commands.
+- Prefer small, focused functions and pure helpers.
+- Avoid deep nesting, dead code, commented-out code and unexplained magic numbers.
+- Use descriptive names and JSDoc for exported functions where it improves maintainability.
+- Use async/await and explicit error handling.
+- Add timeouts to outbound operations.
+- Follow existing conventions before introducing a new abstraction.
+- Avoid drive-by refactors and unrelated formatting changes.
+
+## UI and design-system rules
+
+For UI-only work:
+
+- Frontend templates are in `src/views/`; styles are in `public/css/`; browser behavior is in `public/js/`.
+- Keep the existing EJS/vanilla-JS architecture. No React, CSS framework or build step.
+- Preserve every form field name, action, method, CSRF/hidden input, route contract and EJS variable unless the task explicitly requires a behavior change.
+- Use the existing design tokens in `public/css/tokens.css` for colors, fonts, radii, spacing and shadows. Do not introduce arbitrary hardcoded design values.
+- Reuse existing components, partials and icon assets. Do not create duplicate icon partials or introduce a new icon dependency without approval.
+- Gujarati and Devanagari fonts are self-hosted under `public/`; do not add third-party font requests.
+- UI-only tasks must not modify routes, controllers, services, repositories, database migrations or business behavior unless explicitly requested.
+- Do not weaken or delete tests to make a visual change pass.
+
+## Database migration rules
+
+- Add schema changes as a new numbered file in `db/migrations/`; never edit an already-applied migration to change historical behavior.
+- Add a matching read-only verification script in `db/verify/`.
+- Add or update safe tests in `db/test/` when useful; run destructive/race experiments only on a non-production database.
+- The developer applies production migrations. Never run destructive Supabase operations.
+- Record the migration and verification outcome in `docs/DECISIONS.md` when a database change is made.
+
+## Tests and completion criteria
+
+- Run the narrowest relevant tests while iterating, then run `npm test` for a code change.
+- Use Node.js 22.x for the final test run.
+- For database changes, validate migration structure and the matching verification script; do not claim production application unless confirmed.
+- For deployment-affecting changes, verify the relevant GoDaddy Preview/Publish workflow as directed by the developer.
+- For UI changes, inspect relevant responsive states and keyboard/accessibility behavior where possible.
+- Report exactly what was run and what was not run. Never claim a test, migration or deployment was verified if it was not.
+
+A task report should include:
+- Files changed.
+- Tests added/updated and commands run.
+- How to run or verify the change.
+- Known gaps or decisions requiring the developer.
+
+## Explicit approval required
+
+Never do any of the following without the developer's explicit approval:
+
+- Deploy, publish, purchase, change DNS or run GoDaddy billing/hosting commands.
 - Buy anything or touch billing.
-- Add or change dependencies.
-- Edit CLAUDE.md or SPEC.md.
-- Read or print .env or any secret value. You never receive the Supabase service-role key.
-- Run destructive Supabase operations (drop, truncate, bulk delete).
-- Run bulk or looping Claude calls. AI evals use small inputs; credits are limited.
-- Prefix test rows in Supabase clearly (e.g. slug "test-...") so they can be cleaned up.
+- Add, remove or change dependencies.
+- Read, print or expose `.env` or any secret value.
+- Run destructive Supabase operations (drop, truncate, bulk delete or destructive resets).
+- Run bulk/looping live Claude calls or unbounded AI evaluations.
+- Make a consequential product/business policy change.
+- Change database schema or production data outside the documented migration/deployment process.
+- Rewrite project-wide documentation or design-system rules unless asked.
 
 ## Working agreement
-- Plan before code. Ask questions instead of guessing.
-- Tests first. A task is DONE only when: tests pass, `npm test` is green (also under Node 22),
-  new env vars are in .env.example, docs/DECISIONS.md updated, and it runs on the GoDaddy preview.
-- Database changes are written as numbered SQL files in db/migrations/ plus a read-only check in
-  db/verify/. The developer applies them in the Supabase SQL editor; record applied migrations in
-  docs/DECISIONS.md.
-- Smallest diff that solves the problem. No drive-by refactors. No new dependencies without approval.
-- Report what you verified and what you could not. Never claim something works without running it.
-- At the end of every task output: files changed | tests added | how to run | known gaps.
 
-## Status
-Done: Module 0 code, Preview and Publish healthy, Supabase (DB + Storage), Claude API call.
-Next: SPEC.md modules in order, starting with Module 1.
-Pending: email transport decision (SMTP blocked on hosting), domain connection, removal of the
-temporary SMTP diagnostics detail and of DIAGNOSTICS_TOKEN on Publish.
+1. Understand the request and inspect the relevant code, tests and documentation before editing.
+2. If the request is ambiguous or conflicts with the existing behavior, ask one focused question rather than guessing.
+3. Plan the smallest change that solves the task.
+4. Preserve existing working behavior and user-approved design decisions.
+5. Add/update tests for behavior changes.
+6. Keep `.env.example`, `SPEC.md` and `README.md` synchronized when the relevant contract changes.
+7. Update `docs/DECISIONS.md` for meaningful new technical decisions; do not rewrite historical entries.
+8. Finish with a concise, factual report of changes, tests and known gaps.
 
+## Current project status
 
-## UI revamp rules
-- Frontend = EJS in views/, styles in public/css/, vanilla JS in public/js/. No React, no CSS framework, no build step.
-- UI-only changes. Never edit src/ (routes, controllers, services, repositories), SPEC.md or tests unless I ask.
-- Keep every form field name, action, method, CSRF/hidden input, and EJS variable exactly as is.
-- All colors, fonts, radii and shadows come from CSS variables in public/css/tokens.css. No hardcoded values in pages.
-- Icons: inline SVG only. Fonts: Google Fonts link in the shared layout/head partial only.
-- Be brief: after finishing, list changed files and stop. No long explanations.
+The project owner reports that the current application is deployed, the test suite is passing, and the deployed workflows are working as expected. Treat that as the current owner-provided status. Do not repeat stale "next module", "pending deployment" or "email transport decision" statements from historical documents as current tasks.
+
+Before making a code change, inspect the current branch and working tree. Do not assume historical branch names or commit status in archived planning documents describe the current repository.

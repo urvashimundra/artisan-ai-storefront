@@ -1,184 +1,762 @@
-# SPEC.md: Artisan AI Storefront & Business Assistant
+# SPEC.md — The Artisan Story
 
-Items marked **[CONFIRM]** are open decisions or facts to verify. Standing rules are in CLAUDE.md and apply to every module.
+**Product:** Artisan AI Storefront & Business Assistant  
+**Repository:** `artisan-ai-storefront`  
+**Runtime:** Node.js 22.x, Express 5, EJS and vanilla JavaScript  
+**Data platform:** Supabase Cloud (PostgreSQL and private Storage)  
+**AI provider:** Anthropic Claude  
+**Hosting:** GoDaddy Node.js hosting  
+**Primary market:** India; currency: INR  
+**Supported languages:** English (`en`), Gujarati (`gu`) and Hindi (`hi`)
 
-## 1. Goal and hackathon requirements
+This document describes the implemented application in the current repository. It is a **current-state specification**, not a build sequence or a list of future modules. The source code, SQL migrations and tests define exact implementation details. `CLAUDE.md` contains the standing engineering constraints and working agreement; this file describes product behavior, architecture and data flows.
 
-Help an artisan go from idea to a live, accessible, multilingual shop on their own domain, with an AI assistant that drafts and the owner who approves.
+---
 
-- Agentic use of Claude (tool use, multi-step), with the owner approving consequential actions
-- Deployed on GoDaddy Node.js hosting, served on a custom domain over HTTPS
-- Titan mailbox on that domain, plus a website contact form that sends to it
-- Working prototype by 20 Nov 2026, demo-ready for the finale
+## 1. Product purpose
 
-**Users:** artisans (owner) and their customers. Languages: English, Gujarati, Hindi. Price in INR.
+The Artisan Story helps independent artisans create and operate a multilingual online storefront without needing to build or maintain a website themselves.
 
-## 2. Architecture
+An artisan can create a store, describe their craft, upload product photographs, use AI to prepare product content, manage product information, and share a public storefront. Customers can discover products, contact the seller through the storefront, chat with an AI assistant grounded in the seller's information, and place order requests.
+
+The application supports the operational steps around an order, including stock reservation, UPI payment instructions, payment-reference submission and seller-side payment confirmation.
+
+### 1.1 Users and roles
+
+**Store owner**
+- Creates an account and one store.
+- Configures store identity, story, language, contact channels and appearance.
+- Creates, edits, translates, approves, publishes and removes products.
+- Maintains shop information and bulk-discount knowledge used by the assistant.
+- Reviews customer conversations and enquiries.
+- Manages orders and manually verifies payment references.
+- Receives relevant email notifications when email delivery is configured.
+
+**Customer / visitor**
+- Visits a public store and its product pages.
+- Switches between supported languages where translations are available.
+- Contacts the seller using the available contact options.
+- Starts or continues a store conversation with the customer assistant.
+- Places an order request for an eligible product.
+- Views order status through a private, unguessable link.
+- Submits a UPI transaction reference and may cancel an eligible order.
+
+There are no customer accounts. Store owners authenticate through the application's server-side session system.
+
+### 1.2 Product principles
+
+1. The store owner remains the authority for business information and consequential decisions.
+2. AI output is untrusted until validated and, where required, reviewed or approved.
+3. Product prices, order totals, stock changes and payment status are controlled by deterministic application and database logic—not by the language model.
+4. Customer-facing answers should be grounded in the store's published products and owner-provided knowledge.
+5. Store data is isolated by store scope.
+6. The storefront must remain usable on mobile devices and in the supported scripts and languages.
+
+---
+
+## 2. Implemented capabilities
+
+### 2.1 Owner account and store onboarding
+
+- Owner signup is gated by `SIGNUP_INVITE_CODE`; signup is disabled when the code is not configured.
+- Owners log in with email and password.
+- Passwords are hashed using Node.js `crypto.scrypt`; plaintext passwords are never stored.
+- Sessions use random bearer tokens. Only token hashes are stored in Supabase.
+- The session cookie is HttpOnly, SameSite=Lax and Path=/; HTTPS deployments use Secure and the `__Host-` prefix.
+- An owner has one store, enforced by the database.
+- Store onboarding captures the store's name, public slug/address, default language and store information.
+- Onboarding includes seller contact details and a workflow for preparing and approving store-language content.
+- The owner dashboard is the entry point to products, store settings, shop knowledge, conversations/enquiries and orders.
+
+### 2.2 Store profile and presentation
+
+Owners can manage the information used by the public storefront, including:
+- Store name, slug and story.
+- Tagline.
+- Default language and supported store translations.
+- Accent/theme selection.
+- WhatsApp contact number and whether the WhatsApp action is enabled.
+- Instagram handle.
+- UPI ID used to present payment instructions.
+- Enquiry-notification preference.
+- Store contact information.
+
+The public storefront is served at `/s/:slug`. Public product pages are served at `/s/:slug/p/:productId`.
+
+The storefront includes:
+- A store introduction and maker story.
+- Published product listings.
+- Product detail pages and product imagery.
+- Language-aware store and product content.
+- Store contact actions where configured.
+- Responsive layouts and self-hosted Gujarati and Devanagari fonts.
+- SEO-oriented public routes, `robots.txt` and `sitemap.xml`.
+
+Only published products and approved language content intended for public display are exposed through the public storefront.
+
+### 2.3 Product creation and management
+
+The owner can:
+- Start a product listing.
+- Upload a product image.
+- Generate a product-content draft using Claude and the uploaded image plus the owner's description/story.
+- Review and edit product information.
+- Set the product's price and stock information.
+- Save the product as a draft or publish it after the required content approval.
+- Edit, delete or update a product's language content.
+- Generate translation drafts for the other supported languages.
+
+The AI listing workflow can propose product title, description and image alt text. The owner controls price and stock. AI does not set or modify monetary values.
+
+Product images are stored in private Supabase Storage. The application uses signed image URLs for authorized display rather than making the storage bucket public.
+
+#### Product translation behavior
+
+- Product language content is stored separately by product and language.
+- Translation drafts are marked as AI-sourced and unapproved.
+- The owner reviews and approves translations before they are treated as approved public content.
+- The explicit update-languages workflow regenerates translations for the other supported languages.
+- An already approved translation written by the owner is preserved by the translation-draft save operation.
+- Other generated/unapproved translation rows may be replaced by a new generation and require approval again.
+- Saving the ordinary product review form does not silently regenerate or unapprove other languages.
+
+The database function `save_product_translation_drafts` performs the relevant write atomically and protects the product row during the operation.
+
+### 2.4 Shop knowledge and bulk-discount rules
+
+The owner can maintain shop knowledge used to ground customer-assistant responses. The knowledge area supports:
+- Saving the shop's written information/notes.
+- Saving structured bulk-discount rules.
+- Asking Claude to identify or extract bulk-discount rules from the saved shop notes.
+- Reviewing and saving extracted rules.
+
+The extraction workflow is not a pricing authority. The assistant may use owner-provided rules as context, but final order totals and monetary calculations remain application-controlled.
+
+### 2.5 Customer conversations and AI assistant
+
+The public storefront supports persistent customer conversations.
+
+A customer can start a conversation from a store or product page, provide the required contact details and send messages. Conversations and messages are persisted in Supabase and appear in the owner's conversation inbox.
+
+When the AI configuration is available:
+- The conversation agent can use validated tools and store-scoped information.
+- It can ground responses in published product data and owner-maintained shop knowledge.
+- It checks customer text and treats customer-supplied content as untrusted.
+- It can identify missing or conflicting information and escalate rather than inventing an answer.
+- It does not control order/payment state or perform consequential database operations on behalf of the owner.
+- AI usage for the conversation feature is separately constrained by database-backed usage controls.
+
+When AI is unavailable or not configured, conversation persistence and the seller inbox remain application capabilities; the AI response capability is conditional on the AI configuration.
+
+The owner can:
+- View the conversation inbox.
+- Open a conversation and inspect its message history.
+- Reply as the seller.
+- Mark a conversation handled.
+- Delete a conversation where permitted.
+
+Conversation lifecycle, message limits, idempotency, usage reservations and retention are enforced in application and database logic.
+
+### 2.6 Legacy enquiries and seller inbox
+
+The application retains enquiry routes and inbox compatibility. The owner can list, open, reply to, mark handled and delete enquiries through the owner interface. Conversation-backed customer chat is the primary persistent chat workflow; enquiry-related routes remain part of the current application.
+
+### 2.7 Orders and stock reservation
+
+Customers can place an order request from an eligible product page.
+
+The order flow includes:
+1. Customer opens the product's buy/checkout page.
+2. Customer submits the order details and quantity.
+3. The backend validates the request and computes monetary values.
+4. A PostgreSQL function creates the order and reserves the required stock atomically.
+5. The customer receives a private order-status URL.
+6. The order remains subject to the configured reservation/expiry rules (the current customer payment reservation window is 10 minutes).
+7. The customer can submit a UPI transaction reference (UTR).
+8. The owner reviews the order and marks payment as received or not received.
+9. The owner can cancel an eligible order; cancellation and expiry restore reserved stock as defined by the database workflow.
+
+Order operations are scoped to the store and use database functions to protect consistency under concurrent requests.
+
+The current schema and migrations define order states, payment attempts, reservation expiry and cancellation reasons. The application includes handling for exhausted UTR attempts.
+
+### 2.8 UPI payment workflow
+
+The store can display UPI payment instructions using the owner's configured UPI ID. The application also supports a QR representation and copyable UPI details where available in the interface.
+
+This is **not an online payment gateway integration**:
+- The application does not itself receive or settle UPI funds.
+- The customer submits a UTR/payment reference after making payment outside the application.
+- The seller checks the actual payment in their bank/UPI application.
+- The seller records the outcome in the owner order interface.
+- The application changes payment/order state only through its validated backend/database workflow.
+
+Never describe a submitted UTR as proof of payment or claim that payment is automatically verified.
+
+### 2.9 Email, contact form and notifications
+
+The application includes:
+- A public contact form.
+- Persistent contact-message storage.
+- An email outbox.
+- Email templates for supported order, customer and owner notifications.
+- Idempotency keys to prevent duplicate queued notifications.
+- A background outbox worker that claims due messages, sends through the configured relay and records success/failure.
+- Retry handling and safe error recording.
+- Email delivery that is decoupled from the business transaction: a delivery failure does not roll back an already committed order or other business operation.
+
+The current implementation uses an HTTP relay client in `src/email/relayClient.js`, not Nodemailer/SMTP transport selection. The relay is configured through `EMAIL_RELAY_URL`, whose default is a loopback address (`http://127.0.0.1:2525`). The worker can be controlled with `EMAIL_WORKER_ENABLED`.
+
+The destination for the public contact form is configured through `CONTACT_INBOX_EMAIL`; `OWNER_NOTIFY_EMAIL` is also used as a notification/fallback address in the relevant flows.
+
+The outbox worker and relay must be considered separate from the business operation that queued the email. A queued email is not the same as a confirmed delivery.
+
+---
+
+## 3. User journeys
+
+### 3.1 Seller creates and publishes a store
+
+1. Seller opens signup and provides the configured invite code.
+2. Seller creates an account and logs in.
+3. Seller creates a store and completes onboarding.
+4. Seller configures store identity, contact information and languages.
+5. Seller adds shop knowledge and discount rules as needed.
+6. Seller uploads a product image and provides a product story/description.
+7. Claude proposes product content.
+8. Seller reviews, edits and approves the required language content.
+9. Seller publishes the product.
+10. Seller shares the public `/s/:slug` storefront URL.
+
+### 3.2 Customer discovers a product and places an order
+
+1. Customer opens the public storefront.
+2. Customer opens a product detail page.
+3. Customer chooses the buy action where ordering is available.
+4. Customer submits the checkout form.
+5. The application validates the request, calculates the total and reserves stock atomically.
+6. Customer receives a private order-status link and payment instructions.
+7. Customer makes payment externally using the presented UPI details.
+8. Customer submits the UTR through the private order page.
+9. Seller checks the payment independently and records the result.
+10. The application updates the order according to the seller's decision and database rules.
+
+### 3.3 Customer asks the assistant for help
+
+1. Customer starts a conversation from the storefront.
+2. The conversation is created and stored.
+3. Customer sends a message.
+4. If AI is configured and usage is available, the agent uses approved tools/context to formulate a grounded response.
+5. If the agent cannot answer safely or detects a conflict, the conversation is flagged/escalated.
+6. The customer and seller messages remain in the conversation history.
+7. Seller reviews and responds from the owner inbox as needed.
+
+---
+
+## 4. Architecture
+
+### 4.1 Runtime architecture
 
 ```text
-Customer / Owner browser (EJS pages + vanilla JS)
-   | HTTPS
-   v
-Express on GoDaddy Node.js hosting
-   routes -> controllers -> services -> repositories -> Supabase (Postgres + private Storage)
-                              |-> src/ai (Claude, tools, Zod-validated output, budget guard)
-                              |-> src/email -> email_outbox -> transport (smtp | api) -> mailbox
+Customer / Store owner browser
+        |
+        | HTTPS
+        v
+GoDaddy Node.js hosting (Node.js 22.x)
+        |
+        v
+Express 5 application
+  |-- EJS server-rendered views
+  |-- Vanilla JavaScript and self-hosted CSS/assets
+  |
+  +--> Routes
+         |
+         v
+      Controllers (HTTP request/response only)
+         |
+         v
+      Services (application workflows and business rules)
+         |
+         +--> Domain modules (pure validation/calculation/rules)
+         |
+         +--> AI modules (Anthropic SDK, prompts, tools, schemas)
+         |
+         +--> Email modules (outbox worker and HTTP relay)
+         |
+         v
+      Repositories (only application layer that accesses Supabase)
+         |
+         v
+      Supabase Cloud
+        |-- PostgreSQL
+        |-- Private Storage
+
+Anthropic Claude API <---- server-side AI modules
+Email relay          <---- server-side email worker
 ```
 
-Claude proposes. Services validate and execute. The owner approves. The database is the source of truth.
+### 4.2 Layer responsibilities
 
-## 3. Validated infrastructure (Module 0 results)
+- `src/server.js`: process startup, dependency construction and listening.
+- `src/app.js`: Express application factory and middleware/router composition.
+- `src/config`: environment parsing and application configuration.
+- `src/routes`: route declarations and middleware ordering.
+- `src/controllers`: HTTP-specific parsing, response and rendering.
+- `src/services`: workflows and orchestration.
+- `src/domain`: pure business rules and calculations; no network or database I/O.
+- `src/repositories`: Supabase access and persistence queries/RPC calls.
+- `src/ai`: Claude client integration, prompts, tools, output schemas and AI-specific safeguards.
+- `src/email`: email templates/service, relay client and outbox worker.
+- `src/middleware`: authentication/session loading, store loading, rate limits, Origin checks, logging and error handling.
+- `src/views`: EJS templates and partials.
+- `public`: static CSS, JavaScript, fonts and public assets. No private user data.
+- `db/migrations`: ordered PostgreSQL schema and function migrations.
+- `db/verify`: read-only migration verification scripts.
+- `db/seed`: database seed material where applicable.
+- `scripts`: developer and operational scripts.
+- `tests`: unit, integration and security tests.
+- `docs`: engineering decisions, plans and skipped-work notes.
 
-| Check | Result |
+### 4.3 Technology stack
+
+| Concern | Implementation |
 |---|---|
-| Express, process.env.PORT, /health | Confirmed on Preview |
-| Platform health check | Probes `/`; `GET /` returns 200; Preview and Publish both show healthy |
-| ~90 s request completes | Confirmed |
-| Streaming over 30 s | Confirmed |
-| Filesystem survives restart | Yes |
-| Filesystem survives new deployment | **No** |
-| Supabase Postgres read/write over HTTPS | Confirmed (Preview) |
-| Supabase private Storage upload | Confirmed |
-| Claude API (claude-haiku-5-5) from backend | Confirmed |
-| Node version | GoDaddy states apps run on Node.js 22; `engines` is `22.x`; tests pass on 22 |
-| Titan SMTP from local machine | Confirmed (ports 465 and 587) |
-| Titan SMTP from GoDaddy Preview and Publish | **Blocked on both variants: `connect EACCES` (errno -13) on 465 and 587** |
-| Custom domain + HTTPS | Domain and hosting purchased; connection pending **[CONFIRM]** |
-| GoDaddy rate limits | Undocumented |
+| Runtime | Node.js 22.x |
+| HTTP framework | Express 5 (ES modules) |
+| Templates | EJS |
+| Browser code | Vanilla JavaScript |
+| Styling | CSS, shared design tokens |
+| Database | Supabase PostgreSQL |
+| Object storage | Supabase Storage, private bucket |
+| Database client | `@supabase/supabase-js` over HTTPS |
+| AI | `@anthropic-ai/sdk` |
+| Validation | Zod |
+| Security headers | Helmet |
+| Rate limiting | `express-rate-limit` / application rate-limit middleware |
+| QR generation | `qrcode` |
+| Tests | Node.js built-in `node:test` |
+| Hosting | GoDaddy Node.js hosting |
 
-Consequences: all persistent data and images in Supabase; Claude calls under 60 s; secrets set per variant; self-host Gujarati and Devanagari fonts; throttle AI and public endpoints; email transport must be swappable (see Module 5).
+No React, frontend framework, CSS framework or frontend build pipeline is part of the current stack.
 
-### Environment configuration
+---
 
-Required to boot: `NODE_ENV`, `BASE_URL`, `PORT` (default 3000). Optional groups are all-or-nothing once any member is set. From Module 1 the Supabase group is required.
+## 5. Data and persistence
 
-- `BASE_URL`: canonical application URL for the environment (Preview and Publish differ).
-- `ALLOWED_ORIGINS`: optional comma-separated trusted origins for Origin validation, each a bare origin (scheme + host). Configure per environment. Needed if the app is reachable on more than one host (for example the default URL and the custom domain).
-- `TRUST_PROXY`: integer, default 1. `DIAGNOSTICS_TOKEN`: optional, min 24 chars. Remove or rotate it on Publish when not in use.
-- `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`: Supabase connection. Server-side only.
-- `SIGNUP_INVITE_CODE`: min 16 chars. Required for owner signup; if unset, signup is disabled. Never exposed to browser code, logs, API responses or the repository.
-- `DEMO_OWNER_EMAIL`, `DEMO_OWNER_PASSWORD`: read only by `scripts/seed-demo.js` on the developer's machine. Not required to boot the app, never committed.
-- AI group (Module 2): `ANTHROPIC_API_KEY`, `CLAUDE_MODEL`, `AI_DAILY_BUDGET_USD` (per normal owner per day), `AI_DEMO_DAILY_BUDGET_USD` (demo owner, much lower), `AI_GLOBAL_DAILY_BUDGET_USD` (all owners combined). Parsed from decimal strings to integer micro-USD without floating-point arithmetic.
-- Email group: `EMAIL_TRANSPORT` (`smtp` or `api`, default `smtp`), `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM`, `OWNER_NOTIFY_EMAIL`; plus API-transport settings if that fallback is adopted.
+The numbered SQL migrations are the canonical definition of the database schema. This section groups the current data model by responsibility; it intentionally does not duplicate every column and constraint from the migrations.
 
-Secrets are set per GoDaddy variant (Preview and Publish separately), as raw values with no quotes, and locally in `.env`. Never commit `.env`.
+### 5.1 Identity and stores
 
-## 4. Data model
+- `owners`: owner accounts and password hashes; includes demo-owner classification.
+- `sessions`: hashed session tokens, owner association and expiry.
+- `stores`: one store per owner, public slug, store profile, language and presentation/contact settings.
+- `store_translations`: localized store content.
 
-Every business table carries store_id (except owners, sessions, stores and the AI budget tables, which are keyed by owner). RLS on every table with no policies for anon/authenticated; privileges revoked from those roles. The server uses the service role and scopes every query itself. Money is integer paise (shop) or integer micro-USD (AI cost).
+### 5.2 Products and AI-generated content
 
-- **owners**: id, email (unique on lower(email)), password_hash (encoded scrypt string including salt), is_demo (bool, default false), created_at
-- **sessions**: id, owner_id (FK, cascade), token_hash (unique), expires_at, created_at
-- **stores**: id, owner_id (**UNIQUE**, FK), slug (unique, format check), name, default_language (check en/gu/hi), story, contact_email (nullable), created_at, updated_at
-- **products**: id, store_id, status (draft/published), price_paise, stock (nullable), image_path, created_at
-- **product_translations**: product_id, store_id, language (en/gu/hi), title, description, alt_text, source (owner/ai), approved (bool)
-- **enquiries**: id, store_id, product_id (nullable), customer_name, customer_contact, message, language, status (new/draft_ready/replied/needs_owner), created_at
-- **order_requests**: id, store_id, enquiry_id, items (jsonb), total_paise, status (requested/quoted/confirmed/cancelled), created_at
-- **ai_drafts**: id, store_id, kind (translation/reply/quote), target_id, content (jsonb), status (pending/approved/rejected), model, tokens_in, tokens_out, cost_micro_usd, created_at
-- **ai_usage_daily**: owner_id, usage_date (India date, Asia/Kolkata), reserved_micro_usd, spent_micro_usd; primary key (owner_id, usage_date)
-- **ai_usage_global_daily**: usage_date (India date, Asia/Kolkata, pk), reserved_micro_usd, spent_micro_usd
-- **ai_reservations**: id, owner_id, usage_date, amount_micro_usd, status (reserved/settled/released/expired), expires_at, created_at
-- **email_outbox**: id, store_id, to_address, subject, body, idempotency_key (unique), status (pending/sent/failed), attempts, last_error_code, created_at
+- `products`: store-scoped product records, publication state, price, stock, image reference and generation coordination data.
+- `product_translations`: per-language title, description and alt text, with source and approval metadata.
+- `ai_drafts`: structured AI draft records where used by the product workflows.
 
-Multi-step changes (approve draft, confirm order, reserve/settle AI budget) run as a single Postgres function. Every such function must set `search_path`, `REVOKE EXECUTE` from public, anon and authenticated, and `GRANT EXECUTE` to service_role only, because functions in the public schema are otherwise callable through Supabase's API.
+### 5.3 AI budget controls
 
-## 5. Modules (build in order; each is a vertical slice with tests)
+- `ai_usage_daily`: owner/day AI cost accounting.
+- `ai_usage_global_daily`: global/day AI cost accounting.
+- `ai_reservations`: reservations and settlement/release state for AI calls.
 
-### Module 0: Foundation (code complete; deployment checks pending)
-App factory, env validation, health, root route, diagnostics, smoke script. Done: Preview and Publish healthy, diagnostics run on both. Open items: domain connection, removal of the temporary SMTP `detail` field and of `DIAGNOSTICS_TOKEN` on Publish, and the email transport decision (SMTP is blocked on both variants).
+AI monetary usage is tracked in integer micro-USD. Product/order money is tracked in integer paise. The application does not use floating-point arithmetic for currency.
 
-### Module 1: Owner access and store setup
+### 5.4 Customer support and knowledge
 
-**Decision: simple server-side session login, not Supabase Auth.** Hackathon-grade, no new dependencies.
+- `store_knowledge`: store-provided knowledge and assistant context.
+- `enquiries`: enquiry records retained by the enquiry workflow.
+- `conversations`: persistent customer conversations and their lifecycle/coordination metadata.
+- `conversation_messages`: ordered customer, assistant and seller messages.
+- `conversation_usage`: conversation-specific usage accounting and limits.
+- `contact_messages`: public contact-form submissions.
 
-- **Passwords:** `crypto.scrypt` with a per-user random salt, stored as one encoded string (`scrypt$N$r$p$salt$hash`) so parameters can be raised later. Constant-time compare. For an unknown email a dummy hash is verified so timing and response match a wrong password. No plaintext, never logged.
-- **Signup:** requires `SIGNUP_INVITE_CODE` (compared in constant time). No unrestricted public signup. A duplicate email is reported only after a valid invite code.
-- **Login:** uniform failure message. Failed-login rate limit keyed by IP and email together (so an attacker cannot lock out the demo account by failing logins from elsewhere), plus a looser per-IP limit; signup limited per IP.
-- **Sessions:** 32 random bytes; only the SHA-256 is stored in `sessions` with an absolute expiry. New token on every login. Cookie HttpOnly, SameSite=Lax, Path=/; Secure and `__Host-` prefixed in production. Logout deletes the row. Expired sessions are rejected and cleaned up. Never on local disk.
-- **Tenancy:** middleware resolves cookie to owner_id and then to the owner's store server-side. store_id is never taken from the request body, query or model arguments.
-- **CSRF:** SameSite plus Origin check on every state-changing request against `BASE_URL` and `ALLOWED_ORIGINS`; if Origin is absent, require `Sec-Fetch-Site: same-origin`.
-- **Store:** one store per owner (database constraint). Fields: name, slug, default language, story.
-- **Demo owner:** `scripts/seed-demo.js`, run by the developer, idempotent, reads `DEMO_OWNER_EMAIL` and `DEMO_OWNER_PASSWORD`, goes through the same hashing and store services as normal owners, sets `is_demo`. Credentials never committed. The demo owner has the same authentication and authorization as any owner, and a much lower AI budget (Module 2).
-- **Pages:** signup, login, create store, dashboard (shows the owner's store). Escaped EJS, lang attribute, labelled fields, keyboard operable, mobile-first, `Cache-Control: no-store` on authenticated pages.
+### 5.5 Orders and notifications
 
-**Acceptance:** an owner signs up with a valid invite code, logs in, creates a store that appears on their dashboard, and logs out. The seeded demo owner can log in and sees its store. Cross-tenant access is rejected (security test). Cookie flags, expiry, Origin checks and rate limits are covered by tests. An invalid invite code creates no owner. The public page at `/s/:slug` is Module 3.
+- `store_order_counters`: store-scoped order numbering/counters.
+- `orders`: order lifecycle, customer access token data, payment and cancellation state.
+- `order_items`: product/quantity/price snapshots associated with an order.
+- `order_payment_attempts`: submitted payment references and attempt tracking.
+- `email_outbox`: queued notification messages, idempotency and delivery/retry state.
 
-**Out of scope:** AI budget logic, Claude calls, password reset, email verification, roles, multiple stores.
+### 5.6 Database invariants
 
-**Known limits** (record in docs/DECISIONS.md): no email verification, no password reset, in-memory rate limits reset on restart and are per instance.
+The application and database jointly enforce these invariants:
+- Store-scoped access for business records.
+- One store per owner.
+- Product and order relationships scoped to the same store.
+- Valid language, status, amount and content constraints.
+- Atomic order placement, stock reservation, cancellation/expiry and payment resolution.
+- Atomic AI budget reservation and settlement.
+- Atomic conversation state/message operations where implemented through PostgreSQL functions.
+- Atomic enqueueing of relevant email side effects with business operations.
+- Private order access through unguessable tokens; stored token hashes are used for lookup, with encrypted token material only where required to generate notification links.
 
-### Module 2: Photo + story to product listing
+Multi-step operations that require transactionality use PostgreSQL functions/RPCs rather than multiple independent Supabase client calls.
 
-Owner uploads a photo and a short story. Claude (vision) proposes title, description, alt text and translations into the other two languages. Output is Zod-validated. Owner edits and approves each language. Price is entered by the owner; the AI never sets or changes money.
+### 5.7 Migrations
 
-- Image validation (type, size) before upload; original in private Storage; scratch files deleted.
-- Streamed progress; single Claude call under 60 s.
+The repository currently contains migrations:
 
-**AI budget (hard requirement, concurrency-safe, database-backed):**
-- Three limits: per normal owner per day (`AI_DAILY_BUDGET_USD`), per demo owner per day (`AI_DEMO_DAILY_BUDGET_USD`), and a global daily cap (`AI_GLOBAL_DAILY_BUDGET_USD`) that protects total credit. The budget day is the India date (Asia/Kolkata), so limits reset at midnight IST. The database computes the date itself, as `(now() at time zone 'Asia/Kolkata')::date`, inside the budget functions; the app never passes a date, which avoids clock skew between the app and the database.
-- Before each Claude call, `reserve_ai_budget` atomically checks all three limits and records a reservation sized to the worst-case cost (estimated input plus max output tokens, using price constants in `src/domain`, verified against current Anthropic pricing). If any limit would be exceeded, the call is refused with a clear owner-facing message and nothing is sent to Claude.
-- After the response, `settle_ai_budget` converts the reservation to actual spend from provider usage. On a provider error with no usage, `release_ai_budget` frees it.
-- Reservations expire (TTL longer than the longest allowed call, for example 5 minutes). An expired reservation is charged as spent, since the call may have reached the provider (decided: conservative, protects credits).
-- Concurrent requests cannot exceed a limit: row locks taken in a fixed order inside one Postgres function.
-- Usage is tracked per owner per day across all of the owner's stores, never in memory.
+`001` owners/sessions/stores  
+`002` AI budget  
+`003` AI budget reservation ordering/sweep refinement  
+`004` products and product translations/AI drafts  
+`005` product generation fencing  
+`006` storefront profile fields  
+`007` store translations  
+`008` orders and payment workflow  
+`009` order reservation/expiry refinements  
+`010` email outbox and contact form  
+`011` email and order-link hardening  
+`012` assistant knowledge and enquiries  
+`013` persistent conversations and conversation usage  
+`014` conversation backfill  
+`015` UTR-attempt exhaustion and related order/email behavior  
+`016` product translation draft persistence
 
-**Acceptance:** photo + story in, editable multilingual draft out; approval publishes the product. AI requests cannot exceed a configured limit, including under concurrent requests.
+Migration files are applied and verified operationally according to the project's deployment process. Do not infer production database state from the presence of a SQL file alone; use the team's migration record and verification results.
 
-### Module 3: Public storefront /s/:slug
-Server-rendered EJS, language switcher, correct lang attribute, alt text, keyboard operable, mobile-first, WCAG contrast >= 4.5:1, works at 200% zoom. Signed image URLs. All output escaped. Self-hosted fonts for Gujarati and Devanagari.
+---
 
-**Acceptance:** published products visible in the chosen language; accessibility checks pass.
+## 6. AI behavior and controls
 
-### Module 4: Enquiries, order requests and AI drafts
-Customers send an enquiry or order request from the storefront. The server stores it (store_id from slug), then Claude drafts a reply or quote using tools that read product data from the database, under the same AI budget guard. Prices and totals are computed in src/domain, never by the model. Customer text is untrusted (prompt-injection tests). The owner reviews the draft in a dashboard and approves, edits or rejects. Approval writes an email_outbox row; delivery is idempotent and its failure never rolls back the approval.
+### 6.1 AI use cases
 
-**Acceptance:** enquiry in, grounded draft out, owner approves, customer email queued and sent through the configured transport.
+Claude is used for:
+- Product listing content generation from an image and seller-provided description/story.
+- Product translation drafts.
+- Store-language/onboarding translation drafts.
+- Extraction of bulk-discount rules from seller-provided shop notes.
+- Customer conversation responses grounded in store/product/knowledge data.
 
-### Module 5: Site contact form and email transport
-Hackathon requirement. A contact form on the main site posts to `/api/contact`, stores the message, and delivers it to the domain mailbox through the outbox. Rate-limited, validated, spam-resistant.
+The precise prompts, tool schemas and response schemas live under `src/ai`.
 
-**Constraint:** outbound SMTP is blocked from the hosted app on both Preview and Publish (`EACCES` on 465 and 587), so SMTP cannot be relied on unless GoDaddy or the organizers provide a supported route. The transport is therefore swappable behind one interface in `src/email`: `smtp` (smtpout.secureserver.net, full address as username, password as platform secret) and `api` (HTTPS email service, only if the organizers confirm it is acceptable; adding it needs approval as it is outside the fixed stack). The outbox, templates and tests do not change when the transport changes. Decision date: 16 Nov.
+### 6.2 Validation and trust boundaries
 
-**Acceptance:** a submission arrives in the configured domain mailbox.
+- External inputs are validated at application boundaries.
+- Model outputs and tool arguments are validated with Zod schemas.
+- Model-provided store identifiers are not trusted; store scope is injected by the server.
+- Customer messages, seller notes, product text and text found in images are untrusted input and may contain prompt injection.
+- The agent must not treat untrusted content as instructions that override system or application rules.
+- Missing, unsupported or conflicting facts should result in a clarification/escalation rather than fabricated information.
+- The model does not calculate or authoritatively set product prices, order totals, stock or payment status.
+- AI-generated product content and translations are subject to the relevant seller review/approval workflow.
 
-### Module 6: Launch (developer-run, not Claude Code)
-1. Done: domain `theartisanstory.in`, Node.js Economy (1 month) and Titan Pro Light (1 month) purchased; mailbox created. In-store credit expires 23 Nov 2026.
-2. Snapshot DNS (MX, SPF/TXT, Titan records), connect the domain to the published app, confirm HTTPS, compare DNS afterwards, send a test email to the mailbox.
-3. Set every secret on the Publish variant (including `BASE_URL`, `ALLOWED_ORIGINS`), publish, re-run the smoke test, remove or rotate `DIAGNOSTICS_TOKEN`.
-4. End-to-end test on the live domain with the demo owner, before 20 Nov.
+### 6.3 AI budget accounting
 
-## 6. AI design
+The product/listing AI budget uses database-backed reservations and settlement:
+- Owner daily budget.
+- Lower demo-owner daily budget.
+- Global daily budget.
+- Daily accounting uses the India business day (Asia/Kolkata) where defined by the database functions.
+- The application reserves an upper-bound estimate before making a provider call.
+- Provider usage is used to settle actual spend.
+- Reservations are released or conservatively reconciled on failure/expiry according to the database workflow.
+- Concurrent calls are coordinated in PostgreSQL rather than relying on in-memory counters.
 
-- src/ai/prompts/ versioned prompts; src/ai/tools/ read-only data lookups; src/ai/schemas/ Zod outputs.
-- Tools never accept store_id from the model. The server injects it.
-- Model output is validated; invalid output is retried once, then escalated to the owner. A retry reserves budget again.
-- If information is missing the draft says so and flags needs_owner. No invented prices, stock or dates.
-- Log model, tokens, cost and correlation id per call. No full customer text in logs.
-- ai-evals use a small fixed set of cases to protect credits.
-- Budget enforcement is database-backed and atomic (Module 2). In-memory counters are never the control.
+The customer-conversation feature also has its own store-scoped/customer usage controls in `conversation_usage` and its migration-defined functions. These controls are distinct from the owner/global product-generation AI budget.
 
-## 7. Testing
+### 6.4 AI configuration
 
-- node:test. Unit (domain: pricing, quotes, AI cost, contrast), integration (services + repositories), security (tenancy, injection, XSS, rate limits, Origin), ai-evals (small set).
-- `npm test` green before any deployment, and under Node 22 (`npx -y node@22 --test`).
-- Smoke script: `/health`, Supabase read/write, one Claude call, SMTP or API transport.
-- Run on Preview, then on Publish.
-- Include tests for: invite code, demo account access, uniform login failures, Origin validation, per-owner and global AI budget, concurrent reservations, reservation expiry and settlement.
-- SQL verification files (db/verify/) are run by the developer after each migration.
+The AI feature group is enabled by configuring:
+- `ANTHROPIC_API_KEY`
+- `CLAUDE_MODEL` (defaults in code to `claude-haiku-5-5`)
 
-## 8. Out of scope
+The three owner/demo/global AI budget values have application defaults and are parsed into integer micro-USD. Exact parsing and boot behavior are defined in `src/config/env.js`.
 
-Online payments, shipping and logistics, accounts for customers, analytics, social integrations, password reset, email verification, multiple stores per owner, languages beyond en/gu/hi.
+---
 
-## 9. Timeline
+## 7. Security, privacy and reliability
 
-| Date | Focus |
+### 7.1 Authentication and session security
+
+- Password hashing uses `crypto.scrypt` with per-user random salt and encoded parameters.
+- Password verification uses constant-time comparison for equal-length hashes.
+- Login failures use a uniform response to reduce account enumeration.
+- Password hashing is protected by a bounded queue to constrain concurrent memory use.
+- Session tokens are generated from cryptographically secure random bytes.
+- Only SHA-256 token hashes are stored in the sessions table.
+- Session cookies are HttpOnly, SameSite=Lax and Path=/; HTTPS uses Secure and the `__Host-` prefix.
+- Signup requires the invite code; no unrestricted public signup is provided.
+- Authenticated pages use no-store cache headers.
+
+### 7.2 Tenant isolation
+
+- The authenticated owner and store are resolved server-side.
+- Store IDs are not accepted as authority from browser form bodies or model/tool arguments.
+- Repository operations scope business data to the resolved store.
+- Public store routes resolve the store from the URL slug.
+- Order and conversation identifiers/tokens are always resolved with the appropriate store or private-token scope.
+
+### 7.3 Request and output security
+
+- Zod validates external request data and model outputs.
+- State-changing browser routes use Origin validation.
+- Rate limits apply to relevant authentication, public, AI, order, contact and diagnostics routes.
+- Helmet supplies security headers and a Content Security Policy.
+- EJS output is escaped; user/model text is not rendered as executable HTML.
+- No AI-generated HTML, CSS or JavaScript is executed.
+- Private order pages use no-store/noindex and restrictive referrer behavior.
+- Signed URLs are used for private product images.
+
+### 7.4 Database security
+
+- Row Level Security is enabled on application tables.
+- Application access uses the server-side Supabase service-role credential.
+- The service-role key bypasses RLS, so repository-level store scoping is mandatory; RLS and database grants provide additional defense.
+- Privileged PostgreSQL functions set a controlled `search_path` and have execution privileges restricted to the service role as defined in the migrations.
+- Secrets are environment configuration only and must never appear in source control, browser code or logs.
+
+### 7.5 Logging and errors
+
+- Logs are structured and include correlation identifiers.
+- Sensitive values, customer message bodies and phone numbers are redacted/omitted.
+- Client error responses expose safe codes/messages and correlation IDs, not stack traces, SQL or provider internals.
+- Email/provider failures are recorded safely and do not undo committed business operations.
+
+### 7.6 Accessibility and localization
+
+The interface is designed around:
+- Semantic HTML and correct page language attributes.
+- Labels and accessible form errors.
+- Keyboard-operable controls and visible focus.
+- Alternative text for product imagery.
+- Responsive, mobile-first layouts.
+- Self-hosted Noto Gujarati and Devanagari font assets.
+- Contrast checks using the project's domain contrast utilities.
+- Layout usability at enlarged zoom levels.
+
+Automated checks are complemented by manual review of actual rendered pages and translations.
+
+### 7.7 Operational constraints
+
+- Persistent application data and images belong in Supabase, not the GoDaddy local filesystem.
+- The local filesystem may be used only as temporary scratch space; deployments can replace it.
+- The server binds to `process.env.PORT`.
+- Outbound calls use bounded timeouts.
+- Claude calls should remain within the hosting platform's request constraints.
+- Rate limits are currently in-memory and per process; they reset on restart and are not a distributed limiter.
+- GoDaddy platform rate limits and runtime behavior are external constraints and should be monitored.
+
+---
+
+## 8. HTTP surface
+
+The following route map reflects the current route declarations. Exact middleware order, validation and response behavior are defined in `src/routes/`.
+
+### 8.1 Public site and storefront
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/` | Root/platform health response |
+| GET | `/health` | Application health/version response |
+| GET | `/contact` | Contact form |
+| POST | `/contact` | Submit contact message |
+| GET | `/contact/sent` | Contact submission confirmation |
+| GET | `/robots.txt` | Robots policy |
+| GET | `/sitemap.xml` | Public storefront sitemap |
+| GET | `/s/:slug` | Public storefront |
+| GET | `/s/:slug/p/:productId` | Public product detail |
+| GET | `/s/:slug/p/:productId/image` | Private product image delivery |
+| GET | `/s/:slug/p/:productId/buy` | Customer checkout |
+| POST | `/s/:slug/p/:productId/buy` | Place order request |
+
+### 8.2 Customer chat and private enquiry routes
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/s/:slug/chat` | Start a customer conversation |
+| POST | `/s/:slug/chat` | Create a conversation |
+| GET | `/s/:slug/c/:token` | Private conversation page |
+| GET | `/s/:slug/c/:token/messages` | Poll conversation messages |
+| POST | `/s/:slug/c/:token/messages` | Send a customer message |
+| GET | `/s/:slug/q/:token` | Legacy/private enquiry page |
+| POST | `/s/:slug/q/:token/answer` | Trigger the enquiry-answer workflow |
+
+Conversation and enquiry tokens are unguessable private links. Their routes use privacy headers; state-changing routes also apply same-origin checks and rate limits.
+
+### 8.3 Customer order access
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/o/:token` | Private order status page |
+| POST | `/o/:token/utr` | Submit payment reference |
+| GET | `/o/:token/cancel` | Cancellation confirmation page |
+| POST | `/o/:token/cancel` | Customer cancellation |
+
+### 8.4 Owner browser routes
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET / POST | `/signup` | Owner registration |
+| GET / POST | `/login` | Owner login |
+| POST | `/logout` | Owner logout |
+| GET | `/dashboard` | Owner dashboard |
+| GET / POST | `/store/new` | Create store |
+| GET / POST | `/store/new/contact` | Onboarding contact details |
+| GET / POST | `/store/new/languages` | Prepare language content |
+| POST | `/store/new/languages/approve` | Approve onboarding language content |
+| GET / POST | `/store/settings` | Store settings |
+| POST | `/store/settings/translations` | Save store translation |
+| POST | `/store/settings/translations/draft` | Generate store translation draft |
+| GET | `/products` | Product list |
+| GET | `/products/new` | New product flow |
+| POST | `/products/image` | Upload product image |
+| GET | `/products/:id/edit` | Edit/review product |
+| POST | `/products/:id/generate` | Generate AI listing |
+| POST | `/products/:id/save` | Save product review |
+| GET / POST | `/products/:id/update-languages` | Review/generate product translations |
+| POST | `/products/:id/delete` | Delete product |
+| GET / POST | `/store/knowledge` | Shop knowledge |
+| POST | `/store/knowledge/rules` | Save bulk-discount rules |
+| POST | `/store/knowledge/rules/find` | Extract bulk-discount rules with Claude |
+| GET | `/orders` | Owner order list |
+| GET | `/orders/:id` | Owner order detail |
+| POST | `/orders/:id/paid` | Mark payment received |
+| POST | `/orders/:id/not-received` | Mark payment not received |
+| GET / POST | `/orders/:id/cancel` | Owner cancellation workflow |
+| GET | `/enquiries` | Owner enquiry/conversation inbox |
+| GET | `/enquiries/:id` | Enquiry/conversation detail |
+| POST | `/enquiries/:id/reply` | Seller reply |
+| POST | `/enquiries/:id/handled` | Mark handled |
+| POST | `/enquiries/:id/delete` | Delete enquiry/conversation |
+
+The diagnostics endpoint is internal and token-gated when configured: `GET /internal/diagnostics`.
+
+---
+
+## 9. Environment configuration
+
+`src/config/env.js` is the source of truth for environment variable names, defaults, validation and optional groups. The following list describes the current configuration interface.
+
+| Variable | Purpose |
 |---|---|
-| 15 Nov | Module 1; DNS snapshot |
-| 16 Nov | Connect domain; Module 2 incl. budget functions; email transport decision after the call |
-| 17 Nov | Finish Module 2; Module 3 |
-| 18 Nov | Module 4; Module 5 with the chosen transport |
-| 19 Nov | Publish-variant tests, end-to-end test on the live domain, fixes |
-| 20 Nov | Polish, demo script, recorded backup demo, submit |
+| `NODE_ENV` | Runtime mode; unknown values are normalized to production behavior |
+| `PORT` | HTTP port; defaults to 3000 and hosting supplies the deployed port |
+| `BASE_URL` | Canonical application URL; HTTPS required outside local development |
+| `TRUST_PROXY` | Express proxy trust hop count; defaults to 1 |
+| `DIAGNOSTICS_TOKEN` | Optional diagnostics access token; minimum length enforced |
+| `SUPABASE_URL` | Supabase project URL; required and HTTPS |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-side Supabase service-role key; required |
+| `SIGNUP_INVITE_CODE` | Optional invite code; when absent, signup is disabled |
+| `ALLOWED_ORIGINS` | Optional comma-separated list of additional trusted bare origins |
+| `ANTHROPIC_API_KEY` | Enables the AI configuration group |
+| `CLAUDE_MODEL` | Claude model; defaults to `claude-haiku-5-5` |
+| `AI_DAILY_BUDGET_USD` | Normal owner daily AI budget; default `$1.00` |
+| `AI_DEMO_DAILY_BUDGET_USD` | Demo owner daily AI budget; default `$0.50` |
+| `AI_GLOBAL_DAILY_BUDGET_USD` | Global daily AI budget; default `$5.00` |
+| `EMAIL_RELAY_URL` | Loopback HTTP relay origin; defaults to `http://127.0.0.1:2525` |
+| `CONTACT_INBOX_EMAIL` | Destination for public contact-form messages |
+| `OWNER_NOTIFY_EMAIL` | Owner notification/fallback and relay-related address |
+| `ORDER_LINK_KEY` | Key used by the order-link encryption utility; optional at schema level |
+| `EMAIL_WORKER_ENABLED` | Enables/disables the email outbox worker; defaults to `true` |
 
-If time runs short, cut polish and extra translations before cutting tenancy, approval rules or the budget guard. In Module 2, simplify reconciliation before simplifying the reservation itself.
+Supabase configuration is required to start the application. The AI group is optional, but if one of its group members is configured, the required AI group is validated as a whole. Budget variables are independent of AI enablement and have defaults.
+
+Never copy real secret values into this document, `.env.example`, logs, issues or source control. Configure Preview and Publish environments independently.
+
+---
+
+## 10. Testing and quality assurance
+
+The project uses Node's built-in `node:test` runner.
+
+### 10.1 Test layers
+
+- **Unit tests:** domain calculations, validation, formatting, AI cost, prompt/input guards, template behavior and utility modules.
+- **Integration tests:** routes, controllers, services, repositories and application workflows using test harnesses/fakes.
+- **Security tests:** authentication, session cookies, Origin checks, tenant isolation, secret exposure, safe templates and diagnostics access.
+- **Migration-focused tests:** structural assertions for migration SQL and database function contracts.
+- **AI-focused tests/evaluations:** bounded cases for output validation, grounding, conflict handling and prompt-injection resistance.
+
+### 10.2 Commands
+
+```bash
+npm ci
+npm test
+npm start
+```
+
+Local development:
+
+```bash
+npm run dev
+```
+
+The package declares Node.js `22.x`. Run tests with the same major runtime used for deployment.
+
+### 10.3 Deployment verification
+
+The application is deployed and the owner has confirmed that the current application is passing tests and working as expected in its deployed environment.
+
+Operational verification should continue to cover:
+- Application health and canonical URL.
+- Supabase connectivity and persistence.
+- Private image upload and signed image display.
+- Claude calls and budget behavior when AI is enabled.
+- Contact form and email relay/outbox delivery.
+- Seller onboarding and product publishing.
+- Customer conversation and seller reply.
+- Checkout, stock reservation, UTR submission and seller payment resolution.
+- Mobile and multilingual rendering.
+
+A repository test, a SQL migration file, a successful deployment and a real end-to-end business workflow are different kinds of evidence; report each accurately.
+
+---
+
+## 11. Current scope boundaries
+
+The following are not represented as implemented capabilities in this specification unless separately added to the source code and tests:
+
+- Customer login/accounts.
+- Automated UPI/bank payment verification or payment-gateway settlement.
+- Shipping-carrier integration and logistics management.
+- Multiple stores per owner.
+- Languages beyond English, Gujarati and Hindi.
+- Password reset and email verification.
+- A separate analytics/BI product.
+- Social-network publishing/integrations.
+- AI authority to set prices, alter stock, confirm payments or execute other consequential business actions without backend validation.
+
+The application may evolve. Update this section whenever a capability is implemented, deliberately removed or formally brought into scope.
+
+---
+
+## 12. Repository change and maintenance rules
+
+1. Update this document when product behavior, architecture, data ownership, routes, environment configuration or operational workflows change.
+2. Keep `CLAUDE.md` focused on standing engineering rules and the developer/agent working agreement. Do not use it as a duplicate feature specification.
+3. Keep `docs/DECISIONS.md` as a dated decision/history log, not as the current product specification.
+4. Keep migrations numbered and append-only. Do not rewrite an already-applied migration to represent a later schema.
+5. Add or update tests with behavior changes.
+6. Update `.env.example` when environment variables change, without including real secrets.
+7. Document operational assumptions and known limitations explicitly.
+8. Do not claim a feature is complete solely because a route, template, migration or test fixture exists; verify the complete workflow.
+9. Preserve the current working implementation when doing UI work. UI changes must not silently alter form names, actions, methods, CSRF fields, server-side variables or business behavior.
+10. Prefer small, scoped changes over broad refactors, especially near a submission or deployment deadline.
+
+---
+
+## 13. Source-of-truth map
+
+| Topic | Canonical location |
+|---|---|
+| Standing engineering rules and agent instructions | `CLAUDE.md` |
+| Current product and system specification | `SPEC.md` |
+| Historical implementation decisions | `docs/DECISIONS.md` |
+| Deliberately skipped work | `docs/SKIPPED.md` |
+| Route definitions | `src/routes/` |
+| Business workflows | `src/services/` |
+| Pure business rules | `src/domain/` |
+| Supabase access | `src/repositories/` |
+| AI prompts, tools and schemas | `src/ai/` |
+| Email relay and outbox | `src/email/` |
+| Database schema and transactional functions | `db/migrations/` |
+| Migration verification | `db/verify/` |
+| Automated tests | `tests/` |
+| Environment contract | `src/config/env.js` and `.env.example` |

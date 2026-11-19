@@ -1,5 +1,17 @@
 # Decisions
 
+> **Historical engineering decision log.** Entries below record what was decided, implemented, tested or still unverified at the time each entry was written. They are intentionally preserved as history and are not a live task list.
+>
+> For current product behavior and architecture, use [`../SPEC.md`](../SPEC.md). For current coding-agent constraints, use [`../CLAUDE.md`](../CLAUDE.md). For setup and deployment guidance, use [`../README.md`](../README.md).
+>
+> Some early entries refer to superseded infrastructure, package versions, module plans, branches or deployment states (including the original SMTP/Nodemailer exploration). Do not treat those historical statements as current configuration. The current email implementation is the HTTP relay client and persistent outbox described in `SPEC.md`; the current environment contract is defined by `src/config/env.js` and `.env.example`.
+>
+> Status labels such as "not pushed", "not deployed", "pending" and "not verified" are point-in-time records from the date of that entry. They do not establish the present Git or deployment state. Check the current repository, test run and hosting environment for present status.
+>
+> Do not rewrite old decisions to make history appear current. Append a new dated decision when a material technical decision is made.
+
+Records choices made while building, including assumptions. Current product and engineering sources of truth are `SPEC.md` and `CLAUDE.md`.
+
 Records choices made while building, including assumptions. CLAUDE.md and SPEC.md remain the source of truth.
 
 ## Module 0: Foundation
