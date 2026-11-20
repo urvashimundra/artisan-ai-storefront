@@ -3,10 +3,9 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { describe, it } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { createJobQueue } from '../../src/lib/password.js';
-import { INVITE_CODE } from '../helpers/fakes.js';
 import { ORIGIN, PASSWORD, STORE_FORM, cookieFrom, signupAndLogin, startAuthApp } from '../helpers/appHarness.js';
 
-const SIGNUP = { email: 'maker@example.com', password: PASSWORD, inviteCode: INVITE_CODE };
+const SIGNUP = { email: 'maker@example.com', password: PASSWORD };
 const LOGIN = { email: SIGNUP.email, password: PASSWORD };
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const forwarded = (ip) => ({ 'x-forwarded-for': ip });
@@ -113,40 +112,22 @@ describe('origin check on browser routes', () => {
   });
 });
 
-describe('signup and invite security', () => {
-  it('signup is a 404 for GET and POST when no invite code is configured', async () => {
-    const app = await startAuthApp({ inviteCode: null });
-    try {
-      for (const method of ['GET', 'POST']) {
-        const res = await app.request('/signup', { method, form: method === 'POST' ? SIGNUP : undefined });
-        assert.equal(res.status, 404, method);
-        assert.match(res.text, /Page not found/);
-      }
-      assert.equal(app.ownersRepo.rows.length, 0);
-    } finally {
-      await app.close();
-    }
-  });
-
-  it('a wrong invite code is the same 403 for an existing and a new email, with no owners access', async () => {
+describe('signup security', () => {
+  it('signup is open: GET renders the form without an invite field and POST creates the owner', async () => {
     const app = await startAuthApp();
     try {
-      await app.request('/signup', { method: 'POST', form: SIGNUP });
-      const callsBefore = app.ownersRepo.calls.length;
-      const wrong = { ...SIGNUP, inviteCode: 'wrong-code-wrong-code' };
-      const existing = await app.request('/signup', { method: 'POST', form: wrong });
-      const fresh = await app.request('/signup', { method: 'POST', form: { ...wrong, email: 'new@example.com' } });
-      assert.equal(existing.status, 403);
-      assert.equal(fresh.status, 403);
-      assert.equal(existing.text.replace(/value="[^"]*"/, ''), fresh.text.replace(/value="[^"]*"/, ''));
-      assert.equal(app.ownersRepo.calls.length, callsBefore);
-      assert.doesNotMatch(existing.text, /already registered/);
+      const page = await app.request('/signup');
+      assert.equal(page.status, 200);
+      assert.doesNotMatch(page.text, /invite/i);
+      const res = await app.request('/signup', { method: 'POST', form: SIGNUP });
+      assert.equal(res.status, 303);
+      assert.equal(app.ownersRepo.rows.length, 1);
     } finally {
       await app.close();
     }
   });
 
-  it('a duplicate email is disclosed only after a valid invite code', async () => {
+  it('a duplicate email is a 409', async () => {
     const app = await startAuthApp();
     try {
       await app.request('/signup', { method: 'POST', form: SIGNUP });
@@ -443,7 +424,7 @@ describe('logging', () => {
       await app.request('/login', { method: 'POST', form: { ...LOGIN, password: 'incorrect-password-here' } });
       await app.request('/dashboard', { cookie: cookieFrom(login) });
       const logs = JSON.stringify(app.logs);
-      for (const secret of [SIGNUP.email, PASSWORD, 'incorrect-password-here', INVITE_CODE, cookieFrom(login).split('=')[1]]) {
+      for (const secret of [SIGNUP.email, PASSWORD, 'incorrect-password-here', cookieFrom(login).split('=')[1]]) {
         assert.ok(!logs.includes(secret), `log contains ${secret.slice(0, 6)}...`);
       }
     } finally {

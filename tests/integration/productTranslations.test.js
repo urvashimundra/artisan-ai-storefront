@@ -15,7 +15,6 @@ import { startTestApp } from '../helpers/testApp.js';
 const ORIGIN = 'http://localhost';
 const HIGH = { windowMs: 60_000, limit: 1000 };
 const AUTH_LIMITS = { loginFailure: HIGH, loginIp: HIGH, signup: HIGH };
-const INVITE = 'test-invite-code-0123456789';
 const NOW = Date.parse('2026-11-16T10:00:00Z');
 const USAGE = { inputTokens: 500, outputTokens: 400 };
 const DRAFTS = { gu: { title: 'નવું શીર્ષક', description: 'નવું વર્ણન' }, hi: { title: 'नया शीर्षक', description: 'नया विवरण' } };
@@ -45,7 +44,7 @@ function scriptedTranslator(script) {
 }
 
 async function startApp({ script = [good()], budgetOptions } = {}) {
-  const fakes = await buildFakeServices({ inviteCode: INVITE, now: () => NOW });
+  const fakes = await buildFakeServices({ now: () => NOW });
   const products = createFakeProducts({ now: () => NOW, defaultLanguageOf: (storeId) => fakes.storesRepo.rows.find((row) => row.id === storeId)?.defaultLanguage ?? 'en' });
   const images = createFakeImages();
   const logger = createLogCollector();
@@ -55,7 +54,6 @@ async function startApp({ script = [good()], budgetOptions } = {}) {
   const listings = createListingService({ products, images, budgets, generator: createFakeGenerator([]), logger, now: () => NOW });
   const { auth, sessions, stores } = fakes;
   const app = await startTestApp({
-    config: { signupInviteCode: INVITE },
     services: { auth, sessions, stores, products: createProductService({ products, images, logger, now: () => NOW }), listings, productTranslations },
     authRateLimits: AUTH_LIMITS,
   });

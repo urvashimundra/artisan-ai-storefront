@@ -11,7 +11,7 @@ const SECRET_PATTERNS = Object.freeze({
   'Anthropic key': /sk-ant-[A-Za-z0-9_-]{16,}/,
   'JWT (Supabase key)': /eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}/,
   'private key': /-----BEGIN [A-Z ]*PRIVATE KEY-----/,
-  'filled-in secret assignment': /^(?:SUPABASE_SERVICE_ROLE_KEY|ANTHROPIC_API_KEY|SIGNUP_INVITE_CODE|DIAGNOSTICS_TOKEN)=\S+/m,
+  'filled-in secret assignment': /^(?:SUPABASE_SERVICE_ROLE_KEY|ANTHROPIC_API_KEY|DIAGNOSTICS_TOKEN)=\S+/m,
 });
 
 function* walk(directory) {

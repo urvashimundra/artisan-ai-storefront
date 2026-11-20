@@ -170,8 +170,7 @@ cp .env.example .env
 1. Create a Supabase project and apply the numbered SQL migrations in order. See [Database setup](#database-setup).
 2. Configure at least `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` and `BASE_URL` in `.env`.
 3. Configure `ANTHROPIC_API_KEY` to enable AI features.
-4. Set `SIGNUP_INVITE_CODE` if you want to enable owner signup. Without it, signup is disabled.
-5. Start the application:
+4. Start the application:
 
 ```bash
 npm run dev
@@ -179,7 +178,7 @@ npm run dev
 npm start
 ```
 
-Open `http://localhost:3000`. If signup is enabled, visit `/signup` and use the configured invite code.
+Open `http://localhost:3000`. Visit `/signup` to create an owner account.
 
 ### Optional demo owner
 
@@ -215,7 +214,6 @@ The smoke script checks configured Supabase and Claude connectivity. It does not
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-side service-role key; never expose to the browser |
 | `ANTHROPIC_API_KEY` | Enables Claude-powered features |
 | `CLAUDE_MODEL` | Claude model; defaults to `claude-haiku-5-5` |
-| `SIGNUP_INVITE_CODE` | Enables owner signup when configured (minimum 16 characters) |
 | `ALLOWED_ORIGINS` | Additional trusted origins, comma-separated |
 | `AI_DAILY_BUDGET_USD` | Normal owner daily AI budget; default `1.00` |
 | `AI_DEMO_DAILY_BUDGET_USD` | Demo owner daily AI budget; default `0.50` |

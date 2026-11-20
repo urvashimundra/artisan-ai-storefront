@@ -25,7 +25,7 @@ const noStore = (_req, res, next) => {
 };
 
 /**
- * Browser routes: shop settings, signup (only when an invite code is configured), login, logout, dashboard and store creation.
+ * Browser routes: shop settings, signup, login, logout, dashboard and store creation.
  * The guard is applied per route so unmatched paths keep their plain 404. Order per route: no-store, Origin check
  * (state-changing requests), session, limiters, authentication, controller.
  * Product routes are mounted only when `services.products` and `services.listings` are provided.
@@ -35,11 +35,10 @@ const noStore = (_req, res, next) => {
  */
 export function createBrowserRouter({ config, services, authRateLimits, productRateLimits }) {
   const router = Router();
-  const signupEnabled = Boolean(config.signupInviteCode);
   const limiters = createAuthLimiters(authRateLimits);
   const productLimiters = createProductLimiters(productRateLimits);
   const pageLocals = (_req, res, next) => {
-    Object.assign(res.locals, { signupEnabled, showAuthLinks: true, productsEnabled: Boolean(services.products && services.listings),
+    Object.assign(res.locals, { showAuthLinks: true, productsEnabled: Boolean(services.products && services.listings),
       ordersEnabled: Boolean(services.orders), knowledgeEnabled: Boolean(services.knowledge),
       enquiriesEnabled: Boolean(services.enquiries || services.conversationInbox) });
     next();
@@ -75,10 +74,8 @@ export function createBrowserRouter({ config, services, authRateLimits, productR
   const settingsForm = express.urlencoded({ extended: false, limit: PRODUCT_FORM_BODY_LIMIT });
   const storeGuard = [...ownerOnly, loadStore({ stores: services.stores })];
 
-  if (signupEnabled) {
-    router.get('/signup', ...guard, auth.showSignup);
-    router.post('/signup', ...guard, limiters.signup, auth.postSignup);
-  }
+  router.get('/signup', ...guard, auth.showSignup);
+  router.post('/signup', ...guard, limiters.signup, auth.postSignup);
   router.get('/login', ...guard, auth.showLogin);
   router.post('/login', ...guard, limiters.loginIp, limiters.loginFailure, auth.postLogin);
   router.post('/logout', ...guard, auth.postLogout);

@@ -58,7 +58,7 @@ There are no customer accounts. Store owners authenticate through the applicatio
 
 ### 2.1 Owner account and store onboarding
 
-- Owner signup is gated by `SIGNUP_INVITE_CODE`; signup is disabled when the code is not configured.
+- Owner signup is open (no invite code) and protected by the signup rate limit.
 - Owners log in with email and password.
 - Passwords are hashed using Node.js `crypto.scrypt`; plaintext passwords are never stored.
 - Sessions use random bearer tokens. Only token hashes are stored in Supabase.
@@ -217,7 +217,7 @@ The outbox worker and relay must be considered separate from the business operat
 
 ### 3.1 Seller creates and publishes a store
 
-1. Seller opens signup and provides the configured invite code.
+1. Seller opens signup and provides an email and password.
 2. Seller creates an account and logs in.
 3. Seller creates a store and completes onboarding.
 4. Seller configures store identity, contact information and languages.
@@ -482,7 +482,7 @@ The three owner/demo/global AI budget values have application defaults and are p
 - Session tokens are generated from cryptographically secure random bytes.
 - Only SHA-256 token hashes are stored in the sessions table.
 - Session cookies are HttpOnly, SameSite=Lax and Path=/; HTTPS uses Secure and the `__Host-` prefix.
-- Signup requires the invite code; no unrestricted public signup is provided.
+- Signup is open to the public; it is rate limited and validated with a strict schema.
 - Authenticated pages use no-store cache headers.
 
 ### 7.2 Tenant isolation
@@ -643,7 +643,6 @@ The diagnostics endpoint is internal and token-gated when configured: `GET /inte
 | `DIAGNOSTICS_TOKEN` | Optional diagnostics access token; minimum length enforced |
 | `SUPABASE_URL` | Supabase project URL; required and HTTPS |
 | `SUPABASE_SERVICE_ROLE_KEY` | Server-side Supabase service-role key; required |
-| `SIGNUP_INVITE_CODE` | Optional invite code; when absent, signup is disabled |
 | `ALLOWED_ORIGINS` | Optional comma-separated list of additional trusted bare origins |
 | `ANTHROPIC_API_KEY` | Enables the AI configuration group |
 | `CLAUDE_MODEL` | Claude model; defaults to `claude-haiku-5-5` |

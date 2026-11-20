@@ -183,7 +183,7 @@ export async function buildDependencies(config) {
   const stores = createStoreService({ stores: createStoreRepository({ client }), translations });
   const legacyInbox = createEnquiryInboxService({ enquiries: createEnquiryRepository({ client }), logger, linkCipher, baseUrl: config.baseUrl });
   const services = {
-    auth: createAuthService({ owners, passwords, sessions, inviteCode: config.signupInviteCode }),
+    auth: createAuthService({ owners, passwords, sessions }),
     sessions,
     stores,
     publicShop: buildPublicShopService({ config, client, logger }),

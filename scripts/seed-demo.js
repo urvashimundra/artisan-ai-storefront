@@ -89,7 +89,7 @@ export async function main(env = process.env, log = console.log) {
   const client = createSupabaseClient(supabase);
   const owners = createOwnerRepository({ client });
   const sessions = createSessionService({ sessions: createSessionRepository({ client }), owners });
-  const auth = createAuthService({ owners, passwords: await createPasswordService(), sessions, inviteCode: undefined });
+  const auth = createAuthService({ owners, passwords: await createPasswordService(), sessions });
   const stores = createStoreService({ stores: createStoreRepository({ client }), translations: createStoreTranslationRepository({ client }) });
   await runSeed({ email, password, owners, auth, stores, log });
 }

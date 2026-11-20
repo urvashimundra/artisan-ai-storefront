@@ -1,4 +1,4 @@
-import { INVITE_CODE, buildFakeServices } from './fakes.js';
+import { buildFakeServices } from './fakes.js';
 import { startTestApp } from './testApp.js';
 
 export const ORIGIN = 'http://localhost';
@@ -31,21 +31,20 @@ export const cookieFrom = (response) => response.setCookie.map((value) => value.
 
 /**
  * Starts the real app (routes, middleware, views) over real services with in-memory repositories.
- * @param {{ inviteCode?: string | null, config?: object, authRateLimits?: object, servicesOptions?: object,
+ * @param {{ config?: object, authRateLimits?: object, servicesOptions?: object,
  *   extraServices?: object, appDeps?: object }} [options] appDeps are extra createApp dependencies (for example publicRateLimits).
  */
 export async function startAuthApp({
-  inviteCode = INVITE_CODE,
   config = {},
   authRateLimits = HIGH_LIMITS,
   servicesOptions = {},
   extraServices = {},
   appDeps = {},
 } = {}) {
-  const fakes = await buildFakeServices({ inviteCode, ...servicesOptions });
+  const fakes = await buildFakeServices(servicesOptions);
   const { auth, sessions, stores, translations } = fakes;
   const app = await startTestApp({
-    config: { signupInviteCode: inviteCode ?? undefined, ...config },
+    config,
     services: { auth, sessions, stores, translations, ...extraServices },
     authRateLimits,
     ...appDeps,
@@ -56,7 +55,7 @@ export async function startAuthApp({
 
 /** Signs up and logs in through HTTP. Returns the Cookie header for later requests. */
 export async function signupAndLogin(app, email = 'maker@example.com') {
-  const signup = await app.request('/signup', { method: 'POST', form: { email, password: PASSWORD, inviteCode: INVITE_CODE } });
+  const signup = await app.request('/signup', { method: 'POST', form: { email, password: PASSWORD } });
   if (signup.status !== 303) throw new Error(`signup failed with ${signup.status}`);
   const login = await app.request('/login', { method: 'POST', form: { email, password: PASSWORD } });
   if (login.status !== 303) throw new Error(`login failed with ${login.status}`);

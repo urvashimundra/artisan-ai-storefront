@@ -52,7 +52,7 @@ describe('email and password rules', () => {
   });
 
   it('signup and login schemas reject unknown keys such as is_demo and store_id', () => {
-    const base = { email: 'a@b.test', password: 'a-long-enough-password', inviteCode: 'x' };
+    const base = { email: 'a@b.test', password: 'a-long-enough-password' };
     assert.equal(signupSchema.safeParse(base).success, true);
     assert.equal(signupSchema.safeParse({ ...base, is_demo: 'true' }).success, false);
     assert.equal(loginSchema.safeParse({ email: 'a@b.test', password: 'x', store_id: 'y' }).success, false);

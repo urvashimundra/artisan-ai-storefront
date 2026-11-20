@@ -30,7 +30,6 @@ describe('loadEnv', () => {
     assert.equal(config.port, 3000);
     assert.equal(config.trustProxy, 1);
     assert.deepEqual(config.supabase, { url: 'https://project.supabase.test', serviceRoleKey: 'service-key' });
-    assert.equal(config.signupInviteCode, undefined);
     assert.equal(config.ai, null);
     assert.equal(config.smtp, undefined, 'the SMTP group no longer exists');
     assert.equal(config.ownerNotifyEmail, undefined);
@@ -68,8 +67,8 @@ describe('loadEnv', () => {
 
   it('never includes values in the error, even for invalid ones', () => {
     const secret = 'super-secret-value-123';
-    const error = failureOf({ ...MINIMAL, PORT: secret, SUPABASE_URL: secret, SIGNUP_INVITE_CODE: secret.slice(0, 5) });
-    assert.deepEqual(error.variables.sort(), ['PORT', 'SIGNUP_INVITE_CODE', 'SUPABASE_URL']);
+    const error = failureOf({ ...MINIMAL, PORT: secret, SUPABASE_URL: secret });
+    assert.deepEqual(error.variables.sort(), ['PORT', 'SUPABASE_URL']);
     assert.doesNotMatch(error.message, new RegExp(secret));
     assert.doesNotMatch(JSON.stringify(error.variables), new RegExp(secret));
   });
@@ -92,7 +91,7 @@ describe('loadEnv', () => {
 
   it('rejects a short DIAGNOSTICS_TOKEN and treats blank values as unset', () => {
     assert.deepEqual(failureOf({ ...MINIMAL, DIAGNOSTICS_TOKEN: 'short' }).variables, ['DIAGNOSTICS_TOKEN']);
-    assert.equal(loadEnv({ ...MINIMAL, SIGNUP_INVITE_CODE: '  ', DIAGNOSTICS_TOKEN: '' }).signupInviteCode, undefined);
+    assert.equal(loadEnv({ ...MINIMAL, DIAGNOSTICS_TOKEN: '' }).diagnosticsToken, undefined);
   });
 
   it('requires Supabase from Module 1 on', () => {
@@ -100,11 +99,6 @@ describe('loadEnv', () => {
       'SUPABASE_SERVICE_ROLE_KEY',
       'SUPABASE_URL',
     ]);
-  });
-
-  it('signup invite code is optional but must be at least 16 characters when set', () => {
-    assert.deepEqual(failureOf({ ...MINIMAL, SIGNUP_INVITE_CODE: 'short-code' }).variables, ['SIGNUP_INVITE_CODE']);
-    assert.equal(loadEnv({ ...MINIMAL, SIGNUP_INVITE_CODE: 'a'.repeat(16) }).signupInviteCode, 'a'.repeat(16));
   });
 
   it('ALLOWED_ORIGINS accepts bare origins and always includes the BASE_URL origin', () => {

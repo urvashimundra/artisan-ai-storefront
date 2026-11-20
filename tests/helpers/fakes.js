@@ -14,7 +14,6 @@ import { createStoreTranslationService } from '../../src/services/storeTranslati
 import { requireStoreId } from '../../src/repositories/requireStoreId.js';
 
 export const CHEAP_PARAMS = Object.freeze({ N: 16, r: 1, p: 1 });
-export const INVITE_CODE = 'test-invite-code-0123456789';
 
 /**
  * In-memory owner repository enforcing the lower(email) unique index.
@@ -152,11 +151,10 @@ export function createFakeStoreTranslations() {
 
 /**
  * Real services over fake repositories, with cheap scrypt parameters.
- * @param {{ inviteCode?: string | undefined, ownersOptions?: object, now?: () => number,
+ * @param {{ ownersOptions?: object, now?: () => number,
  *   passwordOptions?: object }} [options]
  */
 export async function buildFakeServices({
-  inviteCode = INVITE_CODE,
   ownersOptions,
   now,
   passwordOptions = {},
@@ -166,7 +164,7 @@ export async function buildFakeServices({
   const storesRepo = createFakeStores();
   const passwords = await createPasswordService({ params: CHEAP_PARAMS, queue: createJobQueue(), ...passwordOptions });
   const sessions = createSessionService({ sessions: sessionsRepo, owners: ownersRepo, now });
-  const auth = createAuthService({ owners: ownersRepo, passwords, sessions, inviteCode });
+  const auth = createAuthService({ owners: ownersRepo, passwords, sessions });
   const translationsRepo = createFakeStoreTranslations();
   const stores = createStoreService({ stores: storesRepo, translations: translationsRepo });
   const translations = createStoreTranslationService({ translations: translationsRepo });

@@ -19,12 +19,6 @@
         <p id="password-hint" class="hint">12 to 128 characters.</p>
         <% if (errors.password) { %><p id="password-error" class="error-text"><%= errors.password %></p><% } %>
       </div>
-      <div class="field">
-        <label for="inviteCode">Invite code</label>
-        <input type="text" id="inviteCode" name="inviteCode" autocomplete="off" required
-          <% if (errors.inviteCode) { %>aria-invalid="true" aria-describedby="inviteCode-error"<% } %>>
-        <% if (errors.inviteCode) { %><p id="inviteCode-error" class="error-text"><%= errors.inviteCode %></p><% } %>
-      </div>
       <div><button type="submit" class="button btn-primary-block">Sign up</button></div>
     </form>
     <p class="auth-footer">Already have an account? <a href="/login">Log in</a></p>

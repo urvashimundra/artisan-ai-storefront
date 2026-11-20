@@ -23,14 +23,13 @@ const HIGH = { windowMs: 60_000, limit: 1000 };
 const AUTH_LIMITS = { loginFailure: HIGH, loginIp: HIGH, signup: HIGH };
 const dropUndefined = (form) => Object.fromEntries(Object.entries(form).filter(([, value]) => value !== undefined));
 const STORY = 'Hand made blue clay pot.';
-const INVITE = 'test-invite-code-0123456789';
 
 /** One fixed clock for every service and fake, so no test depends on the real time or on how long a request takes. */
 const FIXED_NOW = Date.parse('2026-11-16T10:00:00Z');
 const fixedClock = () => FIXED_NOW;
 
 async function startProductApp({ script = [], budgetOptions, productRateLimits, defaultLanguage = 'en' } = {}) {
-  const fakes = await buildFakeServices({ inviteCode: INVITE, now: fixedClock });
+  const fakes = await buildFakeServices({ now: fixedClock });
   const products = createFakeProducts({
     now: fixedClock,
     defaultLanguageOf: (storeId) => fakes.storesRepo.rows.find((row) => row.id === storeId)?.defaultLanguage ?? defaultLanguage,
@@ -43,7 +42,6 @@ async function startProductApp({ script = [], budgetOptions, productRateLimits, 
   const listings = createListingService({ products, images, budgets, generator, logger, now: fixedClock });
   const { auth, sessions, stores } = fakes;
   const app = await startTestApp({
-    config: { signupInviteCode: INVITE },
     services: { auth, sessions, stores, products: productService, listings },
     authRateLimits: AUTH_LIMITS,
     productRateLimits,
@@ -376,8 +374,8 @@ describe('product routes: rate limits', () => {
 
 describe('product routes are optional', () => {
   it('are not mounted when the product services are not provided', async () => {
-    const fakes = await buildFakeServices({ inviteCode: INVITE });
-    const app = await startTestApp({ config: { signupInviteCode: INVITE }, services: { auth: fakes.auth, sessions: fakes.sessions, stores: fakes.stores }, authRateLimits: AUTH_LIMITS });
+    const fakes = await buildFakeServices();
+    const app = await startTestApp({ services: { auth: fakes.auth, sessions: fakes.sessions, stores: fakes.stores }, authRateLimits: AUTH_LIMITS });
     try {
       const request = createClient(app.url);
       assert.equal((await request('/products')).status, 404);

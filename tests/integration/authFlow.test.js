@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { INVITE_CODE } from '../helpers/fakes.js';
 import { PASSWORD, STORE_FORM, cookieFrom, signupAndLogin, startAuthApp } from '../helpers/appHarness.js';
 
-const SIGNUP = { email: 'maker@example.com', password: PASSWORD, inviteCode: INVITE_CODE };
+const SIGNUP = { email: 'maker@example.com', password: PASSWORD };
 const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 
 describe('owner journey', () => {
@@ -206,7 +205,7 @@ describe('owner journey', () => {
     }
   });
 
-  it('a logged-in owner visiting login or signup is redirected, and the login page never shows signup when disabled', async () => {
+  it('a logged-in owner visiting login or signup is redirected', async () => {
     const app = await startAuthApp();
     try {
       const cookie = await signupAndLogin(app);
@@ -214,12 +213,6 @@ describe('owner journey', () => {
       assert.equal((await app.request('/signup', { cookie })).location, '/store/new');
     } finally {
       await app.close();
-    }
-    const disabled = await startAuthApp({ inviteCode: null });
-    try {
-      assert.doesNotMatch((await disabled.request('/login')).text, /Sign up/);
-    } finally {
-      await disabled.close();
     }
   });
 

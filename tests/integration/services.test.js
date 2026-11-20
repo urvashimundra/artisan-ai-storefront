@@ -2,9 +2,9 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { createJobQueue } from '../../src/lib/password.js';
 import { hashToken } from '../../src/services/sessionService.js';
-import { CHEAP_PARAMS, INVITE_CODE, buildFakeServices } from '../helpers/fakes.js';
+import { CHEAP_PARAMS, buildFakeServices } from '../helpers/fakes.js';
 
-const SIGNUP = { email: 'Maker@Example.com', password: 'a-long-enough-password', inviteCode: INVITE_CODE };
+const SIGNUP = { email: 'Maker@Example.com', password: 'a-long-enough-password' };
 
 describe('signup service', () => {
   it('creates a non-demo owner with a normalized email and an encoded scrypt hash', async () => {
@@ -25,41 +25,22 @@ describe('signup service', () => {
     assert.equal(ownersRepo.rows.length, 0);
   });
 
-  it('a wrong invite code is a generic 403 and never touches the owners table', async () => {
+  it('a body that still carries an inviteCode is rejected by the strict schema', async () => {
     const { auth, ownersRepo } = await buildFakeServices();
-    const wrong = { ...SIGNUP, inviteCode: 'wrong-invite-code-000000' };
-    await assert.rejects(auth.signup(wrong), { code: 'INVALID_INVITE', httpStatus: 403 });
-    await assert.rejects(auth.signup({ ...SIGNUP, inviteCode: undefined }), { code: 'INVALID_INVITE' });
-    await assert.rejects(auth.signup({ ...SIGNUP, inviteCode: ['x'] }), { code: 'INVALID_INVITE' });
-    assert.deepEqual(ownersRepo.calls, []);
-  });
-
-  it('an unset invite code makes every code invalid', async () => {
-    const { auth, ownersRepo } = await buildFakeServices({ inviteCode: null });
-    await assert.rejects(auth.signup({ ...SIGNUP, inviteCode: '' }), { code: 'INVALID_INVITE' });
-    await assert.rejects(auth.signup(SIGNUP), { code: 'INVALID_INVITE' });
+    await assert.rejects(auth.signup({ ...SIGNUP, inviteCode: 'anything' }), { name: 'ZodError' });
     assert.equal(ownersRepo.rows.length, 0);
   });
 
-  it('duplicate email is disclosed only after a valid invite code', async () => {
-    const { auth, ownersRepo } = await buildFakeServices();
+  it('a duplicate email is rejected with 409', async () => {
+    const { auth } = await buildFakeServices();
     await auth.signup(SIGNUP);
     await assert.rejects(auth.signup({ ...SIGNUP, email: 'MAKER@example.com' }), {
       code: 'EMAIL_ALREADY_REGISTERED',
       httpStatus: 409,
     });
-    const callsBefore = ownersRepo.calls.length;
-    const wrongForExisting = await auth.signup({ ...SIGNUP, inviteCode: 'bad-bad-bad-bad-bad' }).catch((e) => e);
-    const wrongForNew = await auth
-      .signup({ ...SIGNUP, email: 'new@example.com', inviteCode: 'bad-bad-bad-bad-bad' })
-      .catch((e) => e);
-    assert.equal(wrongForExisting.code, wrongForNew.code);
-    assert.equal(wrongForExisting.httpStatus, wrongForNew.httpStatus);
-    assert.equal(wrongForExisting.message, wrongForNew.message);
-    assert.equal(ownersRepo.calls.length, callsBefore);
   });
 
-  it('two concurrent signups with the same email and a valid code: one succeeds, one gets 409, one owner row', async () => {
+  it('two concurrent signups with the same email: one succeeds, one gets 409, one owner row', async () => {
     const { auth, ownersRepo } = await buildFakeServices({ ownersOptions: { precheckBarrier: 2 } });
     const results = await Promise.allSettled([auth.signup(SIGNUP), auth.signup(SIGNUP)]);
     const fulfilled = results.filter((result) => result.status === 'fulfilled');

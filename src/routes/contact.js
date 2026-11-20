@@ -14,7 +14,7 @@ const noStore = (_req, res, next) => {
 /**
  * Contact routes of the main site: GET /contact, POST /contact (Origin check, per-IP limit, strict validation in the service)
  * and GET /contact/sent. No session is needed. The per-IP limiter is in memory, per process.
- * @param {{ config: { allowedOrigins: string[], signupInviteCode?: string }, contact: { submit: Function },
+ * @param {{ config: { allowedOrigins: string[] }, contact: { submit: Function },
  *   rateLimits?: { ip?: { windowMs: number, limit: number } } }} deps
  * @returns {import('express').Router}
  */
@@ -22,7 +22,7 @@ export function createContactRouter({ config, contact, rateLimits = {} }) {
   const router = Router();
   const controller = createContactController({ contact });
   const pageLocals = (_req, res, next) => {
-    Object.assign(res.locals, { signupEnabled: Boolean(config.signupInviteCode), showAuthLinks: true });
+    Object.assign(res.locals, { showAuthLinks: true });
     next();
   };
   const form = express.urlencoded({ extended: false, limit: CONTACT_FORM_BODY_LIMIT });

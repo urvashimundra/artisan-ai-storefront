@@ -7,7 +7,6 @@ const DEFAULT_PORT = 3000;
 const MAX_PORT = 65535;
 const DEFAULT_TRUST_PROXY = 1;
 const MIN_DIAGNOSTICS_TOKEN_LENGTH = 24;
-const MIN_INVITE_CODE_LENGTH = 16;
 const DEFAULT_CLAUDE_MODEL = 'claude-haiku-5-5';
 const KNOWN_NODE_ENVS = ['development', 'test', 'production'];
 const FALLBACK_NODE_ENV = 'production';
@@ -29,7 +28,6 @@ const CORE_KEYS = [
   'DIAGNOSTICS_TOKEN',
   'SUPABASE_URL',
   'SUPABASE_SERVICE_ROLE_KEY',
-  'SIGNUP_INVITE_CODE',
   'ALLOWED_ORIGINS',
   'AI_DAILY_BUDGET_USD',
   'AI_DEMO_DAILY_BUDGET_USD',
@@ -121,7 +119,6 @@ const coreSchema = z.object({
   DIAGNOSTICS_TOKEN: z.string().min(MIN_DIAGNOSTICS_TOKEN_LENGTH).optional(),
   SUPABASE_URL: z.url().refine(isHttpsUrl),
   SUPABASE_SERVICE_ROLE_KEY: nonEmpty,
-  SIGNUP_INVITE_CODE: z.string().min(MIN_INVITE_CODE_LENGTH).optional(),
   ALLOWED_ORIGINS: z
     .string()
     .refine((value) => parseOriginList(value) !== null)
@@ -204,7 +201,7 @@ function buildAllowedOrigins(core) {
  * EMAIL_RELAY_URL must be a bare http://localhost or http://127.0.0.1 origin (default http://127.0.0.1:2525).
  * @returns {{ nodeEnv: string, port: number, baseUrl: string, trustProxy: number,
  *   diagnosticsToken: string | undefined, supabase: { url: string, serviceRoleKey: string },
- *   signupInviteCode: string | undefined, allowedOrigins: string[], cookie: { name: string, secure: boolean },
+ *   allowedOrigins: string[], cookie: { name: string, secure: boolean },
  *   aiBudget: { ownerDailyMicroUsd: number, demoDailyMicroUsd: number, globalDailyMicroUsd: number },
  *   emailRelayUrl: string, contactInboxEmail: string | undefined, ownerNotifyEmail: string | undefined, orderLinkKey: string | undefined, emailWorkerEnabled: boolean, ai: object | null }}
  * @throws {EnvValidationError} Listing variable names only.
@@ -222,7 +219,6 @@ export function loadEnv(source = process.env) {
     trustProxy: core.data.TRUST_PROXY,
     diagnosticsToken: core.data.DIAGNOSTICS_TOKEN,
     supabase: { url: core.data.SUPABASE_URL, serviceRoleKey: core.data.SUPABASE_SERVICE_ROLE_KEY },
-    signupInviteCode: core.data.SIGNUP_INVITE_CODE,
     allowedOrigins: buildAllowedOrigins(core.data),
     cookie: deriveCookieConfig(core.data.BASE_URL),
     aiBudget: {

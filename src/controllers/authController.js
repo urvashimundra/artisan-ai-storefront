@@ -1,7 +1,7 @@
 import { ZodError } from 'zod';
 import { MAX_EMAIL_LENGTH } from '../domain/credentialRules.js';
 import { clearCookie, serializeCookie } from '../lib/cookies.js';
-import { EMAIL_ALREADY_REGISTERED, INVALID_CREDENTIALS, INVALID_INVITE } from '../services/authService.js';
+import { EMAIL_ALREADY_REGISTERED, INVALID_CREDENTIALS } from '../services/authService.js';
 import { SESSION_TTL_SECONDS } from '../services/sessionService.js';
 import { echoValues, fieldErrors } from './formErrors.js';
 
@@ -9,14 +9,12 @@ const SEE_OTHER = 303;
 const HTTP_OK = 200;
 const HTTP_BAD_REQUEST = 400;
 const HTTP_UNAUTHORIZED = 401;
-const HTTP_FORBIDDEN = 403;
 const HTTP_CONFLICT = 409;
 const REGISTERED_NOTICE = 'Your account is ready. Please log in.';
 const LOGIN_FAILED = 'Incorrect email or password.';
 const SIGNUP_MESSAGES = {
   email: 'Enter a valid email address.',
   password: 'Use 12 to 128 characters for your password.',
-  inviteCode: 'Enter the invite code.',
 };
 
 /**
@@ -33,9 +31,6 @@ export function createAuthController({ auth, sessions, stores, cookie }) {
     if (error instanceof ZodError) return signupPage(res, HTTP_BAD_REQUEST, fieldErrors(error, SIGNUP_MESSAGES), values);
     if (error.code === EMAIL_ALREADY_REGISTERED) {
       return signupPage(res, HTTP_CONFLICT, { email: 'That email is already registered.' }, values);
-    }
-    if (error.code === INVALID_INVITE) {
-      return signupPage(res, HTTP_FORBIDDEN, { inviteCode: 'The invite code is not valid.' }, values);
     }
     throw error;
   }

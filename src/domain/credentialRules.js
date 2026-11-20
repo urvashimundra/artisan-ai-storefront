@@ -5,7 +5,6 @@ export const MAX_PASSWORD_LENGTH = 128;
 export const MAX_EMAIL_LENGTH = 254;
 /** Bounds work done by NFKC normalization, which can expand a character into many. */
 export const MAX_RAW_PASSWORD_LENGTH = 1024;
-export const MAX_INVITE_CODE_INPUT_LENGTH = 256;
 
 /**
  * Normalizes an email: trim and lowercase.
@@ -46,7 +45,6 @@ export const signupSchema = z
   .object({
     email: emailSchema,
     password: newPasswordSchema,
-    inviteCode: z.string().max(MAX_INVITE_CODE_INPUT_LENGTH),
   })
   .strict();
 

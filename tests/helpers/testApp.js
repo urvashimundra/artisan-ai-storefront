@@ -11,7 +11,6 @@ export const baseConfig = {
   baseUrl: 'http://localhost',
   allowedOrigins: ['http://localhost'],
   cookie: { name: 'session', secure: false },
-  signupInviteCode: undefined,
   trustProxy: 1,
   diagnosticsToken: undefined,
   supabase: { url: 'https://project.supabase.test', serviceRoleKey: 'test-key' },

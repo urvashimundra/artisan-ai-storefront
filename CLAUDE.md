@@ -93,7 +93,7 @@ Controllers must not import Supabase clients or the Anthropic SDK. Domain module
 12. **Accessibility.** Semantic HTML, correct page `lang`, alt text, visible focus, keyboard-operable controls, sufficient contrast, mobile-first behavior and usability at 200% zoom.
 13. **Supabase security.** RLS enabled on application tables; Storage bucket private; serve private images using signed URLs. The service-role key bypasses RLS, so repository store scoping is mandatory.
 14. **PostgreSQL functions.** Set a controlled `search_path`; revoke public/anon/authenticated execution and grant only the required role as defined by project policy.
-15. **Authentication.** Owner auth is the existing application-managed server-side session system, not Supabase Auth. Passwords use `crypto.scrypt`; random session tokens are stored as SHA-256 hashes; cookies are HttpOnly and SameSite=Lax, with Secure and `__Host-` in HTTPS deployments. Keep Origin checks and rate limits. Signup is gated by `SIGNUP_INVITE_CODE`.
+15. **Authentication.** Owner auth is the existing application-managed server-side session system, not Supabase Auth. Passwords use `crypto.scrypt`; random session tokens are stored as SHA-256 hashes; cookies are HttpOnly and SameSite=Lax, with Secure and `__Host-` in HTTPS deployments. Keep Origin checks and rate limits. Signup is open (no invite code); keep the signup rate limit and strict validation.
 16. **AI cost controls.** Use database-backed atomic reservation/settlement and configured budgets. Never replace authoritative budget enforcement with in-memory counters.
 17. **Persistence.** Do not store user data, images, sessions or drafts on GoDaddy local disk. Deployments can replace the filesystem; use Supabase for durable data.
 
