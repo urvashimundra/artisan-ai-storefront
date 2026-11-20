@@ -2,12 +2,13 @@
 
 > Built for the **GoDaddy Inclusive Innovation Hackathon 2026 — Round 2**.
 
-**The Artisan Story** helps independent artisans in India turn product photos and their stories into an accessible, multilingual online shop. Artisans can publish a storefront, manage products and shop information, respond to customer enquiries, and handle order requests. Customers can discover products, ask questions, and place orders without creating an account.
+**The Artisan Story** helps independent Whatsapp and Instagram Business owners in India turn product photos and their stories into an accessible, multilingual online shop. Artisans can publish a storefront, manage products and shop information, AI responds to customer enquiries, and handle order requests. Customers can discover products, ask questions, and place orders without creating an account.
 
 The product is designed around a simple principle: **AI can assist, but the artisan stays in control of business decisions.**
 
 **Live site:** [theartisanstory.in](https://theartisanstory.in/)  
-**Demo video:** _Add the final demo link before submission._
+**Demo video:** https://drive.google.com/file/d/1kPlF2PqzMYNSgk5BmpE6IDUVvKJrveGM/view
+
 
 **Languages:** English, Gujarati (ગુજરાતી) and Hindi (हिन्दी)  
 **Currency:** INR, represented internally as integer paise.
